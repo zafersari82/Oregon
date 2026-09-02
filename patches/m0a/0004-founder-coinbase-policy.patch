@@ -1,0 +1,99 @@
+diff --git a/src/consensus/params.h b/src/consensus/params.h
+index 7676b14..2795eda 100644
+--- a/src/consensus/params.h
++++ b/src/consensus/params.h
+@@ -97,6 +97,7 @@ struct Params {
+     int nSubsidyStartHeight{0};
+     CAmount founderAllocation{0};
+     int founderAllocationHeight{-1};
++    std::vector<unsigned char> founderScriptPubKey{};
+     /**
+      * Hashes of blocks that
+      * - are known to be consensus valid, and
+diff --git a/src/kernel/chainparams.cpp b/src/kernel/chainparams.cpp
+index 7fb30f2..e2f3217 100644
+--- a/src/kernel/chainparams.cpp
++++ b/src/kernel/chainparams.cpp
+@@ -574,6 +574,8 @@ public:
+         consensus.nSubsidyStartHeight = 1;
+         consensus.founderAllocation = 50'000 * COIN;
+         consensus.founderAllocationHeight = 1;
++        const CScript founder_script{CScript{} << OP_TRUE};
++        consensus.founderScriptPubKey.assign(founder_script.begin(), founder_script.end());
+         consensus.BIP34Height = 1; // Always active unless overridden
+         consensus.BIP34Hash = uint256();
+         consensus.BIP65Height = 1;  // Always active unless overridden
+diff --git a/src/test/validation_tests.cpp b/src/test/validation_tests.cpp
+index bffaf03..30333a6 100644
+--- a/src/test/validation_tests.cpp
++++ b/src/test/validation_tests.cpp
+@@ -90,6 +90,32 @@ BOOST_AUTO_TEST_CASE(radium_founder_allocation_test)
+     BOOST_CHECK_EQUAL(GetFounderAllocation(200'000, consensus), CAmount{0});
+ }
+ 
++BOOST_AUTO_TEST_CASE(radium_founder_coinbase_policy_test)
++{
++    const auto chain_params = CreateChainParams(*m_node.args, ChainType::REGTEST);
++    const auto& consensus = chain_params->GetConsensus();
++
++    CMutableTransaction coinbase;
++    coinbase.vin.resize(1);
++    coinbase.vin[0].prevout.SetNull();
++    coinbase.vout.emplace_back(consensus.founderAllocation, CScript{consensus.founderScriptPubKey.begin(), consensus.founderScriptPubKey.end()});
++    const CTransaction valid{coinbase};
++    BOOST_CHECK(CheckFounderAllocation(valid, 1, consensus));
++
++    coinbase.vout[0].nValue -= 1;
++    BOOST_CHECK(!CheckFounderAllocation(CTransaction{coinbase}, 1, consensus));
++    coinbase.vout[0].nValue += 1;
++
++    coinbase.vout[0].scriptPubKey = CScript{} << OP_FALSE;
++    BOOST_CHECK(!CheckFounderAllocation(CTransaction{coinbase}, 1, consensus));
++
++    coinbase.vout[0].scriptPubKey = CScript{consensus.founderScriptPubKey.begin(), consensus.founderScriptPubKey.end()};
++    coinbase.vout.push_back(coinbase.vout[0]);
++    BOOST_CHECK(!CheckFounderAllocation(CTransaction{coinbase}, 1, consensus));
++
++    BOOST_CHECK(CheckFounderAllocation(CTransaction{coinbase}, 2, consensus));
++}
++
+ BOOST_AUTO_TEST_CASE(block_subsidy_test)
+ {
+     const auto chainParams = CreateChainParams(*m_node.args, ChainType::MAIN);
+diff --git a/src/validation.cpp b/src/validation.cpp
+index 618611c..62c3d3b 100644
+--- a/src/validation.cpp
++++ b/src/validation.cpp
+@@ -1851,6 +1851,21 @@ CAmount GetFounderAllocation(int nHeight, const Consensus::Params& consensusPara
+     return nHeight == consensusParams.founderAllocationHeight ? consensusParams.founderAllocation : 0;
+ }
+ 
++bool CheckFounderAllocation(const CTransaction& coinbase, int nHeight, const Consensus::Params& consensusParams)
++{
++    const CAmount founder_allocation{GetFounderAllocation(nHeight, consensusParams)};
++    if (founder_allocation == 0) return true;
++
++    const CScript founder_script{consensusParams.founderScriptPubKey.begin(), consensusParams.founderScriptPubKey.end()};
++    size_t matches{0};
++    for (const CTxOut& output : coinbase.vout) {
++        if (output.nValue == founder_allocation && output.scriptPubKey == founder_script) {
++            ++matches;
++        }
++    }
++    return matches == 1;
++}
++
+ CoinsViews::CoinsViews(DBParams db_params, CoinsViewOptions options)
+     : m_dbview{std::move(db_params), std::move(options)},
+       m_catcherview(&m_dbview) {}
+diff --git a/src/validation.h b/src/validation.h
+index f3debe9..c570f19 100644
+--- a/src/validation.h
++++ b/src/validation.h
+@@ -104,6 +104,7 @@ extern const std::vector<std::string> CHECKLEVEL_DOC;
+ 
+ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
+ CAmount GetFounderAllocation(int nHeight, const Consensus::Params& consensusParams);
++bool CheckFounderAllocation(const CTransaction& coinbase, int nHeight, const Consensus::Params& consensusParams);
+ 
+ bool FatalError(kernel::Notifications& notifications, BlockValidationState& state, const bilingual_str& message);
