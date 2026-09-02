@@ -26,7 +26,7 @@ index 5de8937..24e7e39 100644
  BOOST_FIXTURE_TEST_SUITE(validation_block_tests, MinerTestingSetup)
  
 +
-+BOOST_AUTO_TEST_CASE(radium_founder_template_and_validation)
++BOOST_AUTO_TEST_CASE(oregon_founder_template_and_validation)
 +{
 +    auto mining{interfaces::MakeMining(m_node)};
 +    BOOST_REQUIRE(mining);
@@ -101,7 +101,7 @@ index 5de8937..24e7e39 100644
 +    txCoinbase.vout[1].nValue = GetBlockSubsidy(target_height, consensus);
      txCoinbase.vout[0].nValue = 0;
 +
-+    // Preserve Radium's one-time founder allocation only at its actual consensus height.
++    // Preserve Oregon's one-time founder allocation only at its actual consensus height.
 +    if (const CAmount founder_allocation{GetFounderAllocation(target_height, consensus)}; founder_allocation > 0) {
 +        const CScript founder_script{consensus.founderScriptPubKey.begin(), consensus.founderScriptPubKey.end()};
 +        txCoinbase.vout.emplace_back(founder_allocation, founder_script);
