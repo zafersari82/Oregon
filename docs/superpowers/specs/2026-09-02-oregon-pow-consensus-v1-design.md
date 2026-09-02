@@ -252,7 +252,7 @@ if candidate > POW_LIMIT:
 return candidate
 ```
 
-`trunc_div` means signed integer division truncated toward zero. Right shifts of signed values MUST have arithmetic semantics. Intermediate arithmetic MUST be wide enough to detect or avoid overflow; implementations may use arbitrary precision internally so long as the exact output is identical.
+`trunc_div` means signed integer division truncated toward zero. Right shifts of signed values MUST have arithmetic semantics. Timestamp/exponent arithmetic MUST use checked signed arithmetic wide enough for the full `u64` timestamp input domain (for example signed 128-bit or arbitrary precision). Target multiplication/shifting MUST similarly avoid silent overflow; implementations may use arbitrary precision internally so long as the exact output is identical.
 
 Because Oregon stores full targets, the final compact-target conversion steps from Bitcoin-derived ASERT implementations do not exist.
 
@@ -482,7 +482,7 @@ key_commitment = BLAKE3(
 )
 ```
 
-Unknown locking-program versions are invalid for v1 chain consensus. There is no general script VM in v1. Value destruction is performed by under-claiming fees/subsidy or by voluntarily leaving input value unassigned to outputs, not by creating an unknown-script burn output.
+Unknown locking-program versions are invalid for v1 chain consensus. There is no general script VM in v1. Protocol v1 has no dedicated provably-unspendable burn script. Fees become miner-claimable value; only value that a miner is entitled to claim but deliberately under-claims is provably removed from realized supply by consensus.
 
 ### 12.2 Witness
 
@@ -538,22 +538,25 @@ The signature backend SHALL implement BIP340 verification semantics over secp256
 
 ## 13. Block validity order
 
-A node SHOULD reject invalid data as cheaply as possible. Consensus result must be independent of validation order, but the first implementation SHOULD use this sequence:
+A node SHOULD reject invalid data as cheaply as possible. Consensus result must be independent of validation order, but the first implementation SHOULD use this sequence for a received full block:
 
-1. Parse the fixed header and canonical block container within hard limits.
-2. Verify parent existence/context.
-3. Verify MTP rule.
-4. Compute expected ASERT target and compare exact header target bytes.
-5. Validate `1 <= target <= POW_LIMIT`.
-6. Derive RandomX key and verify PoW.
-7. Enforce 1 MiB canonical block size and 100 KiB per-transaction limits.
-8. Require a non-empty transaction list and recompute transaction Merkle root.
-9. Validate coinbase structural rules.
-10. Validate normal transactions in order against a temporary UTXO view.
-11. Verify KeyCommit/Schnorr authorizations.
-12. Sum fees.
-13. Validate coinbase founder/reward ceiling rules.
-14. Commit UTXO, undo, block index, cumulative work, and active tip atomically.
+1. Reject raw block bytes above 1 MiB before expensive parsing or PoW.
+2. Parse the fixed header and canonical outer container within hard limits.
+3. Verify parent existence/context.
+4. Verify MTP rule.
+5. Compute expected ASERT target and compare exact header target bytes.
+6. Validate `1 <= target <= POW_LIMIT`.
+7. Derive RandomX key and verify PoW.
+8. Parse/validate transaction boundaries and enforce 100 KiB per-transaction limits.
+9. Require a non-empty transaction list and recompute transaction Merkle root.
+10. Validate coinbase structural rules.
+11. Validate normal transactions in order against a temporary UTXO view.
+12. Verify KeyCommit/Schnorr authorizations.
+13. Sum fees.
+14. Validate coinbase founder/reward ceiling rules.
+15. Commit UTXO, undo, block index, cumulative work, and active tip atomically.
+
+For headers-first synchronization, only the header/context/target/PoW/work subset applies until the body is downloaded.
 
 A block with a valid PoW but invalid body MUST NOT affect chainstate.
 
@@ -651,8 +654,13 @@ Bitcoin hash fields are produced by decoding the standard lowercase 64-character
 `consensus_spec_hash` is:
 
 ```text
-BLAKE3("OREGON/SPEC/V1\0" || exact_UTF8_bytes_of_frozen_consensus_spec)
+BLAKE3(
+    "OREGON/SPEC/V1\0" ||
+    raw_Git_blob_bytes_of_frozen_consensus_spec
+)
 ```
+
+The hash MUST use the exact Git blob bytes, not a working-tree copy whose line endings may have been rewritten by platform tooling.
 
 `pow_limit` and `initial_target` are the exact 32-byte little-endian launch values and MUST match the frozen chain profile; genesis header `difficulty_commitment` MUST equal `initial_target`.
 
@@ -737,7 +745,7 @@ peer discovery
 -> UTXO state transition
 ```
 
-Peer queues, in-flight requests, bandwidth, and invalid-data processing MUST be bounded. Peer scoring is policy, not consensus.
+Peer queues, header batches, in-flight requests, bandwidth, invalid-data processing, and per-peer expensive PoW verification work MUST be bounded by node policy. Peer scoring is policy, not consensus.
 
 Outbound peer selection SHOULD diversify network buckets to reduce eclipse/partition risk.
 
