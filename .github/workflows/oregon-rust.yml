@@ -2,7 +2,9 @@ name: Oregon Rust CI
 
 on:
   push:
-    branches: [oregon-v0-protocol]
+    branches:
+      - oregon-v0-protocol
+      - oregon-v0-mutation-odd-merkle-2026-09-02
   pull_request:
     branches: [main]
 
