@@ -54,7 +54,7 @@ Where an integer byte order is specified as little-endian, implementations MUST 
 - Initial normal block subsidy: `237,500,000` base units = `2.37500000 OREG`.
 - Halving interval: `200,000` blocks.
 - Maximum canonical block size: `1,048,576` bytes (1 MiB).
-- Maximum canonical non-genesis transaction size: `102,400` bytes (100 KiB).
+- Maximum canonical size of each transaction in a non-genesis block, including coinbase: `102,400` bytes (100 KiB).
 - Mainnet address HRP: `oreg`.
 - Testnet address HRP: `toreg`.
 - Dev/regtest address HRP: `doreg`.
@@ -67,7 +67,7 @@ The algorithm accepts the following chain-profile values, but mainnet MUST NOT l
 - `POW_LIMIT`: the easiest permitted non-zero 256-bit target.
 - `INITIAL_TARGET`: the exact target required for height 1.
 - `FOUNDER_KEY_COMMITMENT`: the announced 32-byte founder key commitment.
-- Bitcoin fair-launch anchor height and resulting anchor/confirmation hashes.
+- Bitcoin fair-launch anchor height and resulting anchor/confirmation data.
 - Deterministic genesis block bytes and resulting genesis block ID.
 - Derived mainnet chain ID and P2P magic.
 - Network ports, seed hosts, and initial peer-discovery profile.
@@ -284,7 +284,7 @@ timestamp(B) > MTP(P)
 
 ### 7.2 Future-time admission
 
-A node SHOULD defer a block whose timestamp is more than one hour ahead of its local adjusted network time and reconsider it when time catches up.
+A node SHOULD defer a block whose timestamp is more than one hour ahead of the node's local wall clock and reconsider it when time catches up.
 
 The one-hour future bound is node admission policy, not a permanent consensus-invalidity rule. Local clock disagreement therefore cannot permanently fork consensus.
 
@@ -297,6 +297,8 @@ Every valid non-genesis block contributes:
 ```text
 block_work = floor(2^256 / (target + 1))
 ```
+
+The work calculation MUST use arithmetic capable of representing `2^256` and `target + 1` without 256-bit wraparound; a 257-bit or arbitrary-precision intermediate is sufficient.
 
 Genesis contributes zero chain work.
 
@@ -353,7 +355,7 @@ There is no founder tax, treasury tax, developer percentage, protocol fee burn, 
 
 Every non-genesis block MUST contain exactly one coinbase transaction and it MUST be transaction index `0`.
 
-Coinbase version MUST be `1` and `lock_time` MUST be `0`.
+Coinbase version MUST be `1`, `lock_time` MUST be `0`, and canonical coinbase size MUST be at most 100 KiB.
 
 It MUST contain exactly one input with:
 
@@ -363,7 +365,7 @@ It MUST contain exactly one input with:
 
 The first witness item MUST equal the exact canonical Oregon varint byte encoding of the current block height.
 
-Additional witness items MAY carry miner extra-nonce or commitments within existing primitive limits.
+Additional witness items MAY carry miner extra-nonce or commitments within existing primitive and 100 KiB transaction limits.
 
 No normal transaction may use the null outpoint.
 
@@ -466,7 +468,7 @@ Persistent UTXO/tip changes and undo indexing MUST commit atomically from the no
 
 ### 12.1 KeyCommitV1
 
-The only standard spendable Oregon consensus locking program in protocol v1 is exactly 33 bytes:
+Every output in a non-genesis v1 block, including coinbase outputs, MUST use the exact 33-byte KeyCommitV1 program:
 
 ```text
 0x01 || key_commitment[32]
@@ -480,7 +482,7 @@ key_commitment = BLAKE3(
 )
 ```
 
-Unknown locking-program versions are invalid for v1 chain consensus. There is no general script VM in v1.
+Unknown locking-program versions are invalid for v1 chain consensus. There is no general script VM in v1. Value destruction is performed by under-claiming fees/subsidy or by voluntarily leaving input value unassigned to outputs, not by creating an unknown-script burn output.
 
 ### 12.2 Witness
 
@@ -544,7 +546,7 @@ A node SHOULD reject invalid data as cheaply as possible. Consensus result must 
 4. Compute expected ASERT target and compare exact header target bytes.
 5. Validate `1 <= target <= POW_LIMIT`.
 6. Derive RandomX key and verify PoW.
-7. Enforce 1 MiB canonical block size.
+7. Enforce 1 MiB canonical block size and 100 KiB per-transaction limits.
 8. Require a non-empty transaction list and recompute transaction Merkle root.
 9. Validate coinbase structural rules.
 10. Validate normal transactions in order against a temporary UTXO view.
@@ -605,7 +607,7 @@ Genesis header requirements:
 - `transaction_root = root of the single genesis transaction`
 - `difficulty_commitment = INITIAL_TARGET`
 - `nonce = 0`
-- `timestamp = timestamp of the Bitcoin confirmation block defined below`
+- `timestamp = bitcoin_confirmation_mtp` from the manifest
 
 Genesis creates no OREG.
 
@@ -632,12 +634,17 @@ bitcoin_anchor_height:u64
 bitcoin_anchor_hash:[u8;32]
 bitcoin_confirmation_height:u64
 bitcoin_confirmation_hash:[u8;32]
+bitcoin_confirmation_mtp:u64
 source_commit_ascii:[u8;40]
 consensus_spec_hash:[u8;32]
+pow_limit:[u8;32]
+initial_target:[u8;32]
 founder_key_commitment:[u8;32]
 ```
 
 Bitcoin hash fields are produced by decoding the standard lowercase 64-character Bitcoin block-hash display string left-to-right into 32 bytes.
+
+`bitcoin_confirmation_mtp` is the median of the Bitcoin header timestamps at heights `H+1` through `H+11` inclusive, i.e. the confirmation block at `H+11` and its ten direct ancestors. Sort the 11 unsigned Unix timestamps ascending and select index `5`. This value is deterministic and reduces dependence on a single miner-selected Bitcoin timestamp.
 
 `source_commit_ascii` is the exact lowercase 40-character Git commit hash of the frozen Oregon launch source.
 
@@ -646,6 +653,8 @@ Bitcoin hash fields are produced by decoding the standard lowercase 64-character
 ```text
 BLAKE3("OREGON/SPEC/V1\0" || exact_UTF8_bytes_of_frozen_consensus_spec)
 ```
+
+`pow_limit` and `initial_target` are the exact 32-byte little-endian launch values and MUST match the frozen chain profile; genesis header `difficulty_commitment` MUST equal `initial_target`.
 
 The manifest contains no private key or seed.
 
@@ -659,12 +668,12 @@ The mainnet launch ceremony SHALL follow this order:
 4. No Oregon mainnet genesis exists before the announced Bitcoin anchor data exists.
 5. When Bitcoin block `H` is mined, its exact hash is the anchor; no alternative block height/hash may be cherry-picked.
 6. Wait until block `H` has 12 confirmations. The confirmation block is height `H + 11` on the same confirmed Bitcoin chain.
-7. Use the confirmation block's timestamp as the Oregon genesis timestamp and include both Bitcoin hashes in the manifest.
-8. Deterministically generate the genesis transaction, Merkle root, block header, genesis block ID, chain ID, P2P magic, and address/network profile.
+7. Compute `bitcoin_confirmation_mtp` from the confirmation block and its ten ancestors and use that MTP as Oregon genesis timestamp.
+8. Deterministically generate the genesis transaction, Merkle root, block header, genesis block ID, chain ID, P2P magic, and address/network profile; verify the manifest `POW_LIMIT`, `INITIAL_TARGET`, and founder commitment against the frozen launch profile.
 9. Publish genesis bytes/IDs, binary checksums, founder address, source hashes, and mining instructions together.
 10. Public RandomX mining begins at Oregon height 1 under identical consensus rules for all miners.
 
-If the frozen launch source/spec must change after step 3 but before mainnet start, the ceremony MUST be aborted and restarted with a newly announced future Bitcoin anchor height. The previously announced anchor may not be silently reused for modified launch code.
+If the frozen launch source/spec or any launch-profile consensus parameter must change after step 3 but before mainnet start, the ceremony MUST be aborted and restarted with a newly announced future Bitcoin anchor height. The previously announced anchor may not be silently reused for modified launch code.
 
 This ceremony is a public time/commitment mechanism. It does not claim a mathematical proof that unauthorized private mining is impossible; height-1 acceptance by public nodes is the real consensus start.
 
@@ -694,9 +703,11 @@ Consensus-critical crates MUST have narrow interfaces and MUST NOT depend on RPC
 
 ### 17.1 P2P transport
 
-Oregon's first public P2P transport is intended to be encrypted-only and to follow the reviewed principles of modern authenticated encrypted peer transport, using BIP324 as a design reference rather than copying Bitcoin application messages.
+Oregon's first public P2P transport is intended to be encrypted-only and to follow reviewed modern encrypted-transport principles, using BIP324 as a design reference rather than copying Bitcoin application messages.
 
 There SHALL be no plaintext fallback in the production Oregon v1 network profile.
+
+The transport MUST provide ciphertext integrity/authentication for its encrypted session. This requirement does not imply long-term peer identity authentication; Oregon v1 does not assume that a transport handshake proves who operates the remote node.
 
 The encrypted-session application handshake SHALL include at least:
 
@@ -788,7 +799,7 @@ The foundation's 64 MiB decode limit is a hostile-object memory bound, not the b
 Protocol v1 block/transaction consensus sizes are:
 
 - block: at most 1 MiB canonical bytes
-- non-genesis transaction: at most 100 KiB canonical bytes
+- every transaction in a non-genesis block, including coinbase: at most 100 KiB canonical bytes
 
 There is no witness discount or weight/vsize dual accounting in v1. A canonical byte counts as one byte.
 
@@ -850,7 +861,7 @@ Mainnet MUST NOT launch until all of the following are independently checkpointe
 6. BIP340/KeyCommit signing vectors pass at least two independent implementations/backends.
 7. UTXO connect/disconnect and deep synthetic reorg tests restore byte-for-byte equivalent chainstate.
 8. Consensus validation mutation tests demonstrate that deliberately removing target, PoW, maturity, signature, double-spend, founder, subsidy, Merkle, and size checks causes the suite to fail.
-9. Genesis/fair-launch generator is deterministic from the frozen manifest inputs.
+9. Genesis/fair-launch generator is deterministic from the frozen manifest inputs, including Bitcoin MTP, target values, and founder commitment.
 10. Reproducible release binaries/checksums and launch source are public before the future Bitcoin anchor.
 
 If a consensus check is deliberately disabled and the relevant test suite remains green, the milestone is not accepted.
