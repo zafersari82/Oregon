@@ -1,0 +1,61 @@
+diff --git a/src/test/validation_tests.cpp b/src/test/validation_tests.cpp
+index 6e7e7a0..7c142ff 100644
+--- a/src/test/validation_tests.cpp
++++ b/src/test/validation_tests.cpp
+@@ -58,6 +58,27 @@ BOOST_AUTO_TEST_CASE(radium_monetary_params_test)
+     BOOST_CHECK_EQUAL(consensus.founderAllocationHeight, 1);
+ }
+ 
++BOOST_AUTO_TEST_CASE(radium_subsidy_schedule_test)
++{
++    const auto chain_params = CreateChainParams(*m_node.args, ChainType::REGTEST);
++    const auto& consensus = chain_params->GetConsensus();
++
++    BOOST_CHECK_EQUAL(GetBlockSubsidy(0, consensus), CAmount{0});
++    BOOST_CHECK_EQUAL(GetBlockSubsidy(1, consensus), CAmount{237'500'000});
++    BOOST_CHECK_EQUAL(GetBlockSubsidy(200'000, consensus), CAmount{237'500'000});
++    BOOST_CHECK_EQUAL(GetBlockSubsidy(200'001, consensus), CAmount{118'750'000});
++
++    CAmount mining_issuance{0};
++    for (int halving = 0; halving < 64; ++halving) {
++        const CAmount reward = consensus.nInitialSubsidy >> halving;
++        if (reward == 0) break;
++        mining_issuance += reward * consensus.nSubsidyHalvingInterval;
++    }
++    BOOST_CHECK_EQUAL(mining_issuance, CAmount{94'999'997'000'000});
++    BOOST_CHECK_EQUAL(mining_issuance + consensus.founderAllocation, CAmount{99'999'997'000'000});
++    BOOST_CHECK(mining_issuance + consensus.founderAllocation < consensus.nMaxSupply);
++}
++
+ BOOST_AUTO_TEST_CASE(block_subsidy_test)
+ {
+     const auto chainParams = CreateChainParams(*m_node.args, ChainType::MAIN);
+diff --git a/src/validation.cpp b/src/validation.cpp
+index 6871e40..25ab0a2 100644
+--- a/src/validation.cpp
++++ b/src/validation.cpp
+@@ -1832,15 +1832,18 @@ PackageMempoolAcceptResult ProcessNewPackage(Chainstate& active_chainstate, CTxM
+ 
+ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
+ {
+-    int halvings = nHeight / consensusParams.nSubsidyHalvingInterval;
++    if (nHeight < consensusParams.nSubsidyStartHeight) {
++        return 0;
++    }
++
++    const int subsidy_height = nHeight - consensusParams.nSubsidyStartHeight;
++    const int halvings = subsidy_height / consensusParams.nSubsidyHalvingInterval;
+     // Force block reward to zero when right shift is undefined.
+-    if (halvings >= 64)
++    if (halvings >= 64) {
+         return 0;
++    }
+ 
+-    CAmount nSubsidy = 50 * COIN;
+-    // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
+-    nSubsidy >>= halvings;
+-    return nSubsidy;
++    return consensusParams.nInitialSubsidy >> halvings;
+ }
+ 
+ CoinsViews::CoinsViews(DBParams db_params, CoinsViewOptions options)
