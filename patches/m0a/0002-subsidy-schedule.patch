@@ -2,11 +2,11 @@ diff --git a/src/test/validation_tests.cpp b/src/test/validation_tests.cpp
 index 6e7e7a0..7c142ff 100644
 --- a/src/test/validation_tests.cpp
 +++ b/src/test/validation_tests.cpp
-@@ -58,6 +58,27 @@ BOOST_AUTO_TEST_CASE(radium_monetary_params_test)
+@@ -58,6 +58,27 @@ BOOST_AUTO_TEST_CASE(oregon_monetary_params_test)
      BOOST_CHECK_EQUAL(consensus.founderAllocationHeight, 1);
  }
  
-+BOOST_AUTO_TEST_CASE(radium_subsidy_schedule_test)
++BOOST_AUTO_TEST_CASE(oregon_subsidy_schedule_test)
 +{
 +    const auto chain_params = CreateChainParams(*m_node.args, ChainType::REGTEST);
 +    const auto& consensus = chain_params->GetConsensus();
