@@ -31,6 +31,11 @@ Task 6 accepted checkpoint:
 - Golden coverage: canonical varint boundaries, explicit non-minimal varints, minimum and multi-input/output/witness transactions, exact canonical transaction bytes and TxIDs, one/two/three-transaction Merkle roots, exact canonical block-header bytes and block ID, and maximum/above-maximum amount boundaries.
 - Mutation-sensitivity evidence: branch `oregon-v0-mutation-odd-merkle-2026-09-02`, mutation commit `cc1d84b297fa6557625b0afcb2737ea229bfb5c4`, CI trigger commit `ca3ee725fc1e146893b140adff6352489fa06081`, GitHub Actions run `33666851003` failed exactly at `merkle::tests::three_transaction_root_promotes_last_leaf_without_duplication` after intentionally replacing odd-node promotion with duplicate-last hashing. The development branch was never mutated.
 
+Foundation acceptance record:
+- File: `docs/checkpoints/OREGON_V0_PROTOCOL_FOUNDATION.md`
+- Fresh pre-checkpoint full gate: commit `aed2e932a485f1e987b3024e3cc657e7c3ad544b`, GitHub Actions run `33667003179` (`Oregon Rust CI`, success)
+- Final recovery branch name: `oregon-v0-checkpoint-foundation-accepted-2026-09-02`
+
 ## Task status
 
 - Task 1 — Workspace and Amount Safety: complete and CI-verified.
@@ -39,7 +44,7 @@ Task 6 accepted checkpoint:
 - Task 4 — Transaction primitive, canonical bytes, and TxID: complete and CI-verified.
 - Task 5 — Merkle commitment, block header, and block ID: complete and CI-verified.
 - Task 6 — Protocol-v0 golden vectors: complete and CI-verified, including mutation sensitivity.
-- Task 7 — Foundation acceptance record: next active task.
+- Task 7 — Foundation acceptance record and independence review: complete pending the final checkpoint commit's CI gate.
 
 ## Protocol decisions already fixed
 
@@ -54,4 +59,4 @@ Task 6 accepted checkpoint:
 - Defensive parsing uses `DecodeLimits`; hostile input must return typed errors rather than panic.
 - The deterministic vector generator remains only as a reproducibility aid; the checked-in golden JSON is the protocol artifact consumed by acceptance tests.
 
-Do not delete the recovery checkpoint branches while the foundation milestone is in progress.
+Do not delete the recovery checkpoint branches while later protocol milestones are in progress.
