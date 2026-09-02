@@ -1,3 +1,143 @@
+use crate::PrimitiveError;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecodeLimits {
+    pub max_transaction_inputs: usize,
+    pub max_transaction_outputs: usize,
+    pub max_witness_items_per_input: usize,
+    pub max_witness_item_bytes: usize,
+    pub max_locking_program_bytes: usize,
+    pub max_block_transactions: usize,
+    pub max_object_bytes: usize,
+}
+
+impl Default for DecodeLimits {
+    fn default() -> Self {
+        Self {
+            max_transaction_inputs: 65_535,
+            max_transaction_outputs: 65_535,
+            max_witness_items_per_input: 1_024,
+            max_witness_item_bytes: 1_048_576,
+            max_locking_program_bytes: 65_536,
+            max_block_transactions: 1_000_000,
+            max_object_bytes: 67_108_864,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Decoder<'a> {
+    input: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> Decoder<'a> {
+    pub const fn new(input: &'a [u8]) -> Self {
+        Self { input, offset: 0 }
+    }
+
+    fn read_u8(&mut self) -> Result<u8, PrimitiveError> {
+        let byte = *self
+            .input
+            .get(self.offset)
+            .ok_or(PrimitiveError::UnexpectedEof)?;
+        self.offset += 1;
+        Ok(byte)
+    }
+
+    pub fn read_u16(&mut self) -> Result<u16, PrimitiveError> {
+        let bytes = self.read_bytes(2)?;
+        Ok(u16::from_le_bytes([bytes[0], bytes[1]]))
+    }
+
+    pub fn read_u32(&mut self) -> Result<u32, PrimitiveError> {
+        let bytes = self.read_bytes(4)?;
+        Ok(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+    }
+
+    pub fn read_u64(&mut self) -> Result<u64, PrimitiveError> {
+        let bytes = self.read_bytes(8)?;
+        Ok(u64::from_le_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        ]))
+    }
+
+    pub fn read_varint(&mut self) -> Result<u64, PrimitiveError> {
+        match self.read_u8()? {
+            marker @ 0x00..=0xfc => Ok(u64::from(marker)),
+            0xfd => {
+                let value = u64::from(self.read_u16()?);
+                if value < 0xfd {
+                    return Err(PrimitiveError::NonCanonicalVarInt);
+                }
+                Ok(value)
+            }
+            0xfe => {
+                let value = u64::from(self.read_u32()?);
+                if value <= u64::from(u16::MAX) {
+                    return Err(PrimitiveError::NonCanonicalVarInt);
+                }
+                Ok(value)
+            }
+            0xff => {
+                let value = self.read_u64()?;
+                if value <= u64::from(u32::MAX) {
+                    return Err(PrimitiveError::NonCanonicalVarInt);
+                }
+                Ok(value)
+            }
+        }
+    }
+
+    pub fn read_len(&mut self, max: usize) -> Result<usize, PrimitiveError> {
+        let value = self.read_varint()?;
+        let value = usize::try_from(value).map_err(|_| PrimitiveError::LengthLimitExceeded)?;
+        if value > max {
+            return Err(PrimitiveError::LengthLimitExceeded);
+        }
+        Ok(value)
+    }
+
+    pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], PrimitiveError> {
+        let end = self
+            .offset
+            .checked_add(len)
+            .ok_or(PrimitiveError::LengthLimitExceeded)?;
+        if end > self.input.len() {
+            return Err(PrimitiveError::UnexpectedEof);
+        }
+        let bytes = &self.input[self.offset..end];
+        self.offset = end;
+        Ok(bytes)
+    }
+
+    pub fn finish(self) -> Result<(), PrimitiveError> {
+        if self.offset == self.input.len() {
+            Ok(())
+        } else {
+            Err(PrimitiveError::TrailingBytes)
+        }
+    }
+}
+
+pub fn write_varint(value: u64, output: &mut Vec<u8>) {
+    match value {
+        0x00..=0xfc => output.push(value as u8),
+        0xfd..=0xffff => {
+            output.push(0xfd);
+            output.extend_from_slice(&(value as u16).to_le_bytes());
+        }
+        0x1_0000..=0xffff_ffff => {
+            output.push(0xfe);
+            output.extend_from_slice(&(value as u32).to_le_bytes());
+        }
+        _ => {
+            output.push(0xff);
+            output.extend_from_slice(&value.to_le_bytes());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
