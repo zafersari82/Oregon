@@ -16,7 +16,7 @@ index 99096e0..7676b14 100644
      int nSubsidyHalvingInterval;
 +
 +    // Monetary policy parameters. Bitcoin networks retain the defaults below;
-+    // Radium test networks override them explicitly in chainparams.
++    // Oregon test networks override them explicitly in chainparams.
 +    CAmount nMaxSupply{0};
 +    CAmount nInitialSubsidy{50 * COIN};
 +    int nSubsidyStartHeight{0};
@@ -36,7 +36,7 @@ index 9764ba9..7fb30f2 100644
 -        consensus.nSubsidyHalvingInterval = 150;
 +        consensus.nSubsidyHalvingInterval = 200'000;
 +        consensus.nMaxSupply = 1'000'000 * COIN;
-+        consensus.nInitialSubsidy = 237'500'000; // 2.375 RADS
++        consensus.nInitialSubsidy = 237'500'000; // 2.375 OREG
 +        consensus.nSubsidyStartHeight = 1;
 +        consensus.founderAllocation = 50'000 * COIN;
 +        consensus.founderAllocationHeight = 1;
@@ -51,7 +51,7 @@ index 268529f..6e7e7a0 100644
      TestBlockSubsidyHalvings(consensusParams);
  }
  
-+BOOST_AUTO_TEST_CASE(radium_monetary_params_test)
++BOOST_AUTO_TEST_CASE(oregon_monetary_params_test)
 +{
 +    const auto chain_params = CreateChainParams(*m_node.args, ChainType::REGTEST);
 +    const auto& consensus = chain_params->GetConsensus();
