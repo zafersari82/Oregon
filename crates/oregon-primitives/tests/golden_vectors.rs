@@ -210,6 +210,9 @@ fn protocol_v0_golden_vectors_match_current_consensus_primitives() {
         header.transaction_root.to_string(),
         vectors.merkle.three_transaction_odd_promotion_root
     );
-    assert_eq!(encode_hex(&header.encode()), vectors.block_header.canonical_hex);
+    assert_eq!(
+        encode_hex(&header.encode()),
+        vectors.block_header.canonical_hex
+    );
     assert_eq!(header.block_id().to_string(), vectors.block_header.block_id);
 }
