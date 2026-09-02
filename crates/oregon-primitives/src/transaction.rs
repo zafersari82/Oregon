@@ -193,8 +193,10 @@ mod tests {
     #[test]
     fn input_count_limit_is_enforced_before_input_decoding() {
         let encoded = rich_transaction().encode();
-        let mut limits = DecodeLimits::default();
-        limits.max_transaction_inputs = 0;
+        let limits = DecodeLimits {
+            max_transaction_inputs: 0,
+            ..Default::default()
+        };
 
         assert_eq!(
             Transaction::decode(&encoded, &limits),
@@ -205,8 +207,10 @@ mod tests {
     #[test]
     fn output_count_limit_is_enforced_before_output_decoding() {
         let encoded = rich_transaction().encode();
-        let mut limits = DecodeLimits::default();
-        limits.max_transaction_outputs = 0;
+        let limits = DecodeLimits {
+            max_transaction_outputs: 0,
+            ..Default::default()
+        };
 
         assert_eq!(
             Transaction::decode(&encoded, &limits),
@@ -217,8 +221,10 @@ mod tests {
     #[test]
     fn witness_item_count_limit_is_enforced() {
         let encoded = rich_transaction().encode();
-        let mut limits = DecodeLimits::default();
-        limits.max_witness_items_per_input = 1;
+        let limits = DecodeLimits {
+            max_witness_items_per_input: 1,
+            ..Default::default()
+        };
 
         assert_eq!(
             Transaction::decode(&encoded, &limits),
@@ -229,8 +235,10 @@ mod tests {
     #[test]
     fn witness_item_byte_limit_is_enforced() {
         let encoded = rich_transaction().encode();
-        let mut limits = DecodeLimits::default();
-        limits.max_witness_item_bytes = 1;
+        let limits = DecodeLimits {
+            max_witness_item_bytes: 1,
+            ..Default::default()
+        };
 
         assert_eq!(
             Transaction::decode(&encoded, &limits),
@@ -241,8 +249,10 @@ mod tests {
     #[test]
     fn locking_program_byte_limit_is_enforced() {
         let encoded = rich_transaction().encode();
-        let mut limits = DecodeLimits::default();
-        limits.max_locking_program_bytes = 2;
+        let limits = DecodeLimits {
+            max_locking_program_bytes: 2,
+            ..Default::default()
+        };
 
         assert_eq!(
             Transaction::decode(&encoded, &limits),
@@ -253,8 +263,10 @@ mod tests {
     #[test]
     fn complete_object_byte_limit_is_enforced() {
         let encoded = rich_transaction().encode();
-        let mut limits = DecodeLimits::default();
-        limits.max_object_bytes = encoded.len() - 1;
+        let limits = DecodeLimits {
+            max_object_bytes: encoded.len() - 1,
+            ..Default::default()
+        };
 
         assert_eq!(
             Transaction::decode(&encoded, &limits),
