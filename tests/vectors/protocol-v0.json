@@ -1,0 +1,117 @@
+{
+  "amounts": {
+    "above_max_base_units": 100000000000001,
+    "max_base_units": 100000000000000
+  },
+  "block_header": {
+    "block_id": "1c1b7a792c2450f7782f6d52f74082c511be1d553f894da2c6f59fe46d139ca9",
+    "canonical_hex": "010033333333333333333333333333333333333333333333333333333333333333330d747abc2796c17e85c1f4a36f8b400db8ec866f957031ba52cc16ebfbea436800d2496b0000000044444444444444444444444444444444444444444444444444444444444444440700000000000000",
+    "difficulty_commitment": "4444444444444444444444444444444444444444444444444444444444444444",
+    "nonce": 7,
+    "previous_block": "3333333333333333333333333333333333333333333333333333333333333333",
+    "timestamp": 1800000000,
+    "transaction_root": "0d747abc2796c17e85c1f4a36f8b400db8ec866f957031ba52cc16ebfbea4368",
+    "version": 1
+  },
+  "merkle": {
+    "one_transaction_root": "33c686b53b0af48cdcda7de7ce732d80ea9f145cbb2840e6e0b4472302be747b",
+    "three_transaction_odd_promotion_root": "0d747abc2796c17e85c1f4a36f8b400db8ec866f957031ba52cc16ebfbea4368",
+    "two_transaction_root": "476df7013f69aef6cc108397bb3d282b7deb452f2c26599a150117e614f10a0a"
+  },
+  "non_minimal_varints": [
+    "fdfc00",
+    "feffff0000",
+    "ffffffffff00000000"
+  ],
+  "transactions": [
+    {
+      "canonical_hex": "010000000000000000000000",
+      "inputs": [],
+      "lock_time": 0,
+      "name": "minimum-v1",
+      "outputs": [],
+      "txid": "a0f980cb063cc459170545c2871764262b58030809d1ae0c6c359d864ed34984",
+      "version": 1
+    },
+    {
+      "canonical_hex": "010002111111111111111111111111111111111111111111111111111111111111111103000000070000000202aabb01cc222222222222222222222222222222222222222222222222222222222222222205000000feffffff02000200ff022a000000000000000351210215cd5b070000000004deadbeef0900000000000000",
+      "inputs": [
+        {
+          "previous_output_index": 3,
+          "previous_txid": "1111111111111111111111111111111111111111111111111111111111111111",
+          "sequence": 7,
+          "witness_hex": [
+            "aabb",
+            "cc"
+          ]
+        },
+        {
+          "previous_output_index": 5,
+          "previous_txid": "2222222222222222222222222222222222222222222222222222222222222222",
+          "sequence": 4294967294,
+          "witness_hex": [
+            "",
+            "00ff"
+          ]
+        }
+      ],
+      "lock_time": 9,
+      "name": "multi-io-witness",
+      "outputs": [
+        {
+          "locking_program_hex": "512102",
+          "value_base_units": 42
+        },
+        {
+          "locking_program_hex": "deadbeef",
+          "value_base_units": 123456789
+        }
+      ],
+      "txid": "cf88a58c0dc756e230e570a98720bb87ec8bb6e30f95478d01e9d00140584814",
+      "version": 1
+    },
+    {
+      "canonical_hex": "010000000200000000000000",
+      "inputs": [],
+      "lock_time": 2,
+      "name": "third-for-odd-merkle",
+      "outputs": [],
+      "txid": "32fa39edb852f4bc31df541db3ecefaea29229c75e0521a12fbb69f12ee8bf48",
+      "version": 1
+    }
+  ],
+  "varints": [
+    {
+      "hex": "00",
+      "value": 0
+    },
+    {
+      "hex": "fc",
+      "value": 252
+    },
+    {
+      "hex": "fdfd00",
+      "value": 253
+    },
+    {
+      "hex": "fdffff",
+      "value": 65535
+    },
+    {
+      "hex": "fe00000100",
+      "value": 65536
+    },
+    {
+      "hex": "feffffffff",
+      "value": 4294967295
+    },
+    {
+      "hex": "ff0000000001000000",
+      "value": 4294967296
+    },
+    {
+      "hex": "ffffffffffffffffff",
+      "value": 18446744073709551615
+    }
+  ]
+}
