@@ -59,6 +59,8 @@ fn decode_lower_hex(value: u8) -> Result<u8, PrimitiveError> {
     }
 }
 
+// Used by transaction and block identifiers in later foundation tasks.
+#[allow(dead_code)]
 pub(crate) fn domain_hash(domain: &[u8], payload: &[u8]) -> Hash256 {
     let mut hasher = blake3::Hasher::new();
     hasher.update(domain);
