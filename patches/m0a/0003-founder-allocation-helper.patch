@@ -2,11 +2,11 @@ diff --git a/src/test/validation_tests.cpp b/src/test/validation_tests.cpp
 index 7c142ff..bffaf03 100644
 --- a/src/test/validation_tests.cpp
 +++ b/src/test/validation_tests.cpp
-@@ -79,6 +79,17 @@ BOOST_AUTO_TEST_CASE(radium_subsidy_schedule_test)
+@@ -79,6 +79,17 @@ BOOST_AUTO_TEST_CASE(oregon_subsidy_schedule_test)
      BOOST_CHECK(mining_issuance + consensus.founderAllocation < consensus.nMaxSupply);
  }
  
-+BOOST_AUTO_TEST_CASE(radium_founder_allocation_test)
++BOOST_AUTO_TEST_CASE(oregon_founder_allocation_test)
 +{
 +    const auto chain_params = CreateChainParams(*m_node.args, ChainType::REGTEST);
 +    const auto& consensus = chain_params->GetConsensus();
@@ -34,7 +34,7 @@ index 25ab0a2..618611c 100644
 +}
 +
  CoinsViews::CoinsViews(DBParams db_params, CoinsViewOptions options)
-     : m_dbview{std::move(db_params), std::move(options)},
+     : m_dbview{std::move(db_params), CoinsViewOptions options)},
        m_catcherview(&m_dbview) {}
 diff --git a/src/validation.h b/src/validation.h
 index 1137089..f3debe9 100644
