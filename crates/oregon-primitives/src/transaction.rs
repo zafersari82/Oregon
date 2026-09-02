@@ -308,14 +308,12 @@ mod tests {
     }
 
     fn output_strategy() -> impl Strategy<Value = TxOutput> {
-        (
-            0u64..=10_000,
-            prop::collection::vec(any::<u8>(), 0..32),
-        )
-            .prop_map(|(value, locking_program)| TxOutput {
+        (0u64..=10_000, prop::collection::vec(any::<u8>(), 0..32)).prop_map(
+            |(value, locking_program)| TxOutput {
                 value: Amount::from_base_units(value).unwrap(),
                 locking_program,
-            })
+            },
+        )
     }
 
     fn transaction_strategy() -> impl Strategy<Value = Transaction> {
