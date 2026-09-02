@@ -4,6 +4,42 @@ use crate::{Hash256, PrimitiveError, Transaction};
 const MERKLE_LEAF_DOMAIN: &[u8] = b"OREGON/MERKLE-LEAF/V0\0";
 const MERKLE_NODE_DOMAIN: &[u8] = b"OREGON/MERKLE/V0\0";
 
+pub fn transaction_root(transactions: &[Transaction]) -> Result<Hash256, PrimitiveError> {
+    if transactions.is_empty() {
+        return Err(PrimitiveError::EmptyBlockTransactions);
+    }
+
+    let mut level: Vec<Hash256> = transactions.iter().map(leaf_hash).collect();
+
+    while level.len() > 1 {
+        let mut next = Vec::with_capacity(level.len().div_ceil(2));
+        let mut pairs = level.chunks_exact(2);
+
+        for pair in &mut pairs {
+            next.push(node_hash(pair[0], pair[1]));
+        }
+
+        if let Some(last) = pairs.remainder().first() {
+            next.push(*last);
+        }
+
+        level = next;
+    }
+
+    Ok(level[0])
+}
+
+fn leaf_hash(transaction: &Transaction) -> Hash256 {
+    domain_hash(MERKLE_LEAF_DOMAIN, transaction.txid().as_bytes())
+}
+
+fn node_hash(left: Hash256, right: Hash256) -> Hash256 {
+    let mut payload = [0u8; 64];
+    payload[..32].copy_from_slice(left.as_bytes());
+    payload[32..].copy_from_slice(right.as_bytes());
+    domain_hash(MERKLE_NODE_DOMAIN, &payload)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
