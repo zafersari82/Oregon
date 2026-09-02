@@ -1,0 +1,19 @@
+name: Oregon Vector Generator
+
+on:
+  push:
+    branches:
+      - oregon-v0-protocol
+    paths:
+      - crates/oregon-primitives/examples/generate_protocol_v0.rs
+      - .github/workflows/oregon-vector-generator.yml
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust 1.85.0
+        run: rustup toolchain install 1.85.0 --profile minimal
+      - name: Print deterministic protocol v0 vectors
+        run: cargo +1.85.0 run -p oregon-primitives --example generate_protocol_v0
