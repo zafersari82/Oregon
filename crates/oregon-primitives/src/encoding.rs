@@ -208,7 +208,10 @@ mod tests {
             &[0xfe, 0xff, 0xff, 0x00, 0x00][..],
             &[0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00][..],
         ] {
-            assert_eq!(decoded_varint(bytes), Err(PrimitiveError::NonCanonicalVarInt));
+            assert_eq!(
+                decoded_varint(bytes),
+                Err(PrimitiveError::NonCanonicalVarInt)
+            );
         }
     }
 
@@ -232,7 +235,10 @@ mod tests {
     fn read_len_enforces_caller_limit() {
         let bytes = encoded_varint(11);
         let mut decoder = Decoder::new(&bytes);
-        assert_eq!(decoder.read_len(10), Err(PrimitiveError::LengthLimitExceeded));
+        assert_eq!(
+            decoder.read_len(10),
+            Err(PrimitiveError::LengthLimitExceeded)
+        );
     }
 
     #[test]
