@@ -34,7 +34,7 @@ index 25ab0a2..618611c 100644
 +}
 +
  CoinsViews::CoinsViews(DBParams db_params, CoinsViewOptions options)
-     : m_dbview{std::move(db_params), CoinsViewOptions options)},
+     : m_dbview{std::move(db_params), std::move(options)},
        m_catcherview(&m_dbview) {}
 diff --git a/src/validation.h b/src/validation.h
 index 1137089..f3debe9 100644
