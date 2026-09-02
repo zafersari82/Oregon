@@ -132,7 +132,24 @@ impl Transaction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DecodeLimits;
+    use proptest::prelude::*;
+
+    fn rich_transaction() -> Transaction {
+        Transaction {
+            version: 1,
+            inputs: vec![TxInput {
+                previous_txid: Hash256::from_bytes([0x11; 32]),
+                previous_output_index: 3,
+                sequence: 7,
+                witness: vec![vec![0xaa, 0xbb], vec![0xcc]],
+            }],
+            outputs: vec![TxOutput {
+                value: Amount::from_base_units(42).unwrap(),
+                locking_program: vec![0x51, 0x21, 0x02],
+            }],
+            lock_time: 9,
+        }
+    }
 
     #[test]
     fn version_one_minimum_transaction_round_trips_exactly() {
@@ -166,25 +183,169 @@ mod tests {
 
     #[test]
     fn witness_bytes_commit_to_transaction_id() {
-        let previous_txid = Hash256::from_bytes([0x11; 32]);
-        let base = Transaction {
-            version: 1,
-            inputs: vec![TxInput {
-                previous_txid,
-                previous_output_index: 3,
-                sequence: 7,
-                witness: vec![vec![0xaa]],
-            }],
-            outputs: vec![TxOutput {
-                value: Amount::from_base_units(42).unwrap(),
-                locking_program: vec![0x51],
-            }],
-            lock_time: 9,
-        };
-
+        let base = rich_transaction();
         let mut changed = base.clone();
         changed.inputs[0].witness[0][0] = 0xab;
 
         assert_ne!(base.txid(), changed.txid());
+    }
+
+    #[test]
+    fn input_count_limit_is_enforced_before_input_decoding() {
+        let encoded = rich_transaction().encode();
+        let mut limits = DecodeLimits::default();
+        limits.max_transaction_inputs = 0;
+
+        assert_eq!(
+            Transaction::decode(&encoded, &limits),
+            Err(PrimitiveError::LengthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn output_count_limit_is_enforced_before_output_decoding() {
+        let encoded = rich_transaction().encode();
+        let mut limits = DecodeLimits::default();
+        limits.max_transaction_outputs = 0;
+
+        assert_eq!(
+            Transaction::decode(&encoded, &limits),
+            Err(PrimitiveError::LengthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn witness_item_count_limit_is_enforced() {
+        let encoded = rich_transaction().encode();
+        let mut limits = DecodeLimits::default();
+        limits.max_witness_items_per_input = 1;
+
+        assert_eq!(
+            Transaction::decode(&encoded, &limits),
+            Err(PrimitiveError::LengthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn witness_item_byte_limit_is_enforced() {
+        let encoded = rich_transaction().encode();
+        let mut limits = DecodeLimits::default();
+        limits.max_witness_item_bytes = 1;
+
+        assert_eq!(
+            Transaction::decode(&encoded, &limits),
+            Err(PrimitiveError::LengthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn locking_program_byte_limit_is_enforced() {
+        let encoded = rich_transaction().encode();
+        let mut limits = DecodeLimits::default();
+        limits.max_locking_program_bytes = 2;
+
+        assert_eq!(
+            Transaction::decode(&encoded, &limits),
+            Err(PrimitiveError::LengthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn complete_object_byte_limit_is_enforced() {
+        let encoded = rich_transaction().encode();
+        let mut limits = DecodeLimits::default();
+        limits.max_object_bytes = encoded.len() - 1;
+
+        assert_eq!(
+            Transaction::decode(&encoded, &limits),
+            Err(PrimitiveError::LengthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn truncation_at_multiple_boundaries_is_rejected() {
+        let encoded = rich_transaction().encode();
+        let cut_points = [0, 1, 2, 3, 10, encoded.len() / 2, encoded.len() - 1];
+
+        for cut in cut_points {
+            assert!(
+                Transaction::decode(&encoded[..cut], &DecodeLimits::default()).is_err(),
+                "decoder unexpectedly accepted truncation at byte {cut}"
+            );
+        }
+    }
+
+    #[test]
+    fn trailing_byte_after_valid_transaction_is_rejected() {
+        let mut encoded = rich_transaction().encode();
+        encoded.push(0x00);
+
+        assert_eq!(
+            Transaction::decode(&encoded, &DecodeLimits::default()),
+            Err(PrimitiveError::TrailingBytes)
+        );
+    }
+
+    fn hash_strategy() -> impl Strategy<Value = Hash256> {
+        any::<[u8; 32]>().prop_map(Hash256::from_bytes)
+    }
+
+    fn input_strategy() -> impl Strategy<Value = TxInput> {
+        (
+            hash_strategy(),
+            any::<u32>(),
+            any::<u32>(),
+            prop::collection::vec(prop::collection::vec(any::<u8>(), 0..16), 0..4),
+        )
+            .prop_map(
+                |(previous_txid, previous_output_index, sequence, witness)| TxInput {
+                    previous_txid,
+                    previous_output_index,
+                    sequence,
+                    witness,
+                },
+            )
+    }
+
+    fn output_strategy() -> impl Strategy<Value = TxOutput> {
+        (
+            0u64..=10_000,
+            prop::collection::vec(any::<u8>(), 0..32),
+        )
+            .prop_map(|(value, locking_program)| TxOutput {
+                value: Amount::from_base_units(value).unwrap(),
+                locking_program,
+            })
+    }
+
+    fn transaction_strategy() -> impl Strategy<Value = Transaction> {
+        (
+            prop::collection::vec(input_strategy(), 0..4),
+            prop::collection::vec(output_strategy(), 0..4),
+            any::<u64>(),
+        )
+            .prop_map(|(inputs, outputs, lock_time)| Transaction {
+                version: 1,
+                inputs,
+                outputs,
+                lock_time,
+            })
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        #[test]
+        fn canonical_round_trip_is_exact(tx in transaction_strategy()) {
+            let encoded = tx.encode();
+            let decoded = Transaction::decode(&encoded, &DecodeLimits::default()).unwrap();
+            prop_assert_eq!(decoded.encode(), encoded);
+            prop_assert_eq!(decoded, tx);
+        }
+
+        #[test]
+        fn arbitrary_hostile_bytes_never_panic(bytes in prop::collection::vec(any::<u8>(), 0..512)) {
+            let _ = Transaction::decode(&bytes, &DecodeLimits::default());
+        }
     }
 }
