@@ -102,6 +102,7 @@ impl Block {
 mod tests {
     use super::*;
     use crate::{DecodeLimits, Hash256, PrimitiveError, Transaction, transaction_root};
+    use proptest::prelude::*;
 
     fn transaction(lock_time: u64) -> Transaction {
         Transaction {
@@ -120,6 +121,14 @@ mod tests {
             timestamp: 1_800_000_000,
             difficulty_commitment: [0x22; 32],
             nonce: 7,
+        }
+    }
+
+    fn valid_block() -> Block {
+        let transactions = vec![transaction(0), transaction(1)];
+        Block {
+            header: header(&transactions),
+            transactions,
         }
     }
 
@@ -164,11 +173,7 @@ mod tests {
 
     #[test]
     fn block_round_trips_exactly() {
-        let transactions = vec![transaction(0), transaction(1)];
-        let block = Block {
-            header: header(&transactions),
-            transactions,
-        };
+        let block = valid_block();
         let encoded = block.encode();
         let decoded = Block::decode(&encoded, &DecodeLimits::default()).unwrap();
 
@@ -192,19 +197,53 @@ mod tests {
 
     #[test]
     fn block_transaction_count_limit_is_enforced() {
-        let transactions = vec![transaction(0)];
-        let block = Block {
-            header: header(&transactions),
-            transactions,
-        };
+        let block = valid_block();
         let limits = DecodeLimits {
-            max_block_transactions: 0,
+            max_block_transactions: 1,
             ..Default::default()
         };
 
         assert_eq!(
             Block::decode(&block.encode(), &limits),
             Err(PrimitiveError::LengthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn block_complete_object_byte_limit_is_enforced() {
+        let encoded = valid_block().encode();
+        let limits = DecodeLimits {
+            max_object_bytes: encoded.len() - 1,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            Block::decode(&encoded, &limits),
+            Err(PrimitiveError::LengthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn block_rejects_truncation_at_multiple_boundaries() {
+        let encoded = valid_block().encode();
+        let cut_points = [0, 1, 2, 33, 113, 114, 115, encoded.len() - 1];
+
+        for cut in cut_points {
+            assert!(
+                Block::decode(&encoded[..cut], &DecodeLimits::default()).is_err(),
+                "decoder unexpectedly accepted block truncation at byte {cut}"
+            );
+        }
+    }
+
+    #[test]
+    fn block_rejects_trailing_bytes() {
+        let mut encoded = valid_block().encode();
+        encoded.push(0);
+
+        assert_eq!(
+            Block::decode(&encoded, &DecodeLimits::default()),
+            Err(PrimitiveError::TrailingBytes)
         );
     }
 
@@ -218,5 +257,16 @@ mod tests {
             BlockHeader::decode(&encoded),
             Err(PrimitiveError::TrailingBytes)
         );
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        #[test]
+        fn arbitrary_hostile_block_bytes_never_panic(
+            bytes in prop::collection::vec(any::<u8>(), 0..1024)
+        ) {
+            let _ = Block::decode(&bytes, &DecodeLimits::default());
+        }
     }
 }
