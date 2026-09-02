@@ -1,0 +1,136 @@
+diff --git a/src/node/miner.cpp b/src/node/miner.cpp
+index cc41173..6e9eaef 100644
+--- a/src/node/miner.cpp
++++ b/src/node/miner.cpp
+@@ -183,6 +183,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock()
+     coinbaseTx.vout[0].nValue = block_reward;
+     coinbase_tx.block_reward_remaining = block_reward;
+ 
++    const CAmount founder_allocation{GetFounderAllocation(nHeight, chainparams.GetConsensus())};
++    if (founder_allocation > 0) {
++        const auto& founder_script_bytes{chainparams.GetConsensus().founderScriptPubKey};
++        CTxOut founder_output{founder_allocation, CScript{founder_script_bytes.begin(), founder_script_bytes.end()}};
++        coinbaseTx.vout.push_back(founder_output);
++        coinbase_tx.required_outputs.push_back(std::move(founder_output));
++    }
++
+     // Start the coinbase scriptSig with the block height as required by BIP34.
+     // Mining clients are expected to append extra data to this prefix, so
+     // increasing its length would reduce the space they can use and may break
+diff --git a/src/test/validation_block_tests.cpp b/src/test/validation_block_tests.cpp
+index 5de8937..24e7e39 100644
+--- a/src/test/validation_block_tests.cpp
++++ b/src/test/validation_block_tests.cpp
+@@ -48,6 +48,55 @@ struct MinerTestingSetup : public RegTestingSetup {
+ 
+ BOOST_FIXTURE_TEST_SUITE(validation_block_tests, MinerTestingSetup)
+ 
++
++BOOST_AUTO_TEST_CASE(radium_founder_template_and_validation)
++{
++    auto mining{interfaces::MakeMining(m_node)};
++    BOOST_REQUIRE(mining);
++
++    const auto& consensus{Params().GetConsensus()};
++    const CScript founder_script{consensus.founderScriptPubKey.begin(), consensus.founderScriptPubKey.end()};
++
++    auto block_template{mining->createNewBlock({
++        .coinbase_output_script = CScript{} << OP_TRUE,
++    }, /*cooldown=*/false)};
++    BOOST_REQUIRE(block_template);
++
++    CBlock block{block_template->getBlock()};
++    const CTransaction& coinbase{*block.vtx[0]};
++
++    size_t founder_outputs{0};
++    for (const auto& output : coinbase.vout) {
++        if (output.nValue == consensus.founderAllocation && output.scriptPubKey == founder_script) {
++            ++founder_outputs;
++        }
++    }
++    BOOST_CHECK_EQUAL(founder_outputs, 1U);
++
++    const auto coinbase_template{block_template->getCoinbaseTx()};
++    BOOST_CHECK_EQUAL(coinbase_template.block_reward_remaining, consensus.nInitialSubsidy);
++    size_t required_founder_outputs{0};
++    for (const auto& output : coinbase_template.required_outputs) {
++        if (output.nValue == consensus.founderAllocation && output.scriptPubKey == founder_script) {
++            ++required_founder_outputs;
++        }
++    }
++    BOOST_CHECK_EQUAL(required_founder_outputs, 1U);
++
++    // A block at founder height without the mandatory founder output must be rejected.
++    CMutableTransaction missing_founder{coinbase};
++    std::erase_if(missing_founder.vout, [&](const CTxOut& output) {
++        return output.nValue == consensus.founderAllocation && output.scriptPubKey == founder_script;
++    });
++    block.vtx[0] = MakeTransactionRef(std::move(missing_founder));
++    block.hashMerkleRoot = BlockMerkleRoot(block);
++
++    std::string reason;
++    std::string debug;
++    BOOST_CHECK(!mining->checkBlock(block, {.check_pow = false}, reason, debug));
++    BOOST_CHECK_EQUAL(reason, "bad-founder-allocation");
++}
++
+ struct TestSubscriber final : public CValidationInterface {
+     uint256 m_expected_tip;
+ 
+@@ -89,18 +138,31 @@ std::shared_ptr<CBlock> MinerTestingSetup::Block(const uint256& prev_hash)
+     pblock->hashPrevBlock = prev_hash;
+     pblock->nTime = ++time;
+ 
+-    // Make the coinbase transaction with two outputs:
+-    // One zero-value one that has a unique pubkey to make sure that blocks at the same height can have a different hash
+-    // Another one that has the coinbase reward in a P2WSH with OP_TRUE as witness program to make it easy to spend
++    // Make the coinbase transaction for the height implied by prev_hash, rather than
++    // the current active tip. BuildChain() constructs forks before processing them, so
++    // createNewBlock() may have produced a template for a different height.
+     CMutableTransaction txCoinbase(*pblock->vtx[0]);
++    const int prev_height{WITH_LOCK(::cs_main, return m_node.chainman->m_blockman.LookupBlockIndex(prev_hash)->nHeight)};
++    const int target_height{prev_height + 1};
++    const auto& consensus{Params().GetConsensus()};
++
++    // Two standard test outputs:
++    // - a zero-value unique output so blocks at the same height can have different hashes
++    // - the miner subsidy in a P2WSH OP_TRUE output so tests can spend it easily
+     txCoinbase.vout.resize(2);
+     txCoinbase.vout[1].scriptPubKey = P2WSH_OP_TRUE;
+-    txCoinbase.vout[1].nValue = txCoinbase.vout[0].nValue;
++    txCoinbase.vout[1].nValue = GetBlockSubsidy(target_height, consensus);
+     txCoinbase.vout[0].nValue = 0;
++
++    // Preserve Radium's one-time founder allocation only at its actual consensus height.
++    if (const CAmount founder_allocation{GetFounderAllocation(target_height, consensus)}; founder_allocation > 0) {
++        const CScript founder_script{consensus.founderScriptPubKey.begin(), consensus.founderScriptPubKey.end()};
++        txCoinbase.vout.emplace_back(founder_allocation, founder_script);
++    }
++
+     txCoinbase.vin[0].scriptWitness.SetNull();
+     // Always pad with OP_0 as dummy extraNonce (also avoids bad-cb-length error for block <=16)
+-    const int prev_height{WITH_LOCK(::cs_main, return m_node.chainman->m_blockman.LookupBlockIndex(prev_hash)->nHeight)};
+-    txCoinbase.vin[0].scriptSig = CScript{} << prev_height + 1 << OP_0;
++    txCoinbase.vin[0].scriptSig = CScript{} << target_height << OP_0;
+     txCoinbase.nLockTime = static_cast<uint32_t>(prev_height);
+     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
+ 
+diff --git a/src/validation.cpp b/src/validation.cpp
+index 62c3d3b..953efc9 100644
+--- a/src/validation.cpp
++++ b/src/validation.cpp
+@@ -2628,7 +2628,13 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state,
+              Ticks<SecondsDouble>(m_chainman.time_connect),
+              Ticks<MillisecondsDouble>(m_chainman.time_connect) / m_chainman.num_blocks_total);
+ 
+-    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, params.GetConsensus());
++    const CAmount founder_allocation{GetFounderAllocation(pindex->nHeight, params.GetConsensus())};
++    if (!CheckFounderAllocation(*block.vtx[0], pindex->nHeight, params.GetConsensus()) && state.IsValid()) {
++        state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-founder-allocation",
++                      "coinbase is missing the unique mandatory founder allocation output");
++    }
++
++    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, params.GetConsensus()) + founder_allocation;
+     if (block.vtx[0]->GetValueOut() > blockReward && state.IsValid()) {
+         state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-amount",
+                       strprintf("coinbase pays too much (actual=%d vs limit=%d)", block.vtx[0]->GetValueOut(), blockReward));
