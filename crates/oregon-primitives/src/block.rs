@@ -1,3 +1,103 @@
+use crate::hash::domain_hash;
+use crate::{DecodeLimits, Decoder, Hash256, PrimitiveError, Transaction, write_varint};
+
+const BLOCK_DOMAIN: &[u8] = b"OREGON/BLOCK/V0\0";
+const BLOCK_HEADER_BYTES: usize = 114;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockHeader {
+    pub version: u16,
+    pub previous_block: Hash256,
+    pub transaction_root: Hash256,
+    pub timestamp: u64,
+    pub difficulty_commitment: [u8; 32],
+    pub nonce: u64,
+}
+
+impl BlockHeader {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(BLOCK_HEADER_BYTES);
+        bytes.extend_from_slice(&self.version.to_le_bytes());
+        bytes.extend_from_slice(self.previous_block.as_bytes());
+        bytes.extend_from_slice(self.transaction_root.as_bytes());
+        bytes.extend_from_slice(&self.timestamp.to_le_bytes());
+        bytes.extend_from_slice(&self.difficulty_commitment);
+        bytes.extend_from_slice(&self.nonce.to_le_bytes());
+        bytes
+    }
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, PrimitiveError> {
+        let mut decoder = Decoder::new(bytes);
+        let header = Self::decode_from(&mut decoder)?;
+        decoder.finish()?;
+        Ok(header)
+    }
+
+    fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, PrimitiveError> {
+        let version = decoder.read_u16()?;
+        let previous_block = Hash256::from_slice(decoder.read_bytes(32)?)?;
+        let transaction_root = Hash256::from_slice(decoder.read_bytes(32)?)?;
+        let timestamp = decoder.read_u64()?;
+        let mut difficulty_commitment = [0u8; 32];
+        difficulty_commitment.copy_from_slice(decoder.read_bytes(32)?);
+        let nonce = decoder.read_u64()?;
+
+        Ok(Self {
+            version,
+            previous_block,
+            transaction_root,
+            timestamp,
+            difficulty_commitment,
+            nonce,
+        })
+    }
+
+    pub fn block_id(&self) -> Hash256 {
+        domain_hash(BLOCK_DOMAIN, &self.encode())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Block {
+    pub header: BlockHeader,
+    pub transactions: Vec<Transaction>,
+}
+
+impl Block {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut bytes = self.header.encode();
+        write_varint(self.transactions.len() as u64, &mut bytes);
+        for transaction in &self.transactions {
+            bytes.extend_from_slice(&transaction.encode());
+        }
+        bytes
+    }
+
+    pub fn decode(bytes: &[u8], limits: &DecodeLimits) -> Result<Self, PrimitiveError> {
+        if bytes.len() > limits.max_object_bytes {
+            return Err(PrimitiveError::LengthLimitExceeded);
+        }
+
+        let mut decoder = Decoder::new(bytes);
+        let header = BlockHeader::decode_from(&mut decoder)?;
+        let transaction_count = decoder.read_len(limits.max_block_transactions)?;
+        if transaction_count == 0 {
+            return Err(PrimitiveError::EmptyBlockTransactions);
+        }
+
+        let mut transactions = Vec::with_capacity(transaction_count);
+        for _ in 0..transaction_count {
+            transactions.push(Transaction::decode_from(&mut decoder, limits)?);
+        }
+        decoder.finish()?;
+
+        Ok(Self {
+            header,
+            transactions,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

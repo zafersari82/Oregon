@@ -74,6 +74,15 @@ impl Transaction {
         }
 
         let mut decoder = Decoder::new(bytes);
+        let transaction = Self::decode_from(&mut decoder, limits)?;
+        decoder.finish()?;
+        Ok(transaction)
+    }
+
+    pub(crate) fn decode_from(
+        decoder: &mut Decoder<'_>,
+        limits: &DecodeLimits,
+    ) -> Result<Self, PrimitiveError> {
         let version = decoder.read_u16()?;
         if version != 1 {
             return Err(PrimitiveError::InvalidVersion(version));
@@ -114,7 +123,6 @@ impl Transaction {
         }
 
         let lock_time = decoder.read_u64()?;
-        decoder.finish()?;
 
         Ok(Self {
             version,
