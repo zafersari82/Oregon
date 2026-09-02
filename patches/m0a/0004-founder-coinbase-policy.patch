@@ -27,11 +27,11 @@ diff --git a/src/test/validation_tests.cpp b/src/test/validation_tests.cpp
 index bffaf03..30333a6 100644
 --- a/src/test/validation_tests.cpp
 +++ b/src/test/validation_tests.cpp
-@@ -90,6 +90,32 @@ BOOST_AUTO_TEST_CASE(radium_founder_allocation_test)
+@@ -90,6 +90,32 @@ BOOST_AUTO_TEST_CASE(oregon_founder_allocation_test)
      BOOST_CHECK_EQUAL(GetFounderAllocation(200'000, consensus), CAmount{0});
  }
  
-+BOOST_AUTO_TEST_CASE(radium_founder_coinbase_policy_test)
++BOOST_AUTO_TEST_CASE(oregon_founder_coinbase_policy_test)
 +{
 +    const auto chain_params = CreateChainParams(*m_node.args, ChainType::REGTEST);
 +    const auto& consensus = chain_params->GetConsensus();
