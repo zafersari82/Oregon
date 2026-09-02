@@ -4,19 +4,26 @@ Plan: `docs/superpowers/plans/2026-09-02-oregon-v0-protocol-foundation.md`
 Spec: `docs/superpowers/specs/2026-09-02-oregon-v0-protocol-design.md`
 Development branch: `oregon-v0-protocol`
 
-## Recovery checkpoint
+## Recovery checkpoints
 
-Verified checkpoint branch: `oregon-v0-checkpoint-task4-green-2026-09-02`
-Verified commit: `6b3bfb6f3a8c21cd66833c3456a0e520fc03930b`
-GitHub Actions run: `33663066004` (`Oregon Rust CI`, success)
+Base Task 4 implementation checkpoint:
+- Branch: `oregon-v0-checkpoint-task4-green-2026-09-02`
+- Commit: `6b3bfb6f3a8c21cd66833c3456a0e520fc03930b`
+- GitHub Actions run: `33663066004` (`Oregon Rust CI`, success)
+
+Task 4 accepted checkpoint:
+- Branch: `oregon-v0-checkpoint-task4-accepted-2026-09-02`
+- Commit: `330a8c47f4bc0b6e74109485ce94591a727fe2e2`
+- GitHub Actions run: `33663994561` (`Oregon Rust CI`, success)
+- Coverage at acceptance: 29 unit/property tests, including configured decode limits, truncation, trailing bytes, witness-to-txid commitment, canonical round-trip, and arbitrary hostile-byte no-panic coverage.
 
 ## Task status
 
 - Task 1 — Workspace and Amount Safety: complete and CI-verified.
 - Task 2 — Hash256 and domain-separated object hashing: complete and CI-verified.
 - Task 3 — Canonical integer encoding and bounded decoder: complete and CI-verified.
-- Task 4 — Transaction primitive, canonical bytes, and TxID: base implementation complete and CI-verified at the recovery checkpoint. Remaining before Task 4 acceptance: hostile-length tests, truncation/trailing-byte tests, bounded property round-trip tests, and final full CI verification.
-- Task 5 — Merkle commitment, block header, and block ID: not started.
+- Task 4 — Transaction primitive, canonical bytes, and TxID: complete and CI-verified.
+- Task 5 — Merkle commitment, block header, and block ID: next active task.
 - Task 6 — Protocol-v0 golden vectors and foundation acceptance: not started.
 
 ## Protocol decisions already fixed
@@ -29,4 +36,4 @@ GitHub Actions run: `33663066004` (`Oregon Rust CI`, success)
 - Consensus binary encoding is explicit and canonical; no generic serde/bincode codec.
 - Defensive parsing uses `DecodeLimits`; hostile input must return typed errors rather than panic.
 
-Do not delete the recovery checkpoint branch while the foundation milestone is in progress.
+Do not delete the recovery checkpoint branches while the foundation milestone is in progress.
