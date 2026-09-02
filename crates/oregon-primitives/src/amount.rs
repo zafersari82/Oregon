@@ -1,3 +1,41 @@
+use crate::PrimitiveError;
+
+pub const BASE_UNITS_PER_OREG: u64 = 100_000_000;
+pub const MAX_SUPPLY_BASE_UNITS: u64 = 1_000_000 * BASE_UNITS_PER_OREG;
+pub const FOUNDER_ALLOCATION_BASE_UNITS: u64 = 50_000 * BASE_UNITS_PER_OREG;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Amount(u64);
+
+impl Amount {
+    pub fn from_base_units(value: u64) -> Result<Self, PrimitiveError> {
+        if value > MAX_SUPPLY_BASE_UNITS {
+            return Err(PrimitiveError::AmountAboveMaximum);
+        }
+        Ok(Self(value))
+    }
+
+    pub const fn base_units(self) -> u64 {
+        self.0
+    }
+
+    pub fn checked_add(self, rhs: Self) -> Result<Self, PrimitiveError> {
+        let value = self
+            .0
+            .checked_add(rhs.0)
+            .ok_or(PrimitiveError::AmountOverflow)?;
+        Self::from_base_units(value)
+    }
+
+    pub fn checked_sub(self, rhs: Self) -> Result<Self, PrimitiveError> {
+        let value = self
+            .0
+            .checked_sub(rhs.0)
+            .ok_or(PrimitiveError::AmountUnderflow)?;
+        Self::from_base_units(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
