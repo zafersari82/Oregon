@@ -20,7 +20,7 @@ pub fn transaction_root(transactions: &[Transaction]) -> Result<Hash256, Primiti
         }
 
         if let Some(last) = pairs.remainder().first() {
-            next.push(*last);
+            next.push(node_hash(*last, *last));
         }
 
         level = next;
