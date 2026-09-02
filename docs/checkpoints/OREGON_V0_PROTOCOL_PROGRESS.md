@@ -34,6 +34,7 @@ Task 6 accepted checkpoint:
 Foundation acceptance record:
 - File: `docs/checkpoints/OREGON_V0_PROTOCOL_FOUNDATION.md`
 - Fresh pre-checkpoint full gate: commit `aed2e932a485f1e987b3024e3cc657e7c3ad544b`, GitHub Actions run `33667003179` (`Oregon Rust CI`, success)
+- Foundation-document head gate: commit `6392c1d93d8224eb7049051f3a9843b76e19de6b`, GitHub Actions run `33667508352` (`Oregon Rust CI`, success)
 - Final recovery branch name: `oregon-v0-checkpoint-foundation-accepted-2026-09-02`
 - The final recovery branch is created only after the exact final development-head commit passes the branch CI gate.
 
@@ -45,7 +46,7 @@ Foundation acceptance record:
 - Task 4 — Transaction primitive, canonical bytes, and TxID: complete and CI-verified.
 - Task 5 — Merkle commitment, block header, and block ID: complete and CI-verified.
 - Task 6 — Protocol-v0 golden vectors: complete and CI-verified, including mutation sensitivity.
-- Task 7 — Foundation acceptance record and independence review: complete pending the final checkpoint commit's CI gate.
+- Task 7 — Foundation acceptance record and independence review: complete and CI-verified.
 
 ## Protocol decisions already fixed
 
