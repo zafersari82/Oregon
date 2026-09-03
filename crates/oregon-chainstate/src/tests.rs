@@ -47,7 +47,7 @@ fn test_config(genesis_timestamp: u64, nonce: u64) -> ChainConfig {
     ChainConfig {
         anchor_header: test_anchor(genesis_timestamp, nonce),
         genesis_timestamp,
-        params: ConsensusParams::new(target.clone(), target, [0x42; 32]).unwrap(),
+        params: ConsensusParams::new(target, target, [0x42; 32]).unwrap(),
     }
 }
 
