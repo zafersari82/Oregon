@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use rocksdb::{ColumnFamilyDescriptor, DB, Options, WriteOptions};
+use rocksdb::{
+    ColumnFamilyDescriptor, DB, DEFAULT_COLUMN_FAMILY_NAME, IteratorMode, Options, WriteOptions,
+};
 
 use crate::error::StorageError;
 use crate::schema::{
@@ -43,6 +45,12 @@ impl OregonDb {
                 }
             }
             None => {
+                if !database_has_no_user_records(&db)? {
+                    return Err(StorageError::CorruptData(
+                        "missing schema version in non-empty database".to_owned(),
+                    ));
+                }
+
                 let mut write_options = WriteOptions::default();
                 write_options.set_sync(true);
                 write_options.disable_wal(false);
@@ -74,4 +82,21 @@ impl OregonDb {
     pub(crate) fn has_column_family(&self, name: &str) -> bool {
         self.db.cf_handle(name).is_some()
     }
+}
+
+fn database_has_no_user_records(db: &DB) -> Result<bool, StorageError> {
+    for name in OREGON_COLUMN_FAMILIES
+        .into_iter()
+        .chain(std::iter::once(DEFAULT_COLUMN_FAMILY_NAME))
+    {
+        let column_family = db.cf_handle(name).ok_or_else(|| {
+            StorageError::CorruptData(format!("missing {name} column family"))
+        })?;
+        match db.iterator_cf(column_family, IteratorMode::Start).next() {
+            None => {}
+            Some(Ok(_)) => return Ok(false),
+            Some(Err(error)) => return Err(StorageError::RocksDb(error)),
+        }
+    }
+    Ok(true)
 }
