@@ -3,23 +3,26 @@ use oregon_primitives::{BlockHeader, Hash256};
 
 use crate::{ConsensusError, Target};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PowContext {
-    pub candidate_height: u64,
-    pub key_block_height: u64,
-    pub key_block_id: Hash256,
+/// Supplies block IDs from an already-validated active chain.
+///
+/// The PoW validator chooses the required RandomX key-block height itself. Implementations must
+/// return the block ID committed at that height by the validated chain, never a miner-provided ID.
+pub trait PowKeyBlockSource {
+    fn validated_block_id_at_height(&self, height: u64) -> Option<Hash256>;
 }
 
-pub fn validate_header_pow(
+pub fn validate_header_pow<S: PowKeyBlockSource + ?Sized>(
     header: &BlockHeader,
-    context: PowContext,
+    candidate_height: u64,
+    key_blocks: &S,
     engine: &mut LightEngine,
 ) -> Result<[u8; 32], ConsensusError> {
-    if context.key_block_height != key_block_height(context.candidate_height) {
-        return Err(ConsensusError::PowKeyHeightMismatch);
-    }
+    let required_key_height = key_block_height(candidate_height);
+    let key_block_id = key_blocks
+        .validated_block_id_at_height(required_key_height)
+        .ok_or(ConsensusError::PowKeyBlockUnavailable)?;
 
-    let expected_key = derive_randomx_key(context.key_block_id);
+    let expected_key = derive_randomx_key(key_block_id);
     if engine.key() != expected_key {
         return Err(ConsensusError::PowEngineKeyMismatch);
     }
