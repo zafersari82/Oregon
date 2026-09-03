@@ -120,6 +120,9 @@ pub(crate) fn load_reorg_plan(
             index: node.index,
             block,
         });
+        if candidate.len() == 1 {
+            break;
+        }
     }
 
     Ok(ReorgPlan {
