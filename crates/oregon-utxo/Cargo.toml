@@ -5,5 +5,6 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+oregon-consensus = { path = "../oregon-consensus" }
 oregon-primitives = { path = "../oregon-primitives" }
 thiserror = "2.0.20"
