@@ -1,9 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::{
-    CF_BLOCKS, CF_BLOCK_INDEX, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb, SchemaVersion,
-};
+use crate::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb, SchemaVersion};
 
 struct TestDir(PathBuf);
 
@@ -11,10 +9,7 @@ impl TestDir {
     fn new(label: &str) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "oregon-{label}-{}-{n}",
-            std::process::id()
-        ));
+        let path = std::env::temp_dir().join(format!("oregon-{label}-{}-{n}", std::process::id()));
         std::fs::create_dir_all(&path).unwrap();
         Self(path)
     }

@@ -13,13 +13,8 @@ pub const CF_UTXO: &str = "utxo";
 pub const CF_UNDO: &str = "undo";
 pub const CF_CHAIN_META: &str = "chain_meta";
 
-const OREGON_COLUMN_FAMILIES: [&str; 5] = [
-    CF_BLOCKS,
-    CF_BLOCK_INDEX,
-    CF_UTXO,
-    CF_UNDO,
-    CF_CHAIN_META,
-];
+const OREGON_COLUMN_FAMILIES: [&str; 5] =
+    [CF_BLOCKS, CF_BLOCK_INDEX, CF_UTXO, CF_UNDO, CF_CHAIN_META];
 
 pub struct OregonDb {
     db: DB,
