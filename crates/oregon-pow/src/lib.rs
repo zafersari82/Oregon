@@ -2,12 +2,14 @@ mod engine;
 mod ffi;
 mod input;
 mod key;
+mod target;
 
 pub use engine::{LightEngine, PowError};
 pub use input::{POW_INPUT_DOMAIN, pow_input};
 pub use key::{
     RANDOMX_KEY_DELAY, RANDOMX_KEY_DOMAIN, RANDOMX_KEY_EPOCH, derive_randomx_key, key_block_height,
 };
+pub use target::hash_meets_target;
 
 pub const RANDOMX_UPSTREAM_COMMIT: &str = "aaafe71322df6602c21a5c72937ac284724ae561";
 pub const OREGON_RANDOMX_ARGON_SALT: &str = "OREGON-RANDOMX-V1";
