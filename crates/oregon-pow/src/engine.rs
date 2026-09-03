@@ -6,10 +6,11 @@ use std::{
 };
 
 use crate::ffi::{
-    RANDOMX_FLAG_DEFAULT, RANDOMX_FLAG_FULL_MEM, RANDOMX_FLAG_V2, RandomxCache, RandomxDataset,
-    RandomxVm, randomx_alloc_cache, randomx_alloc_dataset, randomx_calculate_hash,
-    randomx_create_vm, randomx_dataset_item_count, randomx_destroy_vm, randomx_init_cache,
-    randomx_init_dataset, randomx_release_cache, randomx_release_dataset,
+    RANDOMX_FLAG_ARGON2, RANDOMX_FLAG_DEFAULT, RANDOMX_FLAG_FULL_MEM, RANDOMX_FLAG_V2,
+    RandomxCache, RandomxDataset, RandomxVm, randomx_alloc_cache, randomx_alloc_dataset,
+    randomx_calculate_hash, randomx_create_vm, randomx_dataset_item_count, randomx_destroy_vm,
+    randomx_get_flags, randomx_init_cache, randomx_init_dataset, randomx_release_cache,
+    randomx_release_dataset,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,7 +84,9 @@ pub struct FullEngine {
 
 impl FullEngine {
     pub fn new(key: [u8; 32]) -> Result<Self, PowError> {
-        let cache = unsafe { randomx_alloc_cache(RANDOMX_FLAG_V2) };
+        let recommended = unsafe { randomx_get_flags() };
+        let cache_flags = recommended | RANDOMX_FLAG_V2;
+        let cache = unsafe { randomx_alloc_cache(cache_flags) };
         let cache = NonNull::new(cache).ok_or(PowError::CacheAllocationFailed)?;
 
         unsafe {
@@ -102,7 +105,8 @@ impl FullEngine {
             randomx_release_cache(cache.as_ptr());
         }
 
-        let vm_flags = RANDOMX_FLAG_V2 | RANDOMX_FLAG_FULL_MEM;
+        let vm_flags =
+            (recommended & !RANDOMX_FLAG_ARGON2) | RANDOMX_FLAG_V2 | RANDOMX_FLAG_FULL_MEM;
         let vm = unsafe { randomx_create_vm(vm_flags, ptr::null_mut(), dataset.as_ptr()) };
         let Some(vm) = NonNull::new(vm) else {
             unsafe { randomx_release_dataset(dataset.as_ptr()) };
