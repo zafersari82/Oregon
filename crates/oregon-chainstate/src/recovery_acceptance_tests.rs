@@ -192,13 +192,11 @@ fn seed_storage_chain(
     let mut batch = StorageBatch::new();
 
     for height in 1..=tip_height {
-        let mut root = [0u8; 32];
-        root[..8].copy_from_slice(&height.to_le_bytes());
-        root[8] = 0x5a;
+        let transactions = vec![coinbase(config, height)];
         let header = BlockHeader {
             version: 1,
             previous_block: parent_id,
-            transaction_root: Hash256::from_bytes(root),
+            transaction_root: transaction_root(&transactions).unwrap(),
             timestamp: config.genesis_timestamp + height * 300,
             difficulty_commitment: config.params.initial_target.to_le_bytes(),
             nonce: 100_000 + height,
@@ -219,7 +217,7 @@ fn seed_storage_chain(
         if body_retained {
             batch.put_block(Block {
                 header,
-                transactions: vec![],
+                transactions,
             });
             batch.put_undo(
                 block_id,
@@ -298,16 +296,17 @@ fn accepted_active_state_reopens_when_pruning_was_skipped_and_side_data_remains(
         AcceptOutcome::Extended
     );
 
+    let side_transactions = vec![coinbase(&config, 1)];
     let side = Block {
         header: BlockHeader {
             version: 1,
             previous_block: config.anchor_header.block_id(),
-            transaction_root: Hash256::from_bytes([0x77; 32]),
+            transaction_root: transaction_root(&side_transactions).unwrap(),
             timestamp: config.genesis_timestamp + 300,
             difficulty_commitment: config.params.initial_target.to_le_bytes(),
             nonce: 202,
         },
-        transactions: vec![],
+        transactions: side_transactions,
     };
     let side_id = side.header.block_id();
     assert_eq!(
@@ -372,16 +371,17 @@ fn lower_work_candidate_stays_side_chain_without_mutating_active_state() {
     let before_tip = state.tip().clone();
     let before_utxos = sorted_utxos(&state);
 
+    let candidate_transactions = vec![coinbase(&config, 1)];
     let candidate = Block {
         header: BlockHeader {
             version: 1,
             previous_block: config.anchor_header.block_id(),
-            transaction_root: Hash256::from_bytes([0x88; 32]),
+            transaction_root: transaction_root(&candidate_transactions).unwrap(),
             timestamp: config.genesis_timestamp + 300,
             difficulty_commitment: config.params.initial_target.to_le_bytes(),
             nonce: 303,
         },
-        transactions: vec![],
+        transactions: candidate_transactions,
     };
     let candidate_id = candidate.header.block_id();
     assert_eq!(
