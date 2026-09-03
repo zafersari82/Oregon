@@ -1,3 +1,9 @@
+use crate::state::REORG_WINDOW;
+
+pub(crate) fn reorg_depth_allowed(depth: u64) -> bool {
+    depth <= REORG_WINDOW
+}
+
 #[cfg(test)]
 mod tests {
     use super::reorg_depth_allowed;
