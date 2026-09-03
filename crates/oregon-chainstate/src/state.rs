@@ -257,7 +257,12 @@ impl ChainState {
 
         let mut new_undos = Vec::with_capacity(candidate.len());
         for (position, node) in candidate.iter().enumerate() {
-            match staged.connect_block(&node.block, node.index.height, &self.config.params, verifier) {
+            match staged.connect_block(
+                &node.block,
+                node.index.height,
+                &self.config.params,
+                verifier,
+            ) {
                 Ok(undo) => {
                     record_connect_delta(&mut delta, &staged, &undo)?;
                     new_undos.push(undo);
