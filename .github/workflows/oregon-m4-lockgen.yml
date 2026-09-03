@@ -1,0 +1,26 @@
+name: Oregon M4 Lock Generation
+
+on:
+  push:
+    branches: [oregon-m4-lockgen-2026-09-03]
+
+permissions:
+  contents: read
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Install Rust 1.85.0
+        run: rustup toolchain install 1.85.0 --profile minimal
+      - name: Generate lockfile
+        run: cargo +1.85.0 generate-lockfile
+      - name: Print lockfile
+        run: |
+          echo 'OREGON_LOCKFILE_BASE64_BEGIN'
+          base64 -w0 Cargo.lock
+          echo
+          echo 'OREGON_LOCKFILE_BASE64_END'
