@@ -1,0 +1,25 @@
+{
+  "target": {
+    "little_endian_hex": "3412000000000000000000000000000000000000000000000000000000000000",
+    "integer_decimal": "4660"
+  },
+  "emission": {
+    "height_1": 237500000,
+    "height_200000": 237500000,
+    "height_200001": 118750000,
+    "era_27_first": 1,
+    "era_28_first": 0,
+    "scheduled_mining": 94999997000000,
+    "scheduled_with_founder": 99999997000000
+  },
+  "asert": [
+    {"name":"on_schedule", "height":2, "parent_delta":300, "expected_target":"1000000"},
+    {"name":"half_life_late", "height":2, "parent_delta":21900, "expected_target":"2000000"},
+    {"name":"half_life_early", "height":2, "parent_delta":-21300, "expected_target":"500000"},
+    {"name":"half_half_life_late", "height":2, "parent_delta":11100, "expected_target":"1414093"}
+  ],
+  "work": {
+    "target_max_work": "1",
+    "target_one_work_hex": "8000000000000000000000000000000000000000000000000000000000000000"
+  }
+}
