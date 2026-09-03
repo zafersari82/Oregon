@@ -64,18 +64,17 @@ pub(crate) fn plan_prune(
             )));
         }
 
-        let retain_body = if index.validation == ValidationStatus::Invalid
-            || index.height < active_floor
-        {
-            false
-        } else {
-            let common_fork_height = if is_active {
-                index.height
+        let retain_body =
+            if index.validation == ValidationStatus::Invalid || index.height < active_floor {
+                false
             } else {
-                discover_fork(db, block_id, index.clone())?.fork_height
+                let common_fork_height = if is_active {
+                    index.height
+                } else {
+                    discover_fork(db, block_id, index.clone())?.fork_height
+                };
+                should_retain_body(index.height, common_fork_height, active_tip_height)
             };
-            should_retain_body(index.height, common_fork_height, active_tip_height)
-        };
 
         if !retain_body {
             batch.delete_block(block_id);
@@ -130,10 +129,7 @@ mod tests {
     fn test_path() -> PathBuf {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir().join(format!(
-            "oregon-task9-prune-{}-{n}",
-            std::process::id()
-        ))
+        std::env::temp_dir().join(format!("oregon-task9-prune-{}-{n}", std::process::id()))
     }
 
     fn stored_block(parent: Hash256, height: u64) -> Block {
@@ -194,16 +190,8 @@ mod tests {
         let deepest_permitted_fork = tip - REORG_WINDOW;
 
         assert!(should_retain_body(floor, deepest_permitted_fork, tip));
-        assert!(!should_retain_body(
-            floor - 1,
-            deepest_permitted_fork,
-            tip
-        ));
-        assert!(!should_retain_body(
-            floor,
-            deepest_permitted_fork - 1,
-            tip
-        ));
+        assert!(!should_retain_body(floor - 1, deepest_permitted_fork, tip));
+        assert!(!should_retain_body(floor, deepest_permitted_fork - 1, tip));
         assert!(should_retain_body(tip, tip, tip));
     }
 
