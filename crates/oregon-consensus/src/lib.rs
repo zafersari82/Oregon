@@ -19,7 +19,7 @@ pub use emission::{
 pub use error::ConsensusError;
 pub use header::{HeaderContext, PrePowHeaderFacts, validate_header_pre_pow};
 pub use params::ConsensusParams;
-pub use pow::{PowContext, validate_header_pow};
+pub use pow::{PowKeyBlockSource, validate_header_pow};
 pub use target::Target;
 pub use time::median_time_past;
 pub use work::{ChainWork, block_work};
@@ -29,7 +29,18 @@ mod pow_bridge_tests {
     use oregon_pow::{LightEngine, derive_randomx_key};
     use oregon_primitives::{BlockHeader, Hash256};
 
-    use super::{ConsensusError, PowContext, validate_header_pow};
+    use super::{ConsensusError, PowKeyBlockSource, validate_header_pow};
+
+    struct KeyBlocks {
+        height: u64,
+        id: Hash256,
+    }
+
+    impl PowKeyBlockSource for KeyBlocks {
+        fn validated_block_id_at_height(&self, height: u64) -> Option<Hash256> {
+            (height == self.height).then_some(self.id)
+        }
+    }
 
     fn header(target: [u8; 32]) -> BlockHeader {
         BlockHeader {
@@ -43,52 +54,54 @@ mod pow_bridge_tests {
     }
 
     #[test]
-    fn randomx_pow_bridge_accepts_matching_schedule_key_and_max_target() {
+    fn randomx_pow_bridge_fetches_required_key_block_from_validated_chain() {
         let key_block_id = Hash256::from_bytes([0x44; 32]);
         let key = derive_randomx_key(key_block_id);
         let mut engine = LightEngine::new(key).expect("RandomX light engine");
-        let context = PowContext {
-            candidate_height: 888,
-            key_block_height: 864,
-            key_block_id,
+        let key_blocks = KeyBlocks {
+            height: 864,
+            id: key_block_id,
         };
 
-        let hash = validate_header_pow(&header([0xff; 32]), context, &mut engine)
+        let hash = validate_header_pow(&header([0xff; 32]), 888, &key_blocks, &mut engine)
             .expect("max target accepts every RandomX hash");
         assert_ne!(hash, [0u8; 32]);
     }
 
     #[test]
-    fn randomx_pow_bridge_rejects_wrong_schedule_height_before_hashing() {
+    fn randomx_pow_bridge_rejects_missing_required_key_block() {
         let key_block_id = Hash256::from_bytes([0x44; 32]);
         let key = derive_randomx_key(key_block_id);
         let mut engine = LightEngine::new(key).expect("RandomX light engine");
-        let context = PowContext {
-            candidate_height: 888,
-            key_block_height: 0,
-            key_block_id,
+        let wrong_height_source = KeyBlocks {
+            height: 0,
+            id: key_block_id,
         };
 
         assert_eq!(
-            validate_header_pow(&header([0xff; 32]), context, &mut engine),
-            Err(ConsensusError::PowKeyHeightMismatch)
+            validate_header_pow(
+                &header([0xff; 32]),
+                888,
+                &wrong_height_source,
+                &mut engine,
+            ),
+            Err(ConsensusError::PowKeyBlockUnavailable)
         );
     }
 
     #[test]
-    fn randomx_pow_bridge_rejects_engine_bound_to_different_key() {
+    fn randomx_pow_bridge_rejects_engine_bound_to_different_chain_key() {
         let key_block_id = Hash256::from_bytes([0x44; 32]);
         let mut wrong_key = derive_randomx_key(key_block_id);
         wrong_key[0] ^= 1;
         let mut engine = LightEngine::new(wrong_key).expect("RandomX light engine");
-        let context = PowContext {
-            candidate_height: 888,
-            key_block_height: 864,
-            key_block_id,
+        let key_blocks = KeyBlocks {
+            height: 864,
+            id: key_block_id,
         };
 
         assert_eq!(
-            validate_header_pow(&header([0xff; 32]), context, &mut engine),
+            validate_header_pow(&header([0xff; 32]), 888, &key_blocks, &mut engine),
             Err(ConsensusError::PowEngineKeyMismatch)
         );
     }
@@ -98,16 +111,15 @@ mod pow_bridge_tests {
         let key_block_id = Hash256::from_bytes([0x44; 32]);
         let key = derive_randomx_key(key_block_id);
         let mut engine = LightEngine::new(key).expect("RandomX light engine");
-        let context = PowContext {
-            candidate_height: 888,
-            key_block_height: 864,
-            key_block_id,
+        let key_blocks = KeyBlocks {
+            height: 864,
+            id: key_block_id,
         };
         let mut tiny_target = [0u8; 32];
         tiny_target[0] = 1;
 
         assert_eq!(
-            validate_header_pow(&header(tiny_target), context, &mut engine),
+            validate_header_pow(&header(tiny_target), 888, &key_blocks, &mut engine),
             Err(ConsensusError::InsufficientProofOfWork)
         );
     }
