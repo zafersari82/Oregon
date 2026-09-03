@@ -1,11 +1,16 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use oregon_consensus::{ChainWork, ConsensusParams, Target, block_work};
+use oregon_consensus::{
+    ChainWork, ConsensusError, ConsensusParams, HeaderContext, PowKeyBlockSource, Target, block_work,
+    validate_header_pow, validate_header_pre_pow,
+};
+use oregon_pow::{LightEngine, derive_randomx_key, key_block_height};
 use oregon_primitives::{Block, BlockHeader, Hash256, OutPoint, Transaction, transaction_root};
 use oregon_storage::{BlockIndexRecord, OregonDb, StorageBatch, ValidationStatus};
 use oregon_utxo::BlockUndo;
 
+use crate::branch::BranchView;
 use crate::{ChainConfig, ChainState, SessionHealth};
 
 struct TestDir(PathBuf);
@@ -108,6 +113,49 @@ fn seed_height_one(
     batch.set_prune_cursor(prune_cursor);
     db.commit_durable(batch).unwrap();
     block_id
+}
+
+fn seed_header_branch(
+    path: &Path,
+    config: &ChainConfig,
+    tip_height: u64,
+    nonce_domain: u64,
+) -> Vec<Hash256> {
+    drop(ChainState::open(path, config.clone()).unwrap());
+
+    let db = OregonDb::open(path).unwrap();
+    let mut ids = Vec::with_capacity(tip_height as usize + 1);
+    ids.push(config.anchor_header.block_id());
+    let mut parent = config.anchor_header.clone();
+    let mut cumulative_work = ChainWork::zero();
+    let per_block_work = block_work(config.params.initial_target);
+    let mut batch = StorageBatch::new();
+
+    for height in 1..=tip_height {
+        let header = BlockHeader {
+            version: 1,
+            previous_block: parent.block_id(),
+            transaction_root: Hash256::from_bytes([height as u8; 32]),
+            timestamp: config.genesis_timestamp + height * 300,
+            difficulty_commitment: config.params.initial_target.to_le_bytes(),
+            nonce: nonce_domain + height,
+        };
+        cumulative_work.add_assign(&per_block_work);
+        let block_id = header.block_id();
+        batch.put_index(BlockIndexRecord {
+            parent: header.previous_block,
+            header: header.clone(),
+            height,
+            cumulative_work: cumulative_work.clone(),
+            validation: ValidationStatus::HeaderValidated,
+            body_retained: false,
+        });
+        ids.push(block_id);
+        parent = header;
+    }
+
+    db.commit_durable(batch).unwrap();
+    ids
 }
 
 #[test]
@@ -247,4 +295,69 @@ fn reopen_rejects_corrupt_persisted_utxo_bytes() {
     drop(db);
 
     assert!(ChainState::open(dir.path(), config).is_err());
+}
+
+#[test]
+fn branch_view_follows_exact_candidate_ancestry_and_caps_mtp_at_eleven() {
+    let dir = TestDir::new("branch-ancestry");
+    let config = test_config(1_800_000_000, 7);
+    let ids = seed_header_branch(dir.path(), &config, 13, 10_000);
+    let db = OregonDb::open(dir.path()).unwrap();
+    let view = BranchView::new(&db, ids[13]);
+
+    assert_eq!(view.ancestor_id_at_height(0).unwrap(), Some(ids[0]));
+    assert_eq!(view.ancestor_id_at_height(7).unwrap(), Some(ids[7]));
+    assert_eq!(view.ancestor_id_at_height(13).unwrap(), Some(ids[13]));
+    assert_eq!(view.ancestor_id_at_height(14).unwrap(), None);
+
+    let expected: Vec<u64> = (3..=13)
+        .rev()
+        .map(|height| config.genesis_timestamp + height * 300)
+        .collect();
+    assert_eq!(view.mtp_window().unwrap(), expected);
+}
+
+#[test]
+fn branch_view_supplies_randomx_key_block_from_candidate_ancestry() {
+    let dir = TestDir::new("branch-randomx-key");
+    let config = test_config(1_800_000_000, 7);
+    let ids = seed_header_branch(dir.path(), &config, 887, 20_000);
+    let db = OregonDb::open(dir.path()).unwrap();
+    let view = BranchView::new(&db, ids[887]);
+
+    assert_eq!(key_block_height(888), 864);
+    assert_eq!(view.validated_block_id_at_height(864), Some(ids[864]));
+
+    let parent = db.get_index(ids[887]).unwrap().unwrap();
+    let mtp_window = view.mtp_window().unwrap();
+    let candidate = BlockHeader {
+        version: 1,
+        previous_block: ids[887],
+        transaction_root: Hash256::from_bytes([0x77; 32]),
+        timestamp: config.genesis_timestamp + 888 * 300,
+        difficulty_commitment: config.params.initial_target.to_le_bytes(),
+        nonce: 30_000,
+    };
+    let facts = validate_header_pre_pow(
+        &candidate,
+        &HeaderContext {
+            height: 888,
+            parent: &parent.header,
+            genesis_timestamp: config.genesis_timestamp,
+            mtp_window: &mtp_window,
+        },
+        &config.params,
+    )
+    .unwrap();
+
+    let mut correct_engine = LightEngine::new(derive_randomx_key(ids[864])).unwrap();
+    validate_header_pow(&candidate, &facts, &view, &mut correct_engine).unwrap();
+
+    let wrong_key_id = Hash256::from_bytes([0xee; 32]);
+    assert_ne!(wrong_key_id, ids[864]);
+    let mut wrong_engine = LightEngine::new(derive_randomx_key(wrong_key_id)).unwrap();
+    assert_eq!(
+        validate_header_pow(&candidate, &facts, &view, &mut wrong_engine),
+        Err(ConsensusError::PowEngineKeyMismatch)
+    );
 }
