@@ -37,7 +37,13 @@ pub fn validate_non_genesis_block_skeleton(
     }
 
     let null_txid = Hash256::from_bytes([0u8; 32]);
-    for transaction in &block.transactions[1..] {
+    for (index, transaction) in block.transactions.iter().enumerate().skip(1) {
+        if transaction.inputs.is_empty() {
+            return Err(ConsensusError::EmptyNormalTransactionInputs(index));
+        }
+        if transaction.outputs.is_empty() {
+            return Err(ConsensusError::EmptyNormalTransactionOutputs(index));
+        }
         if is_coinbase_form(transaction) {
             return Err(ConsensusError::MultipleCoinbase);
         }
