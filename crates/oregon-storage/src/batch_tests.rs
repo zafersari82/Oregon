@@ -154,10 +154,7 @@ fn durable_commit_requests_sync_and_maintenance_does_not() {
     assert_eq!(db.test_hooks().last_mode(), Some(DurabilityMode::Sync));
 
     db.commit_maintenance(StorageBatch::new()).unwrap();
-    assert_eq!(
-        db.test_hooks().last_mode(),
-        Some(DurabilityMode::NoSync)
-    );
+    assert_eq!(db.test_hooks().last_mode(), Some(DurabilityMode::NoSync));
 }
 
 #[test]
