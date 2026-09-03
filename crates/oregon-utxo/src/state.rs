@@ -59,15 +59,11 @@ impl UtxoState {
         spend_height: u64,
         verifier: &V,
     ) -> Result<u64, UtxoError> {
-        let mut seen = HashSet::with_capacity(tx.inputs.len());
         let mut input_sum = 0u64;
         let mut consumed = Vec::with_capacity(tx.inputs.len());
 
         for (input_index, input) in tx.inputs.iter().enumerate() {
             let outpoint = input.outpoint();
-            if !seen.insert(outpoint) {
-                return Err(UtxoError::DuplicateInput(outpoint));
-            }
 
             let entry = self
                 .entries
