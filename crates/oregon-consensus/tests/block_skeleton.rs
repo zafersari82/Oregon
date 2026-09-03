@@ -73,3 +73,43 @@ fn skeleton_rejects_merkle_mutation_before_fee_accounting() {
         Err(ConsensusError::MerkleRootMismatch)
     );
 }
+
+#[test]
+fn skeleton_rejects_normal_transaction_without_inputs() {
+    let empty_inputs = Transaction {
+        version: 1,
+        inputs: vec![],
+        outputs: vec![TxOutput {
+            value: Amount::from_base_units(0).unwrap(),
+            locking_program: vec![1],
+        }],
+        lock_time: 0,
+    };
+    let candidate = block(200, vec![coinbase(200), empty_inputs]);
+
+    assert_eq!(
+        validate_non_genesis_block_skeleton(&candidate, 200),
+        Err(ConsensusError::EmptyNormalTransactionInputs(1))
+    );
+}
+
+#[test]
+fn skeleton_rejects_normal_transaction_without_outputs() {
+    let empty_outputs = Transaction {
+        version: 1,
+        inputs: vec![TxInput {
+            previous_txid: Hash256::from_bytes([0x33; 32]),
+            previous_output_index: 0,
+            sequence: 0,
+            witness: vec![],
+        }],
+        outputs: vec![],
+        lock_time: 0,
+    };
+    let candidate = block(200, vec![coinbase(200), empty_outputs]);
+
+    assert_eq!(
+        validate_non_genesis_block_skeleton(&candidate, 200),
+        Err(ConsensusError::EmptyNormalTransactionOutputs(1))
+    );
+}
