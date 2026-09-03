@@ -71,6 +71,10 @@ impl ChainState {
         self.session_health
     }
 
+    pub(crate) fn storage(&self) -> &OregonDb {
+        &self.db
+    }
+
     pub fn accept_block<V: SpendVerifier>(
         &mut self,
         block: Block,
