@@ -3,7 +3,7 @@ name: Oregon Rust CI
 # Oregon protocol development branches are CI-gated during test-first development.
 on:
   push:
-    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow]
+    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec]
   pull_request:
     branches: [main]
 
