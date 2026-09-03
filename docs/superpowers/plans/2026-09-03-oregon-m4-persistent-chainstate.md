@@ -15,9 +15,9 @@
 - Work only on `oregon-v1-m4-persistent-chainstate` or explicitly named throwaway mutation branches; do not merge or modify `main`.
 - Accepted base is M3 checkpoint commit `8f3ee9043b9cf3beb7b8e4653c0f2ab183233b71`.
 - Rust toolchain remains exactly `1.85.0`; CI remains locked and warnings are denied.
-- Pin `rocksdb` to exact crate version `=0.24.0`; 0.24.0 declares Rust 1.85.0 support. Do not move to 0.25.x because its MSRV is newer than this workspace.
-- Use `rocksdb = { version = "=0.24.0", default-features = false, features = ["lz4", "bindgen-runtime"] }`; do not enable `multi-threaded-cf` because M4 uses one chainstate writer and does not mutate column families concurrently.
-- Named RocksDB column families are `blocks`, `block_index`, `utxo`, `undo`, and `chain_meta`; the mandatory RocksDB `default` CF is reserved and unused for Oregon records.
+- Pin `rocksdb` to exact crate version `=0.24.0`; do not move to 0.25.x because its MSRV is newer than this workspace.
+- Use `rocksdb = { version = "=0.24.0", default-features = false, features = ["lz4", "bindgen-runtime"] }`; do not enable `multi-threaded-cf`.
+- Named RocksDB column families are `blocks`, `block_index`, `utxo`, `undo`, and `chain_meta`; RocksDB `default` CF remains reserved and unused for Oregon records.
 - Initial storage schema is exactly `1.0`.
 - Active block/reorg acceptance uses WAL enabled and synchronous durability; no accepted result or in-memory active-state publication occurs before the durable batch reports success.
 - Any acceptance write/sync error faults the current chainstate session; no further chain mutation is allowed before close/reopen recovery.
@@ -38,36 +38,115 @@
 ### Existing files modified
 
 - `Cargo.toml` — add `oregon-storage` and `oregon-chainstate` workspace members.
-- `Cargo.lock` — lock RocksDB 0.24.0 and its transitive native dependencies.
-- `.github/workflows/oregon-rust.yml` — include M4 branch in push CI and install the native Clang/libclang prerequisites needed by rust-rocksdb bindgen.
-- `crates/oregon-consensus/src/work.rs` — canonical `ChainWork` byte round-trip for storage only; chain-selection APIs still derive work from validated `PrePowHeaderFacts`.
-- `crates/oregon-utxo/src/error.rs` — explicit duplicate persisted outpoint error.
-- `crates/oregon-utxo/src/state.rs` — checked persisted-state reconstruction and read-only iteration boundary.
-- `crates/oregon-utxo/src/lib.rs` — export the persistence bridge without adding a validation bypass.
+- `Cargo.lock` — lock RocksDB 0.24.0 and native dependencies.
+- `.github/workflows/oregon-rust.yml` — include M4 branch and install Clang/libclang for rust-rocksdb bindgen.
+- `crates/oregon-consensus/src/work.rs` — canonical `ChainWork` storage bytes.
+- `crates/oregon-utxo/src/error.rs` — duplicate persisted outpoint error.
+- `crates/oregon-utxo/src/state.rs` — checked persisted-state reconstruction and read-only iteration.
+- `crates/oregon-utxo/src/lib.rs` — export persistence bridge.
 
 ### New `oregon-storage` files
 
-- `crates/oregon-storage/Cargo.toml` — exact RocksDB dependency and Oregon domain dependencies.
-- `crates/oregon-storage/src/lib.rs` — public storage API exports.
-- `crates/oregon-storage/src/error.rs` — `StorageError` and corruption/schema/durability distinctions.
-- `crates/oregon-storage/src/codec.rs` — deterministic primitive codecs, bounded cursor, outpoint key codec.
-- `crates/oregon-storage/src/records.rs` — versioned `BlockIndexRecord`, schema/health/tip metadata codecs.
-- `crates/oregon-storage/src/schema.rs` — schema 1.0 open checks, migration marker and restart-resumable minor-migration runner.
-- `crates/oregon-storage/src/batch.rs` — RocksDB-independent `StorageBatch` operation builder and durability mode.
-- `crates/oregon-storage/src/db.rs` — RocksDB open/CF ownership, typed reads/iterators, durable and maintenance batch execution.
-- `crates/oregon-storage/src/tests.rs` — storage round-trip, corruption, determinism, durability-mode, migration and reopen tests.
+- `crates/oregon-storage/Cargo.toml` — RocksDB/Oregon dependencies and disabled-by-default `test-hooks` feature.
+- `crates/oregon-storage/src/lib.rs` — public storage exports.
+- `crates/oregon-storage/src/error.rs` — storage errors.
+- `crates/oregon-storage/src/codec.rs` — deterministic bounded codecs and 36-byte outpoint keys.
+- `crates/oregon-storage/src/records.rs` — block-index and metadata record types/codecs.
+- `crates/oregon-storage/src/schema.rs` — schema 1.0 and restart-resumable migration engine.
+- `crates/oregon-storage/src/batch.rs` — typed batch plan and durability mode.
+- `crates/oregon-storage/src/db.rs` — RocksDB ownership, typed reads and writes.
+- `crates/oregon-storage/src/tests.rs` — storage tests.
 
 ### New `oregon-chainstate` files
 
-- `crates/oregon-chainstate/Cargo.toml` — Oregon domain dependencies plus `thiserror`.
-- `crates/oregon-chainstate/src/lib.rs` — exported chainstate types and API.
-- `crates/oregon-chainstate/src/error.rs` — `ChainStateError`, `StorageFaulted`, `DeepReorg`, `ReindexRequired`, missing body/undo errors.
-- `crates/oregon-chainstate/src/config.rs` — trusted height-0 anchor/header, genesis timestamp and consensus params binding.
-- `crates/oregon-chainstate/src/branch.rs` — branch ancestry lookup, MTP window collection and branch-aware `PowKeyBlockSource`.
-- `crates/oregon-chainstate/src/state.rs` — open/bootstrap, block admission, active extension and storage-fault session state.
-- `crates/oregon-chainstate/src/reorg.rs` — common-fork discovery, 8,064 boundary, staged disconnect/connect and atomic reorg publication.
-- `crates/oregon-chainstate/src/prune.rs` — exact safe pruning predicate and idempotent maintenance plan.
-- `crates/oregon-chainstate/src/tests.rs` — bootstrap/reopen, direct extension, side-chain, reorg, pruning, crash/fault and corruption integration tests.
+- `crates/oregon-chainstate/Cargo.toml` — consensus/pow/primitives/storage/utxo dependencies.
+- `crates/oregon-chainstate/src/lib.rs` — public chainstate exports.
+- `crates/oregon-chainstate/src/error.rs` — chainstate/session errors.
+- `crates/oregon-chainstate/src/config.rs` — trusted height-0 anchor and consensus configuration.
+- `crates/oregon-chainstate/src/branch.rs` — branch ancestry, MTP and `PowKeyBlockSource`.
+- `crates/oregon-chainstate/src/state.rs` — bootstrap/reopen/block admission/direct extension.
+- `crates/oregon-chainstate/src/reorg.rs` — fork/reorg staging and atomic publication.
+- `crates/oregon-chainstate/src/prune.rs` — pruning predicate and maintenance batch.
+- `crates/oregon-chainstate/src/tests.rs` — chainstate integration tests.
+
+## Test Fixture Contracts
+
+The following helpers are test-only and must never be exported in production APIs.
+
+`TestDir` is implemented independently in each crate test module without adding a tempfile dependency:
+
+```rust
+struct TestDir(std::path::PathBuf);
+
+impl TestDir {
+    fn new(label: &str) -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "oregon-{label}-{}-{n}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&path).unwrap();
+        Self(path)
+    }
+
+    fn path(&self) -> &std::path::Path {
+        &self.0
+    }
+}
+
+impl Drop for TestDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+```
+
+Chainstate tests use only this test verifier:
+
+```rust
+struct AcceptTestSpends;
+
+impl SpendVerifier for AcceptTestSpends {
+    fn verify_spend(
+        &self,
+        _transaction: &Transaction,
+        _input_index: usize,
+        _prevout: &UtxoEntry,
+    ) -> Result<(), UtxoError> {
+        Ok(())
+    }
+}
+```
+
+`AcceptTestSpends` stays inside `#[cfg(test)]`; M4 must not add an equivalent production verifier.
+
+The standard test consensus configuration uses maximum target so every correctly keyed RandomX hash meets target:
+
+```rust
+fn test_params() -> ConsensusParams {
+    let max = Target::from_le_bytes([0xff; 32]).unwrap();
+    ConsensusParams::new(max, max, [0x42; 32]).unwrap()
+}
+```
+
+The test anchor is height 0 only and carries no caller-supplied work:
+
+```rust
+fn test_anchor(genesis_timestamp: u64) -> BlockHeader {
+    BlockHeader {
+        version: 1,
+        previous_block: Hash256::from_bytes([0u8; 32]),
+        transaction_root: Hash256::from_bytes([0x11; 32]),
+        timestamp: genesis_timestamp,
+        difficulty_commitment: [0xff; 32],
+        nonce: 0,
+    }
+}
+```
+
+Coinbase fixtures copy the already-frozen consensus form: one null outpoint input, `sequence=u32::MAX`, first witness item is canonical `write_varint(height)`, height 1 output 0 is exactly `FOUNDER_ALLOCATION_BASE_UNITS` to `[KEY_COMMIT_V1 || founder_key_commitment]`; later heights claim no more than `block_subsidy(height) + fees`.
 
 ---
 
@@ -85,25 +164,20 @@
 - Produces: `ChainWork::from_canonical_be_bytes(bytes: &[u8]) -> Option<ChainWork>`
 - Produces: `UtxoState::from_persisted_entries<I>(entries: I) -> Result<UtxoState, UtxoError>` where `I: IntoIterator<Item = (OutPoint, UtxoEntry)>`
 - Produces: `UtxoState::entries(&self) -> impl Iterator<Item = (&OutPoint, &UtxoEntry)>`
-- Produces error: `UtxoError::DuplicatePersistedOutpoint(OutPoint)`
+- Produces: `UtxoError::DuplicatePersistedOutpoint(OutPoint)`
 
-- [ ] **Step 1: Enable the M4 development branch in normal Rust CI before pushing a RED commit**
+- [ ] **Step 1: Add M4 branch to push CI before the RED commit**
 
-Change the push branch list to include `oregon-v1-m4-persistent-chainstate` while preserving every existing branch and pinned checkout SHA.
+Preserve all existing branches and pinned checkout SHA; append `oregon-v1-m4-persistent-chainstate`.
 
-- [ ] **Step 2: Write the failing `ChainWork` canonical encoding tests**
-
-Add tests to `work.rs` that require exactly one representation for zero and reject empty/non-minimal input:
+- [ ] **Step 2: Write failing `ChainWork` canonical tests**
 
 ```rust
 #[test]
 fn chainwork_canonical_storage_bytes_round_trip() {
     let zero = ChainWork::zero();
     assert_eq!(zero.to_canonical_be_bytes(), vec![0]);
-    assert_eq!(
-        ChainWork::from_canonical_be_bytes(&[0]).unwrap(),
-        zero
-    );
+    assert_eq!(ChainWork::from_canonical_be_bytes(&[0]).unwrap(), zero);
 
     let work = block_work(Target::from_biguint(&BigUint::from(1u8)).unwrap());
     let encoded = work.to_canonical_be_bytes();
@@ -113,9 +187,7 @@ fn chainwork_canonical_storage_bytes_round_trip() {
 }
 ```
 
-- [ ] **Step 3: Write the failing persisted UTXO reconstruction tests**
-
-Add tests requiring duplicate rejection and normal verifier enforcement after restoration:
+- [ ] **Step 3: Write failing UTXO restoration tests**
 
 ```rust
 #[test]
@@ -141,21 +213,17 @@ fn restored_state_still_requires_spend_verifier() {
 }
 ```
 
-- [ ] **Step 4: Push the RED commit and record the intended CI failure**
+- [ ] **Step 4: Push RED and record intended CI failure**
 
-Expected failure: missing `ChainWork` canonical methods and missing `UtxoState::from_persisted_entries`/`DuplicatePersistedOutpoint`; the failure must not be a workflow syntax or unrelated dependency error.
+Expected: missing canonical methods and persisted UTXO API/error. Reject a RED caused by workflow syntax or unrelated tooling.
 
-- [ ] **Step 5: Implement minimal canonical `ChainWork` bytes**
+- [ ] **Step 5: Implement minimal GREEN**
 
-Use `BigUint::to_bytes_be()` and represent zero as exactly `[0]`. `from_canonical_be_bytes` returns `None` for empty input or a leading zero when length is greater than one, then constructs the internal `BigUint` from the canonical bytes.
+`to_canonical_be_bytes`: `BigUint::to_bytes_be()`, mapping empty zero to `[0]`. `from_canonical_be_bytes`: reject empty input and any length > 1 with byte 0 equal to zero, then construct the internal `BigUint`.
 
-- [ ] **Step 6: Implement checked UTXO restoration and read-only entry iteration**
+`from_persisted_entries`: insert into a fresh `HashMap`, return `DuplicatePersistedOutpoint` on second insert. `entries`: return `self.entries.iter()` only.
 
-Build a fresh `HashMap`, reject any second insert of the same `OutPoint`, and return `Self { entries }`. `entries()` returns `self.entries.iter()` only; it exposes no mutable map reference and does not alter `connect_block`, `disconnect_block`, maturity, fee or verifier rules.
-
-- [ ] **Step 7: Run focused tests and workspace verification**
-
-Run:
+- [ ] **Step 6: Verify**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-consensus chainwork_canonical_storage_bytes_round_trip
@@ -166,15 +234,13 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-Expected: all PASS.
+- [ ] **Step 7: Commit GREEN and require fresh CI**
 
-- [ ] **Step 8: Commit GREEN and require fresh GitHub CI success before Task 2**
-
-Suggested commit: `feat: add persistence-safe chainwork and utxo bridges`.
+Commit: `feat: add persistence-safe chainwork and utxo bridges`.
 
 ---
 
-### Task 2: RocksDB Storage Crate, Column Families, and Schema 1.0 Open
+### Task 2: RocksDB Storage Crate, Column Families, and Schema 1.0
 
 **Files:**
 - Modify: `Cargo.toml`
@@ -188,15 +254,14 @@ Suggested commit: `feat: add persistence-safe chainwork and utxo bridges`.
 - Create: `crates/oregon-storage/src/tests.rs`
 
 **Interfaces:**
-- Produces constants: `CF_BLOCKS`, `CF_BLOCK_INDEX`, `CF_UTXO`, `CF_UNDO`, `CF_CHAIN_META`
-- Produces: `SchemaVersion { major: u16, minor: u16 }`, current `SCHEMA_VERSION = 1.0`
-- Produces: `OregonDb::open(path: impl AsRef<Path>) -> Result<OregonDb, StorageError>`
-- Produces: `OregonDb::schema_version(&self) -> Result<SchemaVersion, StorageError>`
-- Produces: `StorageError::{RocksDb, CorruptData, UnsupportedSchema, DurabilityFailure}`
+- `CF_BLOCKS`, `CF_BLOCK_INDEX`, `CF_UTXO`, `CF_UNDO`, `CF_CHAIN_META`
+- `SchemaVersion { major: u16, minor: u16 }`, `SCHEMA_VERSION = SchemaVersion { major: 1, minor: 0 }`
+- `OregonDb::open(path: impl AsRef<Path>) -> Result<OregonDb, StorageError>`
+- `OregonDb::schema_version(&self) -> Result<SchemaVersion, StorageError>`
+- Test-only `OregonDb::has_column_family(&self, name: &str) -> bool`
+- `StorageError::{RocksDb, CorruptData, UnsupportedSchema, DurabilityFailure}`
 
-- [ ] **Step 1: Add crate scaffolding and exact dependency lock without implementing `OregonDb::open`**
-
-`crates/oregon-storage/Cargo.toml` must contain:
+- [ ] **Step 1: Add exact crate manifest and lock**
 
 ```toml
 [package]
@@ -204,6 +269,10 @@ name = "oregon-storage"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
+
+[features]
+default = []
+test-hooks = []
 
 [dependencies]
 oregon-consensus = { path = "../oregon-consensus" }
@@ -213,15 +282,20 @@ rocksdb = { version = "=0.24.0", default-features = false, features = ["lz4", "b
 thiserror = "2"
 ```
 
-Add the crate to the workspace and regenerate `Cargo.lock` with Rust 1.85.0 before pushing the RED commit so `--locked` failure cannot mask the intended test failure.
+Add workspace member and regenerate `Cargo.lock` under Rust 1.85.0 before RED push so `--locked` does not mask the behavior test.
 
-- [ ] **Step 2: Add native build prerequisites to CI**
+- [ ] **Step 2: Add CI native prerequisites**
 
-Before `Test`, install `clang` and `libclang-dev` on `ubuntu-latest`; do not change checkout permissions or unpin the checkout action.
+Add an Ubuntu step before Test:
 
-- [ ] **Step 3: Write failing open/schema/CF tests**
+```yaml
+- name: Install RocksDB build prerequisites
+  run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
+```
 
-Use a test helper that creates a unique directory under `std::env::temp_dir()` and removes it on drop. Require `OregonDb::open` to create/open all named CFs, reserve the default CF, and return schema `1.0` on reopen.
+Do not change permissions or checkout pin.
+
+- [ ] **Step 3: Write RED open/schema test**
 
 ```rust
 #[test]
@@ -238,21 +312,15 @@ fn new_database_opens_with_schema_1_0_and_required_column_families() {
 }
 ```
 
-- [ ] **Step 4: Push RED and verify failure is missing storage behavior**
+- [ ] **Step 4: Push RED**
 
-Expected failure: `OregonDb::open`/schema/CF API missing or test assertion failure, not Cargo lock or native toolchain setup.
+Expected: missing storage open/schema APIs, not lock/toolchain failure.
 
-- [ ] **Step 5: Implement minimal RocksDB open**
+- [ ] **Step 5: Implement open/schema**
 
-Use `DB::open_cf_descriptors` with `create_if_missing(true)` and `create_missing_column_families(true)`. Keep the mandatory default CF but never use it for Oregon keys. Store schema version under `chain_meta` key `b"schema/version"` as exactly four bytes: `major.to_be_bytes() || minor.to_be_bytes()`.
+Use `DB::open_cf_descriptors` with `create_if_missing(true)` and `create_missing_column_families(true)`. Schema key is `b"schema/version"`; value is exactly `major.to_be_bytes() || minor.to_be_bytes()`. Brand-new schema write uses WAL and `WriteOptions::set_sync(true)`. Existing major other than 1 or minor greater than 0 returns `UnsupportedSchema` without rewriting.
 
-- [ ] **Step 6: Make first schema write synchronous**
-
-When a brand-new DB has no schema key, write schema `1.0` with WAL enabled and `WriteOptions::set_sync(true)`. Existing schema `major != 1` returns `UnsupportedSchema` without rewriting it; existing minor greater than the current supported minor also returns `UnsupportedSchema`.
-
-- [ ] **Step 7: Verify focused and workspace tests**
-
-Run:
+- [ ] **Step 6: Verify and commit**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-storage new_database_opens_with_schema_1_0_and_required_column_families
@@ -261,9 +329,7 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-- [ ] **Step 8: Commit GREEN and require fresh CI**
-
-Suggested commit: `feat: add rocksdb storage foundation`.
+Commit: `feat: add rocksdb storage foundation`.
 
 ---
 
@@ -276,18 +342,31 @@ Suggested commit: `feat: add rocksdb storage foundation`.
 - Modify: `crates/oregon-storage/src/tests.rs`
 
 **Interfaces:**
-- Produces: `encode_outpoint_key(&OutPoint) -> [u8; 36]`
-- Produces: `decode_outpoint_key(&[u8]) -> Result<OutPoint, StorageError>`
-- Produces: `encode_utxo_entry(&UtxoEntry) -> Vec<u8>` / `decode_utxo_entry(&[u8]) -> Result<UtxoEntry, StorageError>`
-- Produces: `encode_block_undo(&BlockUndo) -> Vec<u8>` / `decode_block_undo(&[u8]) -> Result<BlockUndo, StorageError>`
-- Produces: `ValidationStatus::{HeaderValidated, FullyValidated, Invalid}`
-- Produces: `BlockIndexRecord { header, parent, height, cumulative_work, validation, body_retained }`
-- Produces: deterministic `encode_block_index` / `decode_block_index`
-- Produces: `NodeHealth::{Healthy, ReindexRequired}` and versioned metadata codecs.
+- `encode_outpoint_key(&OutPoint) -> [u8; 36]`
+- `decode_outpoint_key(&[u8]) -> Result<OutPoint, StorageError>`
+- `encode_utxo_entry` / `decode_utxo_entry`
+- `encode_block_undo` / `decode_block_undo`
+- `ValidationStatus::{HeaderValidated, FullyValidated, Invalid}`
+- `BlockIndexRecord { header: BlockHeader, parent: Hash256, height: u64, cumulative_work: ChainWork, validation: ValidationStatus, body_retained: bool }`
+- `encode_block_index` / `decode_block_index`
+- `NodeHealth::{Healthy, ReindexRequired}` plus exact metadata codecs.
 
-- [ ] **Step 1: Write RED round-trip and corruption tests**
+- [ ] **Step 1: Add storage codec test helper**
 
-Require:
+```rust
+fn sample_sorted_undo() -> BlockUndo {
+    let first = OutPoint { txid: Hash256::from_bytes([0x11; 32]), index: 0 };
+    let second = OutPoint { txid: Hash256::from_bytes([0x22; 32]), index: 1 };
+    BlockUndo {
+        spent: vec![(first, sample_utxo(100))],
+        created: vec![second],
+    }
+}
+```
+
+`sample_utxo(value)` creates `UtxoEntry { output: TxOutput { value: Amount::from_base_units(value).unwrap(), locking_program: vec![0x51] }, creation_height: 7, is_coinbase: false }`.
+
+- [ ] **Step 2: Write RED codec tests**
 
 ```rust
 #[test]
@@ -303,8 +382,7 @@ fn outpoint_key_is_exactly_36_bytes_and_little_endian_indexed() {
 fn block_undo_encoding_is_deterministic_and_rejects_trailing_bytes() {
     let undo = sample_sorted_undo();
     let first = encode_block_undo(&undo);
-    let second = encode_block_undo(&undo);
-    assert_eq!(first, second);
+    assert_eq!(encode_block_undo(&undo), first);
     assert_eq!(decode_block_undo(&first).unwrap(), undo);
     let mut tainted = first;
     tainted.push(0);
@@ -312,52 +390,58 @@ fn block_undo_encoding_is_deterministic_and_rejects_trailing_bytes() {
 }
 ```
 
-Also test UTXO locking-program length `65_536` accepted, `65_537` rejected on decode, duplicate outpoints in undo rejected, unknown record version rejected, truncated every record family rejected, and non-minimal `ChainWork` bytes rejected through the Task 1 constructor.
+Also require UTXO locking-program length 65,536 accepted and 65,537 rejected, duplicate/non-strictly-sorted undo outpoints rejected, unknown record version rejected, truncation rejected, and non-minimal chainwork bytes rejected.
 
-- [ ] **Step 2: Push RED and observe codec symbols/behavior missing**
+- [ ] **Step 3: Push RED**
 
-- [ ] **Step 3: Implement a bounded storage cursor**
+- [ ] **Step 4: Implement bounded cursor and layouts**
 
-`StorageCursor` owns `input` and `offset`, exposes `read_u8/u16/u32/u64`, `read_exact`, `read_len(max)` using the existing canonical Oregon varint convention, and `finish()` that rejects trailing bytes. Reuse `oregon_primitives::write_varint` for lengths; do not add serde/bincode.
+`StorageCursor` exposes exact integer reads, canonical varint `read_len(max)`, `read_exact` and `finish`. Reuse `oregon_primitives::write_varint` for length output.
 
-- [ ] **Step 4: Implement UTXO and undo codecs**
-
-Record version byte is `1`. UTXO value layout is:
+UTXO layout:
 
 ```text
 version:u8 | value:u64 LE | creation_height:u64 LE | is_coinbase:u8 |
-locking_program_len:canonical_varint | locking_program:bytes
+locking_program_len:canonical_varint | locking_program
 ```
 
-Undo value layout is:
+Undo layout:
 
 ```text
-version:u8 |
-spent_count:canonical_varint |
-  repeated(outpoint:36 | utxo_entry_len:canonical_varint | utxo_entry) |
-created_count:canonical_varint |
-  repeated(outpoint:36)
+version:u8 | spent_count:varint |
+repeated(outpoint:36 | utxo_len:varint | utxo) |
+created_count:varint | repeated(outpoint:36)
 ```
 
-Decoder verifies sorted strict outpoint order in both collections and rejects duplicates/non-canonical order as corruption.
+Version is 1. Undo decoder requires strict ascending canonical outpoint-key bytes in both collections.
 
-- [ ] **Step 5: Implement block-index codec including the full canonical header**
-
-Persist canonical 114-byte `BlockHeader::encode()` bytes so MTP, parent linkage and RandomX key ancestry remain available after body pruning. Layout:
+- [ ] **Step 5: Implement block-index layout**
 
 ```text
 version:u8 | header:114 | parent:32 | height:u64 LE |
-chainwork_len:canonical_varint | canonical_chainwork_be |
+chainwork_len:varint | canonical_chainwork_be |
 validation:u8 | body_retained:u8
 ```
 
-Decoder requires `parent == header.previous_block`, except the trusted height-0 anchor record where the stored parent is still exactly the header's `previous_block`; chainstate decides anchor trust, storage only enforces byte consistency.
+Require decoded `parent == header.previous_block`. Store full header forever so body pruning cannot remove MTP/key-ancestry data.
 
-- [ ] **Step 6: Implement health/tip/config metadata records**
+- [ ] **Step 6: Implement metadata keys**
 
-Use distinct fixed `chain_meta` keys for anchor ID, genesis timestamp, active tip ID, active height, health and prune cursor. Active height mapping keys are `b"active/" || height.to_be_bytes()` so lexicographic iteration follows height.
+Use fixed keys:
 
-- [ ] **Step 7: Run focused codec tests and full verification**
+```text
+schema/version
+schema/migration
+config/anchor_id
+config/genesis_timestamp
+active/tip_id
+active/tip_height
+health/state
+prune/cursor
+active/<height:8-byte BE>
+```
+
+- [ ] **Step 7: Verify and commit**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-storage codec
@@ -366,13 +450,11 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-- [ ] **Step 8: Commit GREEN and require fresh CI**
-
-Suggested commit: `feat: add deterministic chainstate storage codecs`.
+Commit: `feat: add deterministic chainstate storage codecs`.
 
 ---
 
-### Task 4: Typed RocksDB Reads, Atomic Batches, Durability Modes, and Migration Runner
+### Task 4: Typed Reads, Atomic Batches, Durability Modes, and Migration Runner
 
 **Files:**
 - Create: `crates/oregon-storage/src/batch.rs`
@@ -382,18 +464,18 @@ Suggested commit: `feat: add deterministic chainstate storage codecs`.
 - Modify: `crates/oregon-storage/src/tests.rs`
 
 **Interfaces:**
-- Produces: `StorageBatch::new()` with typed `put/delete` methods for blocks, indices, UTXOs, undo, active-height mapping, tip, health, prune cursor.
-- Produces: `OregonDb::commit_durable(batch) -> Result<(), StorageError>`; always requests sync.
-- Produces: `OregonDb::commit_maintenance(batch) -> Result<(), StorageError>`; requests non-sync maintenance durability.
-- Produces typed getters/iterators: `get_block`, `get_index`, `get_utxo`, `iter_utxos`, `get_undo`, `active_id_at_height`, `active_tip`, `health`, `iter_body_retained_indices`.
-- Produces private migration state machine with durable marker key `b"schema/migration"`.
-- Produces test-only feature `test-hooks` that can inject a failure immediately before a durable batch is handed to RocksDB and can record the requested durability mode; feature is disabled by default.
+- `StorageBatch::new()`; typed methods `put_block`, `delete_block`, `put_index`, `put_utxo`, `delete_utxo`, `put_undo`, `delete_undo`, `set_active_height`, `delete_active_height`, `set_tip`, `set_health`, `set_prune_cursor`.
+- `DurabilityMode::{Sync, NoSync}`.
+- `OregonDb::commit_durable(batch)` always maps to Sync.
+- `OregonDb::commit_maintenance(batch)` always maps to NoSync.
+- Typed getters: `get_block`, `get_index`, `get_utxo`, `iter_utxos`, `get_undo`, `active_id_at_height`, `active_tip`, `health`, `iter_body_retained_indices`.
+- `test-hooks` exposes only `open_with_test_hooks`, `fail_next_durable_write`, `fail_next_maintenance_write`, and `last_mode` under `cfg(any(test, feature = "test-hooks"))`.
 
-- [ ] **Step 1: Write RED typed round-trip/batch tests**
+- [ ] **Step 1: Write RED atomic typed round-trip test**
 
-Require one durable batch to atomically persist a sample block, index, UTXO, undo, active mapping and tip and recover all of them after close/reopen.
+Persist sample block/index/UTXO/undo/active mapping/tip in one durable batch, close/reopen and require every value to decode identically.
 
-- [ ] **Step 2: Write RED durability-mode/failure-injection tests**
+- [ ] **Step 2: Write RED durability/failure tests**
 
 ```rust
 #[test]
@@ -405,40 +487,29 @@ fn durable_commit_requests_sync_and_maintenance_does_not() {
     db.commit_maintenance(StorageBatch::new()).unwrap();
     assert_eq!(db.test_hooks().last_mode(), Some(DurabilityMode::NoSync));
 }
-
-#[test]
-fn injected_precommit_failure_writes_nothing() {
-    let dir = TestDir::new("durable-failure");
-    let db = OregonDb::open_with_test_hooks(dir.path()).unwrap();
-    let mut batch = StorageBatch::new();
-    batch.set_health(NodeHealth::ReindexRequired);
-    db.test_hooks().fail_next_durable_write();
-    assert!(matches!(db.commit_durable(batch), Err(StorageError::DurabilityFailure(_))));
-    assert_eq!(db.health().unwrap(), NodeHealth::Healthy);
-}
 ```
 
-The test hook fails before RocksDB execution; it exists to prove publish ordering. Device-level ambiguous I/O errors remain handled by the chainstate `StorageFaulted` reopen rule.
+Injected durable failure occurs before `db.write_opt`, writes nothing, and returns `DurabilityFailure`.
 
-- [ ] **Step 3: Push RED and observe missing batch/durability APIs**
+- [ ] **Step 3: Push RED**
 
-- [ ] **Step 4: Implement `StorageBatch` without exposing RocksDB handles**
+- [ ] **Step 4: Implement `StorageBatch`**
 
-Store typed operations in a private enum and translate them into one RocksDB `WriteBatch` at commit time. Encoding happens before execution so codec failure cannot produce a partially constructed durable state.
+Store typed operations in a private enum. Encode every operation before constructing/executing the RocksDB `WriteBatch`; codec error returns before RocksDB mutation.
 
-- [ ] **Step 5: Implement exact durability mapping**
+- [ ] **Step 5: Implement durability mapping**
 
-`commit_durable` creates `WriteOptions`, leaves WAL enabled, calls `set_sync(true)`, then calls `db.write_opt`. `commit_maintenance` calls `set_sync(false)`. Never call `disable_wal(true)` on either path.
+`commit_durable`: WAL remains enabled, `WriteOptions::set_sync(true)`, `db.write_opt`. `commit_maintenance`: WAL remains enabled, `set_sync(false)`. Never call `disable_wal(true)`.
 
-- [ ] **Step 6: Implement typed reads and iterators**
+- [ ] **Step 6: Implement typed reads with identity checks**
 
-Every value passes its deterministic decoder before returning. Missing required values return `Ok(None)` at the storage layer; chainstate decides whether absence is legal or a `MissingUndo`/`MissingBlockBody` failure.
+`get_block(block_id)` decodes with `Block::decode(..., &DecodeLimits::default())` and requires `block.header.block_id() == block_id`; mismatch is `CorruptData`. `get_index(block_id)` requires decoded header ID equals the key block ID and parent consistency.
 
-- [ ] **Step 7: Write and implement RED/GREEN migration runner tests**
+- [ ] **Step 7: Implement/test migration runner**
 
-The production current schema remains `1.0`. Test the generic minor migration engine with a synthetic target `1.1`: durable marker is written first, a test hook interrupts after step 1, rerun sees the marker, repeats/resumes idempotently, completes, then clears the marker. Unknown major `2.0` open returns `UnsupportedSchema` and leaves bytes unchanged.
+Production current schema remains 1.0. Private migration engine is tested with synthetic target 1.1: write sync migration marker first, interrupt after first idempotent step, rerun resumes/repeats deterministically, then clears marker. Unknown major 2.0 returns `UnsupportedSchema` and leaves DB unchanged.
 
-- [ ] **Step 8: Verify all storage tests and workspace gates**
+- [ ] **Step 8: Verify and commit**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-storage
@@ -447,9 +518,7 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-- [ ] **Step 9: Commit GREEN and require fresh CI**
-
-Suggested commit: `feat: add atomic durable rocksdb batches`.
+Commit: `feat: add atomic durable rocksdb batches`.
 
 ---
 
@@ -465,54 +534,62 @@ Suggested commit: `feat: add atomic durable rocksdb batches`.
 - Create: `crates/oregon-chainstate/src/tests.rs`
 
 **Interfaces:**
-- Produces: `ChainConfig { anchor_header: BlockHeader, genesis_timestamp: u64, params: ConsensusParams }`
-- Produces: `ChainState::open(path: impl AsRef<Path>, config: ChainConfig) -> Result<ChainState, ChainStateError>`
-- Produces: `ChainState::tip() -> Tip { block_id, height, cumulative_work }`
-- Produces: session health `SessionHealth::{Healthy, StorageFaulted, ReindexRequired}`.
-- Anchor rule: height 0, cumulative work exactly zero, empty UTXO set, no caller-provided work.
+- `ChainConfig { anchor_header: BlockHeader, genesis_timestamp: u64, params: ConsensusParams }`
+- `Tip { block_id: Hash256, height: u64, cumulative_work: ChainWork }`
+- `SessionHealth::{Healthy, StorageFaulted, ReindexRequired}`
+- `ChainState::open(path, config) -> Result<ChainState, ChainStateError>`
+- `ChainState::tip() -> &Tip`, `ChainState::utxos() -> &UtxoState`, `ChainState::session_health() -> SessionHealth`.
+- Height-0 anchor cumulative work is always `ChainWork::zero()`; no config/caller field supplies work.
 
-- [ ] **Step 1: Add crate scaffold and write RED bootstrap/reopen tests**
+- [ ] **Step 1: Add exact crate manifest**
 
-```rust
-#[test]
-fn first_open_durably_initializes_height_zero_anchor_and_empty_utxo() {
-    let dir = TestDir::new("bootstrap");
-    let config = test_config();
-    let anchor_id = config.anchor_header.block_id();
-    let state = ChainState::open(dir.path(), config.clone()).unwrap();
-    assert_eq!(state.tip().block_id, anchor_id);
-    assert_eq!(state.tip().height, 0);
-    drop(state);
-    let reopened = ChainState::open(dir.path(), config).unwrap();
-    assert_eq!(reopened.tip().block_id, anchor_id);
-    assert_eq!(reopened.utxos().entries().count(), 0);
-}
+```toml
+[package]
+name = "oregon-chainstate"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+oregon-consensus = { path = "../oregon-consensus" }
+oregon-pow = { path = "../oregon-pow" }
+oregon-primitives = { path = "../oregon-primitives" }
+oregon-storage = { path = "../oregon-storage" }
+oregon-utxo = { path = "../oregon-utxo" }
+thiserror = "2"
+
+[dev-dependencies]
+oregon-storage = { path = "../oregon-storage", features = ["test-hooks"] }
 ```
 
-Also require reopen with a different anchor ID or genesis timestamp to fail closed.
+- [ ] **Step 2: Write RED bootstrap/reopen tests**
 
-- [ ] **Step 2: Push RED and observe missing chainstate API**
+Open new DB with `ChainConfig { anchor_header: test_anchor(g), genesis_timestamp: g, params: test_params() }`. Require tip height 0, anchor ID, zero work and empty UTXO. Close/reopen must match. Different anchor ID or genesis timestamp must fail closed.
 
-- [ ] **Step 3: Implement bootstrap as one synchronous durable batch**
+- [ ] **Step 3: Push RED**
 
-Write anchor index with `height=0`, `cumulative_work=ChainWork::zero()`, `ValidationStatus::FullyValidated`, body-retained false, active mapping `0 -> anchor_id`, active tip 0, anchor ID, genesis timestamp, `Healthy` health and prune cursor 0. Do not accept caller-provided cumulative work.
+- [ ] **Step 4: Implement bootstrap durable batch**
 
-- [ ] **Step 4: Implement reopen validation and UTXO reconstruction**
+Write anchor index height 0, zero work, `FullyValidated`, `body_retained=false`, active map 0, tip 0, anchor ID, genesis timestamp, `Healthy`, prune cursor 0 in one sync batch.
 
-On existing DB:
+- [ ] **Step 5: Implement reopen validation**
 
-1. require stored anchor/genesis values match config;
-2. fail immediately if durable health is `ReindexRequired`;
-3. validate active mappings from height 0 through tip, parent linkage and index heights;
-4. require retained-window active bodies/undo for every active height greater than zero that lies in the current rollback range;
-5. decode every persisted UTXO and call `UtxoState::from_persisted_entries`;
-6. publish `ChainState` only after all checks succeed.
+For active heights 0..=tip:
 
-- [ ] **Step 5: Add corruption RED/GREEN tests**
+1. active mapping exists;
+2. index exists and decoded header ID equals mapped block ID;
+3. index height equals mapping height;
+4. for height > 0, index parent equals previous active ID;
+5. parse header target and recompute `expected_work = previous.cumulative_work + block_work(target)`; require exact equality to stored cumulative work;
+6. height 0 cumulative work is exactly zero.
 
-Corrupt active tip index, delete an active mapping, or place malformed UTXO bytes through a storage test fixture; every case must fail closed and never silently initialize a replacement chain.
+For current active retained range greater than height 0, require body and undo records. Decode every UTXO and reconstruct with `UtxoState::from_persisted_entries`.
 
-- [ ] **Step 6: Verify chainstate bootstrap and workspace gates**
+- [ ] **Step 6: Add corruption RED/GREEN tests**
+
+Tamper cumulative work only, delete active mapping, delete retained undo, corrupt UTXO bytes; every case must fail closed. Body missing behind valid prune horizon is allowed.
+
+- [ ] **Step 7: Verify and commit**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-chainstate bootstrap
@@ -522,13 +599,11 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-- [ ] **Step 7: Commit GREEN and require fresh CI**
-
-Suggested commit: `feat: add persistent chainstate bootstrap and reopen`.
+Commit: `feat: add persistent chainstate bootstrap and reopen`.
 
 ---
 
-### Task 6: Branch-Aware Header/RandomX Validation and Header-Only Side-Chain Admission
+### Task 6: Branch-Aware Header/RandomX Validation and Side-Chain Admission
 
 **Files:**
 - Create: `crates/oregon-chainstate/src/branch.rs`
@@ -537,45 +612,38 @@ Suggested commit: `feat: add persistent chainstate bootstrap and reopen`.
 - Modify: `crates/oregon-chainstate/src/tests.rs`
 
 **Interfaces:**
-- Produces private `BranchView` over validated `BlockIndexRecord` ancestry.
-- `BranchView` implements `PowKeyBlockSource::validated_block_id_at_height` by walking the candidate parent ancestry; it never accepts a caller-provided key ID.
-- Produces: `AcceptOutcome::{Extended, StoredSideChain, Reorganized}`.
-- Produces: `ChainState::accept_block<V: SpendVerifier>(&mut self, block: Block, verifier: &V) -> Result<AcceptOutcome, ChainStateError>`.
-- Candidate block APIs accept no `height`, no cumulative-work input and no RandomX key-block ID.
+- Private `BranchView<'a> { db: &'a OregonDb, tip: Hash256 }`.
+- `BranchView::ancestor_id_at_height(height) -> Result<Option<Hash256>, ChainStateError>`.
+- `BranchView::mtp_window() -> Result<Vec<u64>, ChainStateError>` returns candidate-parent branch's latest 1..=11 timestamps.
+- `BranchView` implements `PowKeyBlockSource` from validated ancestry only.
+- `AcceptOutcome::{Extended, StoredSideChain, Reorganized}`.
+- `ChainState::accept_block<V: SpendVerifier>(&mut self, block: Block, verifier: &V) -> Result<AcceptOutcome, ChainStateError>`; no height/work/key-ID parameters.
 
-- [ ] **Step 1: Write RED branch ancestry and MTP tests**
+- [ ] **Step 1: Write RED branch ancestry/MTP tests**
 
-Require `BranchView` to recover the exact ancestor ID at a requested height and collect at most the previous 11 timestamps from the candidate's own branch.
+Require exact candidate-branch ancestor lookup and max 11 timestamps.
 
-- [ ] **Step 2: Write RED API/security tests**
+- [ ] **Step 2: Write RED key-provenance tests**
 
-Construct a side chain whose required RandomX key-block is on that side branch. The accepted path must use the side ancestor ID. A wrong-key `LightEngine` path must still fail through M2 `PowEngineKeyMismatch`; no alternate API may inject a key-block ID.
+Build a candidate whose scheduled RandomX key-block belongs to candidate ancestry. Require that ancestor ID to be used. A wrong-key engine remains rejected by M2 semantics; no alternate public API may inject a key ID.
 
-- [ ] **Step 3: Push RED and observe missing branch-aware validation**
+- [ ] **Step 3: Push RED**
 
-- [ ] **Step 4: Implement candidate facts entirely from stored validated ancestry**
+- [ ] **Step 4: Implement checked parent/index loading**
 
-For candidate parent index:
+Before trusting a parent index, require header ID equals index key, parent linkage to its own parent index, `height == parent.height + 1`, and `cumulative_work == parent.cumulative_work + block_work(header_target)` for non-anchor records. Reject `Invalid` parents.
 
-1. reject missing or `Invalid` parent;
-2. compute `height = parent.height.checked_add(1)`;
-3. decode/use parent header from the index;
-4. collect candidate-branch MTP window of 1..=11 ancestor timestamps;
-5. call `validate_header_pre_pow`;
-6. obtain required RandomX key height using the same `oregon_pow::key_block_height(facts.height())` schedule used by M2;
-7. ask `BranchView` for that validated ancestor ID;
-8. derive the expected Oregon RandomX key, construct `LightEngine`, and call `validate_header_pow`;
-9. compute cumulative work only as `parent.cumulative_work + facts.work()`.
+- [ ] **Step 5: Derive candidate facts from ancestry only**
 
-- [ ] **Step 5: Implement durable header-only side-block storage**
+Compute height via checked add, collect MTP, call `validate_header_pre_pow`, compute scheduled key height with `oregon_pow::key_block_height(facts.height())`, obtain ancestor ID from `BranchView`, derive key, construct `LightEngine`, call `validate_header_pow`, then cumulative work = parent work + `facts.work()`.
 
-If candidate does not directly extend the active tip and does not yet exceed active cumulative work, persist block body and `BlockIndexRecord { validation: HeaderValidated, body_retained: true }` in one synchronous durable batch and return `StoredSideChain`. No UTXO or active mapping changes occur.
+- [ ] **Step 6: Persist header-only side blocks durably**
 
-- [ ] **Step 6: Add duplicate and invalid-parent tests**
+If not direct active-tip extension and cumulative work does not exceed active tip, sync-write body plus `HeaderValidated` index with `body_retained=true`; no UTXO/active mapping mutation.
 
-Known block ID is idempotently rejected/returned without rewriting chainwork. Descendant of an index marked `Invalid` is rejected before PoW work is accumulated.
+Known block ID is idempotently returned without rewriting work. Descendant of `Invalid` parent is rejected.
 
-- [ ] **Step 7: Verify and commit GREEN**
+- [ ] **Step 7: Verify and commit**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-chainstate branch
@@ -585,11 +653,11 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-Suggested commit: `feat: add branch-aware pow chain indexing`.
+Commit: `feat: add branch-aware pow chain indexing`.
 
 ---
 
-### Task 7: Atomic Direct Active-Chain Extension and Storage-Fault Session Semantics
+### Task 7: Atomic Direct Active Extension and Storage-Fault Semantics
 
 **Files:**
 - Modify: `crates/oregon-chainstate/src/state.rs`
@@ -597,38 +665,29 @@ Suggested commit: `feat: add branch-aware pow chain indexing`.
 - Modify: `crates/oregon-chainstate/src/tests.rs`
 
 **Interfaces:**
-- Direct extension path stages `UtxoState::connect_block` on a clone.
-- Produces private `UtxoDelta` keyed deterministically by `OutPoint` using `BTreeMap<OutPoint, Option<UtxoEntry>>` with a comparator-compatible key wrapper if needed because `OutPoint` lacks `Ord`.
-- Produces: storage-fault guard that rejects every later mutation with `ChainStateError::StorageFaulted`.
+- Private delta type is exactly `BTreeMap<[u8; 36], (OutPoint, Option<UtxoEntry>)>`; key is `oregon_storage::encode_outpoint_key(&outpoint)`.
+- `Some(entry)` means final insert/update, `None` means final delete.
+- Session mutation guard returns `ChainStateError::StorageFaulted` or `ReindexRequired` before any validation/write when session is non-Healthy.
 
-- [ ] **Step 1: Write RED successful extension/reopen test**
+- [ ] **Step 1: Write RED direct-extension reopen test**
 
-Use a valid height-1 founder coinbase block under test consensus parameters. After `accept_block` returns `Extended`, close/reopen and require the same active tip and persisted coinbase UTXOs.
+Use valid height-1 founder block, accept with `AcceptTestSpends`, close/reopen, require same tip and founder UTXO entries.
 
-- [ ] **Step 2: Write RED failed durable-write publication test**
+- [ ] **Step 2: Write RED durable failure test**
 
-With `oregon-storage/test-hooks`, inject failure immediately before the durable acceptance write. Require:
+Inject failure before durable acceptance. Require old tip/UTXO remain in memory, session becomes `StorageFaulted`, and second mutation is rejected. Reopen validates actual durable DB before returning Healthy.
 
-```rust
-assert!(matches!(state.accept_block(block, &verifier), Err(ChainStateError::DurabilityFailure(_))));
-assert_eq!(state.tip(), old_tip);
-assert_eq!(state.session_health(), SessionHealth::StorageFaulted);
-assert!(matches!(state.accept_block(next_block, &verifier), Err(ChainStateError::StorageFaulted)));
-```
+- [ ] **Step 3: Push RED**
 
-Close/reopen then let restart invariants determine the durable state before mutations resume.
+- [ ] **Step 4: Implement staged extension**
 
-- [ ] **Step 3: Push RED and observe missing atomic active extension**
+Clone UTXO; call M3 `connect_block`; build delta from `BlockUndo.spent` -> `None` and each `BlockUndo.created` -> `Some(staged.get(outpoint).unwrap().clone())` keyed by exact 36-byte key. Build one sync batch with body, `FullyValidated` index, undo, UTXO delta, active mapping and tip.
 
-- [ ] **Step 4: Implement staged direct extension**
+- [ ] **Step 5: Publish only after durable success**
 
-Clone current UTXO state, call M3 `connect_block`, derive the UTXO write delta from returned `BlockUndo` (`spent` -> delete; each `created` -> read surviving entry from staged state and insert), then build one durable storage batch containing block, fully validated index, undo, UTXO delta, active mapping and tip.
+Success replaces in-memory UTXO/tip. Any storage error keeps old memory, sets `StorageFaulted`, returns storage/durability error and blocks later mutations.
 
-- [ ] **Step 5: Publish memory only after `commit_durable` succeeds**
-
-On success, replace in-memory UTXO/tip. On any storage error, retain old memory, set in-memory `StorageFaulted`, return durability/storage error and refuse later mutations until reopen.
-
-- [ ] **Step 6: Verify exact atomicity tests and workspace gates**
+- [ ] **Step 6: Verify and commit**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-chainstate direct_extension
@@ -638,9 +697,7 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-- [ ] **Step 7: Commit GREEN and require fresh CI**
-
-Suggested commit: `feat: persist active chain extensions atomically`.
+Commit: `feat: persist active chain extensions atomically`.
 
 ---
 
@@ -653,10 +710,9 @@ Suggested commit: `feat: persist active chain extensions atomically`.
 - Modify: `crates/oregon-chainstate/src/tests.rs`
 
 **Interfaces:**
-- Produces constant: `REORG_WINDOW: u64 = 8_064`.
-- Produces pure boundary function: `reorg_depth_allowed(depth: u64) -> bool { depth <= REORG_WINDOW }`.
-- Produces common-fork/path preflight from index ancestry.
-- Reorg disk delta uses an ordered overlay keyed by canonical outpoint bytes rather than whole-UTXO comparison.
+- `pub const REORG_WINDOW: u64 = 8_064`.
+- Private `reorg_depth_allowed(depth: u64) -> bool { depth <= REORG_WINDOW }`.
+- Same exact ordered delta type as Task 7: `BTreeMap<[u8; 36], (OutPoint, Option<UtxoEntry>)>`.
 
 - [ ] **Step 1: Write RED exact boundary test**
 
@@ -668,45 +724,39 @@ fn reorg_window_accepts_8064_and_rejects_8065() {
 }
 ```
 
-Also use synthetic index fixtures to prove depth 8,065 triggers durable `ReindexRequired` before any UTXO/active mapping mutation.
+Use synthetic index fixtures to prove 8,065 writes only durable `ReindexRequired` and leaves active tip/UTXO/mapping unchanged.
 
-- [ ] **Step 2: Write RED atomic candidate validation test**
+- [ ] **Step 2: Write RED invalid-final-candidate atomicity test**
 
-Build a side branch with several header-valid blocks where the final block is transaction-invalid. Require the active tip and UTXO state to remain byte-for-byte unchanged and mark the failing candidate suffix `Invalid` without publishing partial candidate state.
+Candidate final block is transaction-invalid. Require old active state unchanged and candidate path from first failing block through attempted tip marked `Invalid`.
 
-- [ ] **Step 3: Write RED valid reorg + reopen test**
+- [ ] **Step 3: Write RED valid reorg/reopen test**
 
-Require a strictly greater-work candidate within the window to disconnect old active blocks with stored undo, connect candidate blocks through M3, commit once, return `Reorganized`, and reopen to the new tip/UTXO state.
+Strictly greater-work candidate within window disconnects old active, connects candidate, commits once, reopens at candidate tip.
 
-- [ ] **Step 4: Push RED and observe reorg behavior missing**
+- [ ] **Step 4: Push RED**
 
-- [ ] **Step 5: Implement fork/path preflight**
+- [ ] **Step 5: Implement preflight**
 
-Before cloning UTXO state, locate common fork, compute disconnect depth, and gather:
-
-- old active block IDs from tip down to fork, each with decodable undo;
-- new candidate block IDs from fork child through candidate tip, each with retained decodable body;
-- active mapping updates required if new tip height differs from old tip.
-
-Any missing required record returns `MissingUndo` or `MissingBlockBody` with no mutation.
+Find common fork; gather old active IDs tip->fork with every undo; gather candidate IDs fork-child->tip with every body. Missing retained data returns `MissingUndo`/`MissingBlockBody` with no mutation.
 
 - [ ] **Step 6: Implement deep-reorg fail-closed**
 
-If depth > 8,064, write only durable `NodeHealth::ReindexRequired` in a synchronous batch, set session health `ReindexRequired`, leave active tip/UTXO/mapping unchanged and reject further chain mutations.
+If depth > 8,064, sync-write only `NodeHealth::ReindexRequired`, set session health `ReindexRequired`, leave active state unchanged.
 
-- [ ] **Step 7: Implement staged disconnect/connect and ordered UTXO delta**
+- [ ] **Step 7: Implement staged disconnect/connect**
 
-Clone current UTXO state. For every old undo, call M3 `disconnect_block`; record each `undo.created` as final-delete and each `(outpoint, entry)` in `undo.spent` as final-insert. Then connect candidate blocks forward through M3; for each new undo record `spent` as final-delete and newly surviving `created` entries as final-insert. Later operations overwrite earlier overlay entries for the same outpoint, yielding final delta relative to current durable state without scanning the whole UTXO set.
+Clone current UTXO. For old undo tip->fork: call M3 disconnect, record `undo.created -> None`, `undo.spent -> Some(entry)`. For candidate blocks forward: M3 connect, record new undo `spent -> None`, surviving `created -> Some(staged entry)`. Later map writes overwrite earlier entries for same 36-byte key, producing final delta relative to current durable UTXO without full-set comparison.
 
-- [ ] **Step 8: Validate entire candidate before one durable publication**
+- [ ] **Step 8: Handle invalid candidate without partial publication**
 
-If any candidate block fails M3 validation, do not write active-state changes. Durably mark the first failing block and candidate descendants through the attempted tip as `Invalid`, return the consensus error and preserve old active memory/disk.
+On first M3 candidate failure, do not persist active state. Sync-write index status `Invalid` for failing block and its candidate descendants through attempted tip. Return consensus error.
 
-- [ ] **Step 9: Commit valid reorg in one synchronous batch**
+- [ ] **Step 9: Commit valid reorg once**
 
-Batch contains final UTXO delta, new undo for every newly active block, active-height deletes/puts, new tip, candidate index upgrades to `FullyValidated`, and any newly received candidate block/index not already stored. Publish in-memory UTXO/tip only after durable success; storage error faults the session.
+Single sync batch contains final UTXO delta, regenerated undo for new active blocks, active-height deletes/puts, new tip, candidate index upgrades to `FullyValidated`, and received block/index if not already stored. Publish memory only after success; storage error faults session.
 
-- [ ] **Step 10: Verify reorg tests and workspace gates**
+- [ ] **Step 10: Verify and commit**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-chainstate reorg_window_accepts_8064_and_rejects_8065
@@ -717,9 +767,7 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-- [ ] **Step 11: Commit GREEN and require fresh CI**
-
-Suggested commit: `feat: add atomic cumulative-work reorgs`.
+Commit: `feat: add atomic cumulative-work reorgs`.
 
 ---
 
@@ -732,41 +780,37 @@ Suggested commit: `feat: add atomic cumulative-work reorgs`.
 - Modify: `crates/oregon-storage/src/batch.rs`
 
 **Interfaces:**
-- Produces: `retained_active_floor(height: u64) -> u64 { height.saturating_sub(REORG_WINDOW - 1) }`.
-- Produces: `ChainState::prune() -> Result<PruneReport, ChainStateError>`.
-- Prune report records deleted body and undo counts only; it does not affect consensus state.
+- `retained_active_floor(height: u64) -> u64 { height.saturating_sub(REORG_WINDOW - 1) }`.
+- `ChainState::prune() -> Result<PruneReport, ChainStateError>`.
+- `PruneReport { deleted_bodies: u64, deleted_undos: u64 }`.
 
-- [ ] **Step 1: Write RED pruning off-by-one tests**
+- [ ] **Step 1: Write RED active-floor boundary tests**
 
-For tip `H`, require active body+undo at `H-8063` to remain and data at `H-8064` to be eligible for deletion. Early chain heights use saturating arithmetic and prune nothing before enough history exists.
+At tip H, active body+undo at `H-8063` retained; height `H-8064` eligible. Early heights saturate to 0.
 
-- [ ] **Step 2: Write RED side-branch retention tests**
+- [ ] **Step 2: Write RED side-body predicate tests**
 
-For each body-retained side index:
+A body is retained when height >= active floor and common-fork disconnect depth <= 8,064. A side body is eligible when its common fork depth > 8,064. Any body below active floor is eligible.
 
-- retain if its common fork with current active tip has disconnect depth <= 8,064 and its height is at/above the retained floor;
-- allow body deletion if the common fork requires depth > 8,064 because any future winning reorg already requires `ReindexRequired`;
-- allow body deletion for every block with height below retained floor.
+- [ ] **Step 3: Write RED undo predicate tests**
 
-- [ ] **Step 3: Write RED undo pruning rule tests**
+Undo retained only for current active blocks inside active window. Side undo may be deleted because reconnect regenerates undo before that block can become active.
 
-Retain undo only for current active blocks within the rollback window. Side-branch undo may be removed because if a side branch later becomes active, M3 reconnect regenerates its undo before publication.
+- [ ] **Step 4: Push RED**
 
-- [ ] **Step 4: Push RED and observe pruning behavior missing**
+- [ ] **Step 5: Implement separate maintenance plan**
 
-- [ ] **Step 5: Implement pruning as a separate maintenance batch**
+Scan `body_retained` indices. Evaluate exact predicate, delete eligible block body and set `body_retained=false` in unpruned index. Delete undo not belonging to current active retained window. Set prune cursor to current active height. Never alter UTXO, active mapping, tip, chainwork or validation status.
 
-Scan body-retained indices, evaluate the explicit safe predicate, delete eligible `blocks` values and set `body_retained=false` in the corresponding unpruned index records. Delete undo outside the current active retained window. Update prune cursor. Do not alter UTXO, active mapping, tip, chainwork or validation status.
+- [ ] **Step 6: Commit with `commit_maintenance`**
 
-- [ ] **Step 6: Commit pruning with `commit_maintenance` only**
+Use NoSync. Repeated `prune()` converges to same retained set.
 
-Use `sync=false`; a crash can leave extra old data but cannot remove an accepted active state transaction. Rerunning `prune()` on already-pruned data returns success with zero or reduced deletion counts.
+- [ ] **Step 7: Write interrupted pruning test**
 
-- [ ] **Step 7: Add interrupted-pruning idempotency test**
+Injected pre-maintenance failure changes no consensus state. Reopen and rerun reaches same retained set as uninterrupted prune.
 
-Use maintenance test hook to fail before one maintenance batch; reopen must show no consensus-state change. Rerun pruning must reach the same retained set as an uninterrupted run.
-
-- [ ] **Step 8: Verify and commit GREEN**
+- [ ] **Step 8: Verify and commit**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-chainstate prune
@@ -775,7 +819,7 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-Suggested commit: `feat: add safe idempotent chain pruning`.
+Commit: `feat: add safe idempotent chain pruning`.
 
 ---
 
@@ -786,37 +830,37 @@ Suggested commit: `feat: add safe idempotent chain pruning`.
 - Modify: `crates/oregon-chainstate/src/tests.rs`
 
 **Interfaces:**
-- No new production API unless a test exposes a genuine missing invariant; any fix follows a fresh RED -> GREEN cycle.
+- No new production API unless a failing acceptance test proves a missing invariant; such a fix starts a new RED -> GREEN cycle before continuing.
 
-- [ ] **Step 1: Add close/reopen state-equivalence test**
+- [ ] **Step 1: Close/reopen state equivalence**
 
-Connect multiple blocks including spends, close DB, reopen and compare tip plus sorted `(OutPoint, UtxoEntry)` entries exactly.
+Connect multiple blocks including spends, reopen, compare tip and UTXOs after sorting by `encode_outpoint_key`.
 
-- [ ] **Step 2: Add accepted-before-prune crash-boundary test**
+- [ ] **Step 2: Accepted-before-prune crash boundary**
 
-Durably accept a block, skip/fail pruning, close immediately, reopen and require accepted tip/UTXO plus harmless extra old data.
+Durably accept, fail/skip pruning, close immediately, reopen accepted state with harmless extra old data.
 
-- [ ] **Step 3: Add retained-window corruption tests**
+- [ ] **Step 3: Retained-window corruption**
 
-Delete/tamper an active undo or active body inside the window and require explicit startup failure. Delete a body behind the valid prune horizon and require startup to remain healthy.
+Delete/tamper active body/undo inside window -> fail closed. Missing body behind valid prune horizon -> healthy.
 
-- [ ] **Step 4: Add block/index identity corruption tests**
+- [ ] **Step 4: Index/cumulative-work corruption**
 
-Stored block body must decode and its header ID must match the index key/header. Parent/height active-index mismatch is fail-closed.
+Tamper block-index cumulative work without changing header -> reopen/link validation must detect mismatch. Header/key mismatch and parent/height mismatch also fail closed.
 
-- [ ] **Step 5: Add equal/lower cumulative-work tests**
+- [ ] **Step 5: Equal/lower-work candidates**
 
-Equal-work candidate remains side chain; lower-work candidate remains side chain. Neither changes active mapping or UTXO.
+Remain side chain; do not alter UTXO/active mapping.
 
-- [ ] **Step 6: Add deterministic-on-disk byte tests**
+- [ ] **Step 6: Deterministic bytes**
 
-Construct logically equal UTXO/undo inputs from opposite insertion orders and require identical sorted persisted bytes. No test may rely on `HashMap` iteration order.
+Construct logically identical UTXO/undo data from opposite insertion orders; sort canonically and require identical persisted bytes.
 
-- [ ] **Step 7: Add schema/migration crash matrix**
+- [ ] **Step 7: Migration crash matrix**
 
-Exercise synthetic supported minor migration interruption before marker, after marker, and after first idempotent step. All reruns converge. Unknown major is unchanged and fails closed.
+Synthetic supported minor migration interruption before marker, after marker, and after first idempotent step converges. Unknown major is unchanged and fails closed.
 
-- [ ] **Step 8: Run complete M4 verification locally and in fresh CI**
+- [ ] **Step 8: Full pre-mutation gate**
 
 ```bash
 cargo +1.85.0 test --locked --workspace --all-targets
@@ -824,49 +868,43 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-Record the exact clean commit SHA and GitHub Actions run ID as the pre-mutation clean gate.
+Record exact clean commit SHA and workflow run ID.
 
-- [ ] **Step 9: Commit acceptance-matrix additions**
+- [ ] **Step 9: Commit tests**
 
-Suggested commit: `test: harden persistent chainstate recovery boundaries`.
+Commit: `test: harden persistent chainstate recovery boundaries`.
 
 ---
 
 ### Task 11: Required M4 Security Mutations
 
 **Files:**
-- Throwaway branches only; never merge mutation code into `oregon-v1-m4-persistent-chainstate`.
+- Throwaway branches only.
 
 **Interfaces:**
-- Mutation A must be killed by `reorg_window_accepts_8064_and_rejects_8065`.
-- Mutation B must be killed by durability/fault publication tests.
-- Mutation C must be killed by invalid-candidate atomicity tests.
+- Mutation A killed by `reorg_window_accepts_8064_and_rejects_8065`.
+- Mutation B killed by durability/fault tests.
+- Mutation C killed by invalid-candidate atomicity tests.
 
-- [ ] **Step 1: Mutation A — off-by-one deep reorg**
+- [ ] **Step 1: Mutation A**
 
-Create `mutation-m4-reorg-off-by-one-2026-09-03` from the pre-mutation clean M4 head. Change the boundary from `depth <= REORG_WINDOW` to an incorrect condition that permits 8,065 or rejects 8,064. If normal workflow branch filters do not include the mutation branch, modify the workflow only on the throwaway branch to trigger CI.
+Create `mutation-m4-reorg-off-by-one-2026-09-03`. Change allowed comparison to deliberately permit 8,065. Trigger CI on throwaway branch if needed. Expected exact boundary test failure.
 
-Expected failure: `reorg_window_accepts_8064_and_rejects_8065`.
+- [ ] **Step 2: Mutation B**
 
-- [ ] **Step 2: Mutation B — durability weakening**
+Create `mutation-m4-durability-sync-2026-09-03`. Deliberately route active acceptance through `DurabilityMode::NoSync` or publish active memory before durable return. Expected durability-mode/direct-extension failure.
 
-Create `mutation-m4-durability-sync-2026-09-03`. Deliberately route active acceptance through non-sync durability or publish in-memory active state before `commit_durable` returns.
+- [ ] **Step 3: Mutation C**
 
-Expected failure: `durable_commit_requests_sync_and_maintenance_does_not` and/or the direct-extension storage-fault publication test.
+Create `mutation-m4-early-reorg-publication-2026-09-03`. Deliberately publish staged UTXO/tip before final candidate validation. Expected invalid-final-candidate test failure.
 
-- [ ] **Step 3: Mutation C — early reorg publication**
+- [ ] **Step 4: Record evidence**
 
-Create `mutation-m4-early-reorg-publication-2026-09-03`. Deliberately publish staged candidate UTXO/tip before the final candidate block validates or before the durable reorg batch succeeds.
+For each: branch, mutation commit, CI-trigger commit when used, run ID, failed job, exact intended failing test and symptom. Confirm mutation never enters M4 branch.
 
-Expected failure: invalid-final-candidate atomicity/storage-fault tests.
+- [ ] **Step 5: Fresh post-mutation clean gate**
 
-- [ ] **Step 4: Record exact mutation evidence**
-
-For each mutation record branch, mutation commit, optional CI-trigger commit, workflow run ID, failed job ID, exact intended failing test and observed symptom. Confirm mutation code exists only on the throwaway branch.
-
-- [ ] **Step 5: Return to clean M4 branch and run a fresh post-mutation gate**
-
-If necessary create an empty tree-equivalent commit solely to force fresh post-mutation CI. Require workspace Test, Format and Clippy success at the exact reviewed clean source tree.
+Return to clean M4 branch. Create a tree-equivalent empty commit only if needed to trigger fresh CI. Require Test, Format, Clippy success at reviewed clean source.
 
 ---
 
@@ -874,51 +912,35 @@ If necessary create an empty tree-equivalent commit solely to force fresh post-m
 
 **Files:**
 - Create: `docs/checkpoints/OREGON_V1_M4_PERSISTENT_CHAINSTATE.md`
-- No production changes unless review finds a defect; every defect fix gets its own RED -> GREEN cycle and invalidates prior clean-gate evidence.
+- Production files change only if review finds a defect; every defect gets a new RED -> GREEN cycle and new clean-gate evidence.
 
 **Interfaces:**
-- Produces accepted recovery branch: `oregon-v1-checkpoint-m4-persistent-chainstate-accepted-2026-09-03`.
+- Accepted recovery branch: `oregon-v1-checkpoint-m4-persistent-chainstate-accepted-2026-09-03`.
 
-- [ ] **Step 1: Compare exact accepted M3 base to final M4 code head**
+- [ ] **Step 1: Compare accepted M3 base to final M4 code head**
 
-Review range begins at `8f3ee9043b9cf3beb7b8e4653c0f2ab183233b71`. Enumerate changed production/test/workflow files and confirm no unrelated refactor or secret material.
+Base: `8f3ee9043b9cf3beb7b8e4653c0f2ab183233b71`. Enumerate changed files; confirm no unrelated refactor or secrets.
 
-- [ ] **Step 2: Review the critical security boundaries manually**
+- [ ] **Step 2: Manual critical-boundary review**
 
-Verify from source:
+Verify source proves: sync WAL active writes; memory publication after durable success only; StorageFaulted fail-stop; atomic batch coverage; validated ChainWork provenance; branch-derived RandomX key ID; mandatory M3 verifier; unchanged founder maturity and checked amount arithmetic; exact 8,064/8,065 boundary; safe active/side pruning; canonical/truncation-resistant codecs; duplicate-free restart UTXO reconstruction; restart-resumable migration; no consensus-visible `HashMap` ordering.
 
-- durable active writes use WAL and sync;
-- no active memory publication precedes durable success;
-- storage errors fault the session;
-- WriteBatch includes all UTXO/undo/active mapping/tip changes for a reorg;
-- ChainWork candidate provenance comes from `PrePowHeaderFacts`, not caller input;
-- branch-aware RandomX key ID comes from validated ancestry;
-- M3 spend verifier remains mandatory;
-- no founder maturity exemption or amount arithmetic regression;
-- reorg depth 8,064/8,065 condition is exact;
-- pruning cannot delete required active undo/body one block early;
-- side-body retention does not remove a branch still eligible for an allowed reorg;
-- disk codecs reject truncation/trailing/non-canonical forms;
-- startup rebuild rejects duplicate UTXOs and corrupt retained state;
-- migration marker/resume behavior is idempotent;
-- no consensus-visible storage encoding depends on `HashMap` iteration order.
+- [ ] **Step 3: Require no open Critical/Important finding**
 
-- [ ] **Step 3: Require no open Critical or Important findings**
+Any finding stops checkpointing, gets regression RED, minimal GREEN, full CI and renewed review.
 
-If a finding exists, stop checkpointing, add a focused RED regression test, implement minimal GREEN, rerun full CI, then repeat review of the changed range.
+- [ ] **Step 4: Create checkpoint document**
 
-- [ ] **Step 4: Create the M4 checkpoint document**
+Record frozen behavior, reviewed code commit, RocksDB 0.24.0 pin, schema 1.0, pre/post-mutation CI, all mutation evidence, review disposition and exclusions.
 
-Record frozen behavior, exact reviewed code commit, pre/post-mutation CI runs, all mutation evidence, RocksDB 0.24.0 pin, schema 1.0, pruning window, explicit exclusions and review disposition.
+- [ ] **Step 5: Run CI on checkpoint commit**
 
-- [ ] **Step 5: Run fresh CI on the checkpoint commit itself**
+Require Test, Format and Clippy success.
 
-Require Test, Format and Clippy all successful at the checkpoint-doc commit.
+- [ ] **Step 6: Create recovery branch**
 
-- [ ] **Step 6: Create accepted recovery branch**
+Create `oregon-v1-checkpoint-m4-persistent-chainstate-accepted-2026-09-03` at verified checkpoint commit. Do not merge `main`.
 
-Create `oregon-v1-checkpoint-m4-persistent-chainstate-accepted-2026-09-03` at the verified checkpoint commit. Do not merge to `main`.
+- [ ] **Step 7: Report acceptance with exact evidence**
 
-- [ ] **Step 7: Report M4 acceptance only with exact evidence**
-
-Report reviewed code SHA, checkpoint SHA, clean CI run IDs, mutation run IDs, accepted recovery branch and remaining milestone exclusions. Do not claim full node/mainnet readiness.
+Report reviewed code SHA, checkpoint SHA, clean CI run IDs, mutation runs, recovery branch and explicit remaining exclusions. Do not claim full node or mainnet readiness.
