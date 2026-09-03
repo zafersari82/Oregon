@@ -1,4 +1,74 @@
-//! RED phase: tests define Oregon v1 coinbase and one-time founder rules.
+use oregon_primitives::{
+    Amount, FOUNDER_ALLOCATION_BASE_UNITS, Hash256, Transaction, write_varint,
+};
+
+use crate::{
+    ConsensusError, ConsensusParams, block_subsidy,
+    params::KEY_COMMIT_V1,
+};
+
+pub fn is_coinbase_form(tx: &Transaction) -> bool {
+    tx.inputs.len() == 1
+        && tx.inputs[0].previous_txid == Hash256::from_bytes([0u8; 32])
+        && tx.inputs[0].previous_output_index == u32::MAX
+}
+
+pub fn validate_coinbase(
+    tx: &Transaction,
+    height: u64,
+    total_fees: Amount,
+    params: &ConsensusParams,
+) -> Result<(), ConsensusError> {
+    if height == 0 || tx.version != 1 || tx.lock_time != 0 || !is_coinbase_form(tx) {
+        return Err(ConsensusError::InvalidCoinbase);
+    }
+
+    let input = &tx.inputs[0];
+    if input.sequence != u32::MAX || input.witness.is_empty() {
+        return Err(ConsensusError::InvalidCoinbase);
+    }
+
+    let mut expected_height = Vec::new();
+    write_varint(height, &mut expected_height);
+    if input.witness[0] != expected_height {
+        return Err(ConsensusError::InvalidCoinbase);
+    }
+
+    let miner_start = if height == 1 {
+        let founder = tx
+            .outputs
+            .first()
+            .ok_or(ConsensusError::InvalidFounderOutput)?;
+        let mut expected_program = vec![KEY_COMMIT_V1];
+        expected_program.extend_from_slice(&params.founder_key_commitment);
+        if founder.value.base_units() != FOUNDER_ALLOCATION_BASE_UNITS
+            || founder.locking_program != expected_program
+        {
+            return Err(ConsensusError::InvalidFounderOutput);
+        }
+        1
+    } else {
+        0
+    };
+
+    let miner_claim = tx.outputs[miner_start..]
+        .iter()
+        .try_fold(0u64, |sum, output| {
+            sum.checked_add(output.value.base_units())
+                .ok_or(ConsensusError::ArithmeticOverflow)
+        })?;
+
+    let ceiling = block_subsidy(height)?
+        .base_units()
+        .checked_add(total_fees.base_units())
+        .ok_or(ConsensusError::ArithmeticOverflow)?;
+
+    if miner_claim > ceiling {
+        return Err(ConsensusError::CoinbaseOverClaim);
+    }
+
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
