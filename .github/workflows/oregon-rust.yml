@@ -3,7 +3,7 @@ name: Oregon Rust CI
 # Oregon protocol development branches are CI-gated during test-first development.
 on:
   push:
-    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec]
+    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate]
   pull_request:
     branches: [main]
 
@@ -20,8 +20,8 @@ jobs:
       - name: Install Rust 1.85.0
         run: rustup toolchain install 1.85.0 --profile minimal --component rustfmt,clippy
       - name: Test
-        run: cargo +1.85.0 test --locked --workspace --all-targets
+        run: cargo +1.85.0 test --workspace --all-targets
       - name: Format
         run: cargo +1.85.0 fmt --all -- --check
       - name: Clippy
-        run: cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
+        run: cargo +1.85.0 clippy --workspace --all-targets -- -D warnings
