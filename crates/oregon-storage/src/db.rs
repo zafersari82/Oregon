@@ -21,9 +21,10 @@ use crate::error::StorageError;
 #[cfg(test)]
 use crate::records::SCHEMA_MIGRATION_KEY;
 use crate::records::{
-    ACTIVE_TIP_HEIGHT_KEY, ACTIVE_TIP_ID_KEY, BlockIndexRecord, HEALTH_STATE_KEY, NodeHealth,
-    PRUNE_CURSOR_KEY, active_height_key, decode_block_index, decode_node_health,
-    encode_block_index, encode_node_health,
+    ACTIVE_TIP_HEIGHT_KEY, ACTIVE_TIP_ID_KEY, BlockIndexRecord, CONFIG_ANCHOR_ID_KEY,
+    CONFIG_GENESIS_TIMESTAMP_KEY, HEALTH_STATE_KEY, NodeHealth, PRUNE_CURSOR_KEY,
+    active_height_key, decode_block_index, decode_node_health, encode_block_index,
+    encode_node_health,
 };
 use crate::schema::{
     SCHEMA_KEY, SCHEMA_VERSION, SchemaVersion, decode_schema_version, encode_schema_version,
@@ -284,11 +285,35 @@ impl OregonDb {
         }
     }
 
+    pub fn config_anchor_id(&self) -> Result<Option<Hash256>, StorageError> {
+        let meta = self.column_family(CF_CHAIN_META)?;
+        self.db
+            .get_cf(meta, CONFIG_ANCHOR_ID_KEY)?
+            .map(|bytes| decode_hash(&bytes, "config anchor id"))
+            .transpose()
+    }
+
+    pub fn config_genesis_timestamp(&self) -> Result<Option<u64>, StorageError> {
+        let meta = self.column_family(CF_CHAIN_META)?;
+        self.db
+            .get_cf(meta, CONFIG_GENESIS_TIMESTAMP_KEY)?
+            .map(|bytes| decode_u64_le(&bytes, "config genesis timestamp"))
+            .transpose()
+    }
+
     pub fn health(&self) -> Result<Option<NodeHealth>, StorageError> {
         let meta = self.column_family(CF_CHAIN_META)?;
         self.db
             .get_cf(meta, HEALTH_STATE_KEY)?
             .map(|bytes| decode_node_health(&bytes))
+            .transpose()
+    }
+
+    pub fn prune_cursor(&self) -> Result<Option<u64>, StorageError> {
+        let meta = self.column_family(CF_CHAIN_META)?;
+        self.db
+            .get_cf(meta, PRUNE_CURSOR_KEY)?
+            .map(|bytes| decode_u64_le(&bytes, "prune cursor"))
             .transpose()
     }
 
@@ -506,6 +531,16 @@ fn encode_operations(operations: Vec<StorageOp>) -> Result<Vec<EncodedOp>, Stora
                     height.to_le_bytes().to_vec(),
                 ));
             }
+            StorageOp::SetConfigAnchorId(block_id) => encoded.push(EncodedOp::put(
+                CF_CHAIN_META,
+                CONFIG_ANCHOR_ID_KEY.to_vec(),
+                block_id.as_bytes().to_vec(),
+            )),
+            StorageOp::SetConfigGenesisTimestamp(timestamp) => encoded.push(EncodedOp::put(
+                CF_CHAIN_META,
+                CONFIG_GENESIS_TIMESTAMP_KEY.to_vec(),
+                timestamp.to_le_bytes().to_vec(),
+            )),
             StorageOp::SetHealth(health) => encoded.push(EncodedOp::put(
                 CF_CHAIN_META,
                 HEALTH_STATE_KEY.to_vec(),
