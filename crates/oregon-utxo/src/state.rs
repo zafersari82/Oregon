@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use oregon_consensus::{ConsensusError, ConsensusParams, validate_non_genesis_block_structure};
+use oregon_consensus::{
+    ConsensusParams, validate_coinbase, validate_non_genesis_block_skeleton,
+};
 use oregon_primitives::{Amount, Block, Hash256, OutPoint, Transaction};
 
 use crate::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError};
@@ -131,14 +133,7 @@ impl UtxoState {
         params: &ConsensusParams,
         verifier: &V,
     ) -> Result<BlockUndo, UtxoError> {
-        if height == 0 {
-            return Err(UtxoError::Consensus(ConsensusError::InvalidHeight));
-        }
-        if block.transactions.is_empty() {
-            return Err(UtxoError::Consensus(
-                ConsensusError::EmptyNonGenesisBlock,
-            ));
-        }
+        validate_non_genesis_block_skeleton(block, height)?;
 
         let mut overlay = self.clone();
         let mut tx_positions = HashMap::<Hash256, usize>::new();
@@ -169,7 +164,7 @@ impl UtxoState {
 
         let fee_amount =
             Amount::from_base_units(total_fees).map_err(|_| UtxoError::AmountOverflow)?;
-        validate_non_genesis_block_structure(block, height, fee_amount, params)?;
+        validate_coinbase(&block.transactions[0], height, fee_amount, params)?;
         overlay.insert_coinbase_outputs(&block.transactions[0], height)?;
 
         let mut spent: Vec<_> = self
