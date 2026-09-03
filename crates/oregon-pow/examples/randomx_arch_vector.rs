@@ -25,7 +25,7 @@ fn main() {
     let mut engine = LightEngine::new(key).expect("RandomX light engine");
     let hash = engine.hash(&input);
 
-    println!("key_block_id={}", key_block_id.to_hex());
+    println!("key_block_id={key_block_id}");
     println!("derived_key={}", hex(&key));
     println!("pow_input_len={}", input.len());
     println!("pow_input={}", hex(&input));
