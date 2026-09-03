@@ -91,3 +91,106 @@ impl UtxoState {
         Ok(fee)
     }
 }
+
+#[cfg(test)]
+mod coinbase_tests {
+    use oregon_primitives::{
+        Amount, FOUNDER_ALLOCATION_BASE_UNITS, Hash256, OutPoint, Transaction, TxInput, TxOutput,
+    };
+
+    use super::UtxoState;
+    use crate::{SpendVerifier, UtxoEntry, UtxoError};
+
+    struct AcceptAll;
+
+    impl SpendVerifier for AcceptAll {
+        fn verify_spend(
+            &self,
+            _transaction: &Transaction,
+            _input_index: usize,
+            _prevout: &UtxoEntry,
+        ) -> Result<(), UtxoError> {
+            Ok(())
+        }
+    }
+
+    fn coinbase(outputs: Vec<TxOutput>) -> Transaction {
+        Transaction {
+            version: 1,
+            inputs: vec![TxInput {
+                previous_txid: Hash256::from_bytes([0u8; 32]),
+                previous_output_index: u32::MAX,
+                sequence: u32::MAX,
+                witness: vec![vec![1]],
+            }],
+            outputs,
+            lock_time: 0,
+        }
+    }
+
+    fn spend(previous: OutPoint, value: u64) -> Transaction {
+        Transaction {
+            version: 1,
+            inputs: vec![TxInput {
+                previous_txid: previous.txid,
+                previous_output_index: previous.index,
+                sequence: 0,
+                witness: vec![],
+            }],
+            outputs: vec![TxOutput {
+                value: Amount::from_base_units(value).unwrap(),
+                locking_program: vec![0x01],
+            }],
+            lock_time: 0,
+        }
+    }
+
+    #[test]
+    fn founder_and_miner_outputs_share_coinbase_metadata_and_maturity() {
+        let tx = coinbase(vec![
+            TxOutput {
+                value: Amount::from_base_units(FOUNDER_ALLOCATION_BASE_UNITS).unwrap(),
+                locking_program: vec![0x01],
+            },
+            TxOutput {
+                value: Amount::from_base_units(100).unwrap(),
+                locking_program: vec![0x02],
+            },
+        ]);
+        let mut state = UtxoState::new();
+        state.insert_coinbase_outputs(&tx, 1).unwrap();
+
+        for index in [0, 1] {
+            let entry = state
+                .get(&OutPoint {
+                    txid: tx.txid(),
+                    index,
+                })
+                .unwrap();
+            assert!(entry.is_coinbase);
+            assert_eq!(entry.creation_height, 1);
+            assert!(!entry.is_spendable_at(120));
+            assert!(entry.is_spendable_at(121));
+        }
+    }
+
+    #[test]
+    fn same_block_coinbase_spend_is_immature() {
+        let tx = coinbase(vec![TxOutput {
+            value: Amount::from_base_units(100).unwrap(),
+            locking_program: vec![0x02],
+        }]);
+        let mut state = UtxoState::new();
+        state.insert_coinbase_outputs(&tx, 10).unwrap();
+        let previous = OutPoint {
+            txid: tx.txid(),
+            index: 0,
+        };
+        let spend = spend(previous, 90);
+
+        assert_eq!(
+            state.apply_normal_transaction(&spend, 10, &AcceptAll),
+            Err(UtxoError::ImmatureCoinbase)
+        );
+    }
+}
