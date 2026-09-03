@@ -2,8 +2,8 @@ use std::{fs, path::PathBuf};
 
 use num_bigint::BigUint;
 use oregon_consensus::{
-    ConsensusParams, SCHEDULED_MINING_ISSUANCE_BASE_UNITS,
-    SCHEDULED_TOTAL_WITH_FOUNDER_BASE_UNITS, Target, block_subsidy, block_work, required_target,
+    ConsensusParams, SCHEDULED_MINING_ISSUANCE_BASE_UNITS, SCHEDULED_TOTAL_WITH_FOUNDER_BASE_UNITS,
+    Target, block_subsidy, block_work, required_target,
 };
 use serde::Deserialize;
 
@@ -55,7 +55,10 @@ fn fixture_path() -> PathBuf {
 fn read_fixture() -> Fixture {
     let path = fixture_path();
     let bytes = fs::read(&path).unwrap_or_else(|error| {
-        panic!("missing Oregon M1 golden fixture {}: {error}", path.display())
+        panic!(
+            "missing Oregon M1 golden fixture {}: {error}",
+            path.display()
+        )
     });
     serde_json::from_slice(&bytes).expect("Oregon M1 golden fixture must be valid JSON")
 }
@@ -90,7 +93,10 @@ fn consensus_m1_v1_vectors_match_public_consensus_apis() {
         fixture.target.integer_decimal
     );
 
-    assert_eq!(block_subsidy(1).unwrap().base_units(), fixture.emission.height_1);
+    assert_eq!(
+        block_subsidy(1).unwrap().base_units(),
+        fixture.emission.height_1
+    );
     assert_eq!(
         block_subsidy(200_000).unwrap().base_units(),
         fixture.emission.height_200000
@@ -128,7 +134,11 @@ fn consensus_m1_v1_vectors_match_public_consensus_apis() {
             .unwrap()
             .to_biguint()
             .to_str_radix(10);
-        assert_eq!(actual, vector.expected_target, "ASERT vector {}", vector.name);
+        assert_eq!(
+            actual, vector.expected_target,
+            "ASERT vector {}",
+            vector.name
+        );
     }
 
     let max_target = Target::from_le_bytes([0xff; 32]).unwrap();
