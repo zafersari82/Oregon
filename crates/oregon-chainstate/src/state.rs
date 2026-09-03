@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use oregon_consensus::{
@@ -5,14 +6,18 @@ use oregon_consensus::{
     validate_header_pre_pow,
 };
 use oregon_pow::{LightEngine, derive_randomx_key, key_block_height};
-use oregon_primitives::{Block, Hash256};
-use oregon_storage::{BlockIndexRecord, NodeHealth, OregonDb, StorageBatch, ValidationStatus};
-use oregon_utxo::{SpendVerifier, UtxoState};
+use oregon_primitives::{Block, Hash256, OutPoint};
+use oregon_storage::{
+    BlockIndexRecord, NodeHealth, OregonDb, StorageBatch, ValidationStatus, encode_outpoint_key,
+};
+use oregon_utxo::{BlockUndo, SpendVerifier, UtxoEntry, UtxoState};
 
 use crate::branch::BranchView;
 use crate::{ChainConfig, ChainStateError};
 
 pub const REORG_WINDOW: u64 = 8_064;
+
+type UtxoDelta = BTreeMap<[u8; 36], (OutPoint, Option<UtxoEntry>)>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tip {
@@ -68,7 +73,7 @@ impl ChainState {
     pub fn accept_block<V: SpendVerifier>(
         &mut self,
         block: Block,
-        _verifier: &V,
+        verifier: &V,
     ) -> Result<AcceptOutcome, ChainStateError> {
         let block_id = block.header.block_id();
         if let Some(existing) = self.db.get_index(block_id)? {
@@ -119,9 +124,34 @@ impl ChainState {
         cumulative_work.add_assign(&facts.work());
 
         if parent_id == self.tip.block_id {
-            return Err(ChainStateError::DeferredTransition(
-                "active-chain extension is implemented in Task 7",
-            ));
+            let mut staged = self.utxos.clone();
+            let undo = staged.connect_block(&block, height, &self.config.params, verifier)?;
+            let delta = build_utxo_delta(&staged, &undo)?;
+            let index = BlockIndexRecord {
+                header: block.header.clone(),
+                parent: parent_id,
+                height,
+                cumulative_work: cumulative_work.clone(),
+                validation: ValidationStatus::FullyValidated,
+                body_retained: true,
+            };
+
+            let mut batch = StorageBatch::new();
+            batch.put_block(block);
+            batch.put_index(index);
+            batch.put_undo(block_id, undo);
+            apply_utxo_delta(&mut batch, delta);
+            batch.set_active_height(height, block_id);
+            batch.set_tip(block_id, height);
+            self.db.commit_durable(batch)?;
+
+            self.utxos = staged;
+            self.tip = Tip {
+                block_id,
+                height,
+                cumulative_work,
+            };
+            return Ok(AcceptOutcome::Extended);
         }
         if cumulative_work > self.tip.cumulative_work {
             return Err(ChainStateError::DeferredTransition(
@@ -143,6 +173,30 @@ impl ChainState {
         self.db.commit_durable(batch)?;
 
         Ok(AcceptOutcome::StoredSideChain)
+    }
+}
+
+fn build_utxo_delta(staged: &UtxoState, undo: &BlockUndo) -> Result<UtxoDelta, ChainStateError> {
+    let mut delta = BTreeMap::new();
+    for (outpoint, _) in &undo.spent {
+        delta.insert(encode_outpoint_key(outpoint), (*outpoint, None));
+    }
+    for outpoint in &undo.created {
+        let entry = staged
+            .get(outpoint)
+            .cloned()
+            .ok_or_else(|| corrupt("created outpoint missing from staged UTXO state"))?;
+        delta.insert(encode_outpoint_key(outpoint), (*outpoint, Some(entry)));
+    }
+    Ok(delta)
+}
+
+fn apply_utxo_delta(batch: &mut StorageBatch, delta: UtxoDelta) {
+    for (_, (outpoint, entry)) in delta {
+        match entry {
+            Some(entry) => batch.put_utxo(outpoint, entry),
+            None => batch.delete_utxo(outpoint),
+        }
     }
 }
 
