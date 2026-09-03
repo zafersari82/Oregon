@@ -17,6 +17,10 @@ pub enum ChainStateError {
     Utxo(#[from] UtxoError),
     #[error("unknown candidate parent: {0:?}")]
     UnknownParent(Hash256),
+    #[error("missing retained block body required for reorg: {0:?}")]
+    MissingBlockBody(Hash256),
+    #[error("missing retained undo required for reorg: {0:?}")]
+    MissingUndo(Hash256),
     #[error("chain configuration mismatch: {0}")]
     ConfigMismatch(String),
     #[error("corrupt persistent chainstate: {0}")]
