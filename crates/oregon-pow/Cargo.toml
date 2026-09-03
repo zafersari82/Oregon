@@ -3,3 +3,6 @@ name = "oregon-pow"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
+
+[build-dependencies]
+cmake = "0.1"
