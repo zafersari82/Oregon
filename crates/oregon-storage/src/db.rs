@@ -18,11 +18,15 @@ use crate::codec::{
     encode_outpoint_key, encode_utxo_entry,
 };
 use crate::error::StorageError;
+#[cfg(test)]
+use crate::records::SCHEMA_MIGRATION_KEY;
 use crate::records::{
     ACTIVE_TIP_HEIGHT_KEY, ACTIVE_TIP_ID_KEY, BlockIndexRecord, HEALTH_STATE_KEY, NodeHealth,
     PRUNE_CURSOR_KEY, active_height_key, decode_block_index, decode_node_health,
     encode_block_index, encode_node_health,
 };
+#[cfg(test)]
+use crate::schema::{decode_migration_marker, encode_migration_marker};
 use crate::schema::{
     SCHEMA_KEY, SCHEMA_VERSION, SchemaVersion, decode_schema_version, encode_schema_version,
 };
@@ -90,6 +94,57 @@ impl OregonDb {
     #[cfg(any(test, feature = "test-hooks"))]
     pub fn open_with_test_hooks(path: impl AsRef<Path>) -> Result<Self, StorageError> {
         Self::open_internal(path)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn open_with_synthetic_migration_1_1(
+        path: impl AsRef<Path>,
+        interrupt_after_first_step: bool,
+    ) -> Result<Self, StorageError> {
+        let mut options = Options::default();
+        options.create_if_missing(true);
+        options.create_missing_column_families(true);
+        let descriptors = OREGON_COLUMN_FAMILIES
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
+        let db = DB::open_cf_descriptors(&options, path, descriptors)?;
+        let chain_meta = db.cf_handle(CF_CHAIN_META).ok_or_else(|| {
+            StorageError::CorruptData("missing chain_meta column family".to_owned())
+        })?;
+        let bytes = db
+            .get_cf(chain_meta, SCHEMA_KEY)?
+            .ok_or_else(|| StorageError::CorruptData("missing schema version".to_owned()))?;
+        let current = decode_schema_version(&bytes)?;
+        let target = SchemaVersion { major: 1, minor: 1 };
+
+        if current.major != target.major {
+            return Err(StorageError::UnsupportedSchema(current));
+        }
+        if current == target {
+            if db.get_cf(chain_meta, SCHEMA_MIGRATION_KEY)?.is_some() {
+                return Err(StorageError::CorruptData(
+                    "completed synthetic migration still has a marker".to_owned(),
+                ));
+            }
+            return Ok(Self {
+                db,
+                test_hooks: TestHooks::default(),
+            });
+        }
+        if current != SCHEMA_VERSION {
+            return Err(StorageError::UnsupportedSchema(current));
+        }
+
+        run_synthetic_minor_migration_1_1(
+            &db,
+            chain_meta,
+            interrupt_after_first_step,
+        )?;
+
+        Ok(Self {
+            db,
+            test_hooks: TestHooks::default(),
+        })
     }
 
     fn open_internal(path: impl AsRef<Path>) -> Result<Self, StorageError> {
@@ -306,6 +361,68 @@ impl OregonDb {
             .cf_handle(name)
             .ok_or_else(|| corrupt(format!("missing {name} column family")))
     }
+}
+
+#[cfg(test)]
+fn run_synthetic_minor_migration_1_1(
+    db: &DB,
+    chain_meta: &rocksdb::ColumnFamily,
+    interrupt_after_first_step: bool,
+) -> Result<(), StorageError> {
+    const STEP1_KEY: &[u8] = b"test/migration/step1";
+    const STEP2_KEY: &[u8] = b"test/migration/step2";
+    const STEP_VALUE: &[u8] = b"applied";
+
+    let from = SCHEMA_VERSION;
+    let to = SchemaVersion { major: 1, minor: 1 };
+    let expected_marker = encode_migration_marker(from, to);
+
+    match db.get_cf(chain_meta, SCHEMA_MIGRATION_KEY)? {
+        Some(bytes) => {
+            let marker = decode_migration_marker(&bytes)?;
+            if marker != (from, to) {
+                return Err(StorageError::CorruptData(
+                    "migration marker does not match synthetic 1.0 -> 1.1 migration".to_owned(),
+                ));
+            }
+        }
+        None => sync_put(db, chain_meta, SCHEMA_MIGRATION_KEY, &expected_marker)?,
+    }
+
+    sync_put(db, chain_meta, STEP1_KEY, STEP_VALUE)?;
+    if interrupt_after_first_step {
+        return Err(StorageError::DurabilityFailure(
+            "injected migration interruption after first step".to_owned(),
+        ));
+    }
+
+    sync_put(db, chain_meta, STEP2_KEY, STEP_VALUE)?;
+
+    let mut final_batch = WriteBatch::default();
+    final_batch.put_cf(chain_meta, SCHEMA_KEY, encode_schema_version(to));
+    final_batch.delete_cf(chain_meta, SCHEMA_MIGRATION_KEY);
+    sync_write(db, final_batch)
+}
+
+#[cfg(test)]
+fn sync_put(
+    db: &DB,
+    column_family: &rocksdb::ColumnFamily,
+    key: &[u8],
+    value: &[u8],
+) -> Result<(), StorageError> {
+    let mut batch = WriteBatch::default();
+    batch.put_cf(column_family, key, value);
+    sync_write(db, batch)
+}
+
+#[cfg(test)]
+fn sync_write(db: &DB, batch: WriteBatch) -> Result<(), StorageError> {
+    let mut write_options = WriteOptions::default();
+    write_options.set_sync(true);
+    write_options.disable_wal(false);
+    db.write_opt(batch, &write_options)
+        .map_err(|error| StorageError::DurabilityFailure(error.to_string()))
 }
 
 struct EncodedOp {
