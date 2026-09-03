@@ -38,11 +38,7 @@ impl LightEngine {
         let cache = NonNull::new(cache).ok_or(PowError::CacheAllocationFailed)?;
 
         unsafe {
-            randomx_init_cache(
-                cache.as_ptr(),
-                key.as_ptr().cast::<c_void>(),
-                key.len(),
-            );
+            randomx_init_cache(cache.as_ptr(), key.as_ptr().cast::<c_void>(), key.len());
         }
 
         let vm = unsafe { randomx_create_vm(RANDOMX_FLAG_V2, cache.as_ptr(), ptr::null_mut()) };
