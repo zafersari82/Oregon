@@ -75,6 +75,19 @@ impl ChainState {
         block: Block,
         verifier: &V,
     ) -> Result<AcceptOutcome, ChainStateError> {
+        self.ensure_mutation_allowed()?;
+        let result = self.accept_block_healthy(block, verifier);
+        if matches!(&result, Err(ChainStateError::Storage(_))) {
+            self.session_health = SessionHealth::StorageFaulted;
+        }
+        result
+    }
+
+    fn accept_block_healthy<V: SpendVerifier>(
+        &mut self,
+        block: Block,
+        verifier: &V,
+    ) -> Result<AcceptOutcome, ChainStateError> {
         let block_id = block.header.block_id();
         if let Some(existing) = self.db.get_index(block_id)? {
             if existing.validation == ValidationStatus::Invalid {
@@ -173,6 +186,19 @@ impl ChainState {
         self.db.commit_durable(batch)?;
 
         Ok(AcceptOutcome::StoredSideChain)
+    }
+
+    fn ensure_mutation_allowed(&self) -> Result<(), ChainStateError> {
+        match self.session_health {
+            SessionHealth::Healthy => Ok(()),
+            SessionHealth::StorageFaulted => Err(ChainStateError::StorageFaulted),
+            SessionHealth::ReindexRequired => Err(ChainStateError::ReindexRequired),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_fail_next_durable_write(&self) {
+        self.db.test_hooks().fail_next_durable_write();
     }
 }
 
