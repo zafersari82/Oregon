@@ -326,6 +326,26 @@ fn accepted_active_state_reopens_when_pruning_was_skipped_and_side_data_remains(
 }
 
 #[test]
+fn skipped_pruning_with_extra_old_body_is_harmless_on_reopen() {
+    let dir = TestDir::new("skipped-prune-old-body");
+    let config = test_config();
+    let ids = seed_storage_chain(dir.path(), &config, REORG_WINDOW + 1, true);
+    let old_id = ids[1];
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    assert_eq!(db.prune_cursor().unwrap(), Some(0));
+    assert!(db.get_index(old_id).unwrap().unwrap().body_retained);
+    assert!(db.get_block(old_id).unwrap().is_some());
+    assert!(db.get_undo(old_id).unwrap().is_some());
+    drop(db);
+
+    let reopened = ChainState::open(dir.path(), config).unwrap();
+    assert_eq!(reopened.tip().height, REORG_WINDOW + 1);
+    assert_eq!(reopened.tip().block_id, *ids.last().unwrap());
+    assert_eq!(reopened.session_health(), SessionHealth::Healthy);
+}
+
+#[test]
 fn missing_body_behind_valid_prune_horizon_reopens_healthy() {
     let dir = TestDir::new("pruned-old-body");
     let config = test_config();
@@ -356,6 +376,33 @@ fn reopen_fails_closed_when_active_index_height_is_tampered() {
     record.height = 9;
     let mut batch = StorageBatch::new();
     batch.put_index(record);
+    db.commit_durable(batch).unwrap();
+    drop(db);
+
+    assert!(ChainState::open(dir.path(), config).is_err());
+}
+
+#[test]
+fn reopen_fails_closed_when_active_parent_link_is_tampered() {
+    let dir = TestDir::new("index-parent-corruption");
+    let config = test_config();
+    let ids = seed_storage_chain(dir.path(), &config, 2, false);
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    let mut record = db.get_index(ids[2]).unwrap().unwrap();
+    let mut body = db.get_block(ids[2]).unwrap().unwrap();
+    let undo = db.get_undo(ids[2]).unwrap().unwrap();
+    record.header.previous_block = config.anchor_header.block_id();
+    record.parent = config.anchor_header.block_id();
+    let tampered_id = record.header.block_id();
+    body.header = record.header.clone();
+
+    let mut batch = StorageBatch::new();
+    batch.put_index(record);
+    batch.put_block(body);
+    batch.put_undo(tampered_id, undo);
+    batch.set_active_height(2, tampered_id);
+    batch.set_tip(tampered_id, 2);
     db.commit_durable(batch).unwrap();
     drop(db);
 
