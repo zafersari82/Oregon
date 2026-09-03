@@ -1,3 +1,5 @@
+//! RED phase: tests define the Oregon v1 issuance contract before implementation.
+
 #[cfg(test)]
 mod tests {
     use oregon_primitives::MAX_SUPPLY_BASE_UNITS;
