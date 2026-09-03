@@ -8,7 +8,9 @@ pub const OREGON_RANDOMX_ARGON_SALT: &str = "OREGON-RANDOMX-V1";
 
 #[cfg(test)]
 mod tests {
-    use super::{LightEngine, OREGON_RANDOMX_ARGON_SALT, RANDOMX_UPSTREAM_COMMIT};
+    use super::{
+        LightEngine, OREGON_RANDOMX_ARGON_SALT, RANDOMX_UPSTREAM_COMMIT, key_block_height,
+    };
 
     #[test]
     fn randomx_provenance_is_frozen() {
@@ -41,5 +43,15 @@ mod tests {
         let mut engine_b = LightEngine::new(key_b).expect("light engine B");
         let changed_key = engine_b.hash(input_a);
         assert_ne!(first, changed_key);
+    }
+
+    #[test]
+    fn randomx_key_schedule_boundaries_are_frozen() {
+        assert_eq!(key_block_height(0), 0);
+        assert_eq!(key_block_height(1), 0);
+        assert_eq!(key_block_height(887), 0);
+        assert_eq!(key_block_height(888), 864);
+        assert_eq!(key_block_height(1_751), 864);
+        assert_eq!(key_block_height(1_752), 1_728);
     }
 }
