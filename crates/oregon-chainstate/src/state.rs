@@ -2,9 +2,7 @@ use std::path::Path;
 
 use oregon_consensus::{ChainWork, Target, block_work};
 use oregon_primitives::Hash256;
-use oregon_storage::{
-    BlockIndexRecord, NodeHealth, OregonDb, StorageBatch, ValidationStatus,
-};
+use oregon_storage::{BlockIndexRecord, NodeHealth, OregonDb, StorageBatch, ValidationStatus};
 use oregon_utxo::UtxoState;
 
 use crate::{ChainConfig, ChainStateError};
@@ -124,7 +122,10 @@ fn reopen(
         ));
     }
 
-    match db.health()?.ok_or_else(|| corrupt("missing node health state"))? {
+    match db
+        .health()?
+        .ok_or_else(|| corrupt("missing node health state"))?
+    {
         NodeHealth::Healthy => {}
         NodeHealth::ReindexRequired => return Err(ChainStateError::ReindexRequired),
     }
@@ -170,7 +171,9 @@ fn reopen(
                 return Err(corrupt("height-zero anchor cumulative work is not zero"));
             }
             if record.body_retained {
-                return Err(corrupt("height-zero anchor unexpectedly retains a block body"));
+                return Err(corrupt(
+                    "height-zero anchor unexpectedly retains a block body",
+                ));
             }
         } else {
             let parent_id = previous_id.ok_or_else(|| corrupt("missing prior active block"))?;
@@ -206,9 +209,7 @@ fn reopen(
                     )));
                 }
                 if db.get_undo(block_id)?.is_none() {
-                    return Err(corrupt(format!(
-                        "missing retained undo at height {height}"
-                    )));
+                    return Err(corrupt(format!("missing retained undo at height {height}")));
                 }
             }
         }
@@ -251,11 +252,17 @@ fn validate_config(config: &ChainConfig) -> Result<(), ChainStateError> {
         ));
     }
 
-    let target = Target::from_le_bytes(config.anchor_header.difficulty_commitment)
-        .map_err(|error| ChainStateError::ConfigMismatch(format!("invalid anchor target: {error}")))?;
-    target.validate_against(config.params.pow_limit).map_err(|error| {
-        ChainStateError::ConfigMismatch(format!("anchor target exceeds configured limit: {error}"))
-    })?;
+    let target =
+        Target::from_le_bytes(config.anchor_header.difficulty_commitment).map_err(|error| {
+            ChainStateError::ConfigMismatch(format!("invalid anchor target: {error}"))
+        })?;
+    target
+        .validate_against(config.params.pow_limit)
+        .map_err(|error| {
+            ChainStateError::ConfigMismatch(format!(
+                "anchor target exceeds configured limit: {error}"
+            ))
+        })?;
     Ok(())
 }
 
