@@ -1,3 +1,9 @@
+use crate::state::REORG_WINDOW;
+
+pub(crate) fn retained_active_floor(height: u64) -> u64 {
+    height.saturating_sub(REORG_WINDOW - 1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::retained_active_floor;
