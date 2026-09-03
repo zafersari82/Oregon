@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use oregon_primitives::{OutPoint, Transaction};
+use oregon_consensus::{ConsensusError, ConsensusParams, validate_non_genesis_block_structure};
+use oregon_primitives::{Amount, Block, Hash256, OutPoint, Transaction};
 
-use crate::{SpendVerifier, UtxoEntry, UtxoError};
+use crate::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UtxoState {
@@ -32,8 +33,12 @@ impl UtxoState {
         let mut created = Vec::with_capacity(tx.outputs.len());
         for (index, output) in tx.outputs.iter().enumerate() {
             let index = u32::try_from(index).map_err(|_| UtxoError::OutputIndexOverflow)?;
+            let outpoint = OutPoint { txid, index };
+            if self.entries.contains_key(&outpoint) {
+                return Err(UtxoError::OutputCollision(outpoint));
+            }
             created.push((
-                OutPoint { txid, index },
+                outpoint,
                 UtxoEntry {
                     output: output.clone(),
                     creation_height,
@@ -96,6 +101,9 @@ impl UtxoState {
         for (index, output) in tx.outputs.iter().enumerate() {
             let index = u32::try_from(index).map_err(|_| UtxoError::OutputIndexOverflow)?;
             let outpoint = OutPoint { txid, index };
+            if self.entries.contains_key(&outpoint) {
+                return Err(UtxoError::OutputCollision(outpoint));
+            }
             created.push((
                 outpoint,
                 UtxoEntry {
@@ -115,6 +123,81 @@ impl UtxoState {
 
         Ok(fee)
     }
+
+    pub fn connect_block<V: SpendVerifier>(
+        &mut self,
+        block: &Block,
+        height: u64,
+        params: &ConsensusParams,
+        verifier: &V,
+    ) -> Result<BlockUndo, UtxoError> {
+        if height == 0 {
+            return Err(UtxoError::Consensus(ConsensusError::InvalidHeight));
+        }
+        if block.transactions.is_empty() {
+            return Err(UtxoError::Consensus(
+                ConsensusError::EmptyNonGenesisBlock,
+            ));
+        }
+
+        let mut overlay = self.clone();
+        let mut tx_positions = HashMap::<Hash256, usize>::new();
+        for (index, tx) in block.transactions.iter().enumerate().skip(1) {
+            if tx_positions.insert(tx.txid(), index).is_some() {
+                return Err(UtxoError::InvalidBlockOrder);
+            }
+        }
+
+        let mut total_fees = 0u64;
+        for (index, tx) in block.transactions.iter().enumerate().skip(1) {
+            for input in &tx.inputs {
+                let outpoint = input.outpoint();
+                if overlay.get(&outpoint).is_none()
+                    && tx_positions
+                        .get(&input.previous_txid)
+                        .is_some_and(|producer_index| *producer_index > index)
+                {
+                    return Err(UtxoError::InvalidBlockOrder);
+                }
+            }
+
+            let fee = overlay.apply_normal_transaction(tx, height, verifier)?;
+            total_fees = total_fees
+                .checked_add(fee)
+                .ok_or(UtxoError::AmountOverflow)?;
+        }
+
+        let fee_amount =
+            Amount::from_base_units(total_fees).map_err(|_| UtxoError::AmountOverflow)?;
+        validate_non_genesis_block_structure(block, height, fee_amount, params)?;
+        overlay.insert_coinbase_outputs(&block.transactions[0], height)?;
+
+        let mut spent: Vec<_> = self
+            .entries
+            .iter()
+            .filter(|(outpoint, _)| !overlay.entries.contains_key(outpoint))
+            .map(|(outpoint, entry)| (*outpoint, entry.clone()))
+            .collect();
+        spent.sort_by(|(left, _), (right, _)| compare_outpoints(left, right));
+
+        let mut created: Vec<_> = overlay
+            .entries
+            .keys()
+            .filter(|outpoint| !self.entries.contains_key(outpoint))
+            .copied()
+            .collect();
+        created.sort_by(compare_outpoints);
+
+        *self = overlay;
+        Ok(BlockUndo { spent, created })
+    }
+}
+
+fn compare_outpoints(left: &OutPoint, right: &OutPoint) -> std::cmp::Ordering {
+    left.txid
+        .as_bytes()
+        .cmp(right.txid.as_bytes())
+        .then_with(|| left.index.cmp(&right.index))
 }
 
 #[cfg(test)]
