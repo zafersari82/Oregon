@@ -17,6 +17,18 @@ impl ChainWork {
     pub fn add_assign(&mut self, rhs: &Self) {
         self.0 += &rhs.0;
     }
+
+    pub fn to_canonical_be_bytes(&self) -> Vec<u8> {
+        let bytes = self.0.to_bytes_be();
+        if bytes.is_empty() { vec![0] } else { bytes }
+    }
+
+    pub fn from_canonical_be_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.is_empty() || (bytes.len() > 1 && bytes[0] == 0) {
+            return None;
+        }
+        Some(Self(BigUint::from_bytes_be(bytes)))
+    }
 }
 
 pub fn block_work(target: Target) -> ChainWork {
