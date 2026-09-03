@@ -33,7 +33,7 @@ pub(crate) struct ReorgPlan {
 }
 
 pub(crate) fn reorg_depth_allowed(depth: u64) -> bool {
-    depth <= REORG_WINDOW
+    depth <= REORG_WINDOW + 1
 }
 
 pub(crate) fn discover_fork(
