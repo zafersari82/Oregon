@@ -1,0 +1,52 @@
+name: Oregon M3 Handoff Package
+
+on:
+  push:
+    branches: [oregon-m3-handoff-2026-09-03]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout handoff snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Record snapshot metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "OREGON M3 NEW CHAT HANDOFF"
+            echo "handoff_branch=${GITHUB_REF_NAME}"
+            echo "handoff_commit=$(git rev-parse HEAD)"
+            echo "development_branch=oregon-v1-m3-utxo-chainstate"
+            echo "development_head_at_handoff=0d2699033c5c6457c8582ca60ec96975bd524855"
+            echo "randomx_submodule=$(git -C vendor/RandomX rev-parse HEAD)"
+          } > HANDOFF_SNAPSHOT.txt
+
+      - name: Build self-contained ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .git
+          if [ -e vendor/RandomX/.git ]; then rm -rf vendor/RandomX/.git; fi
+          zip -q -r ../OREGON_M3_HANDOFF_2026-09-03.zip .
+          cd ..
+          sha256sum OREGON_M3_HANDOFF_2026-09-03.zip > OREGON_M3_HANDOFF_2026-09-03.zip.sha256
+          unzip -t OREGON_M3_HANDOFF_2026-09-03.zip >/dev/null
+
+      - name: Upload handoff ZIP
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: OREGON_M3_HANDOFF_2026-09-03
+          path: |
+            ../OREGON_M3_HANDOFF_2026-09-03.zip
+            ../OREGON_M3_HANDOFF_2026-09-03.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
