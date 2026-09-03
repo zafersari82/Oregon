@@ -25,11 +25,11 @@ use crate::records::{
     PRUNE_CURSOR_KEY, active_height_key, decode_block_index, decode_node_health,
     encode_block_index, encode_node_health,
 };
-#[cfg(test)]
-use crate::schema::{decode_migration_marker, encode_migration_marker};
 use crate::schema::{
     SCHEMA_KEY, SCHEMA_VERSION, SchemaVersion, decode_schema_version, encode_schema_version,
 };
+#[cfg(test)]
+use crate::schema::{decode_migration_marker, encode_migration_marker};
 
 pub const CF_BLOCKS: &str = "blocks";
 pub const CF_BLOCK_INDEX: &str = "block_index";
@@ -135,11 +135,7 @@ impl OregonDb {
             return Err(StorageError::UnsupportedSchema(current));
         }
 
-        run_synthetic_minor_migration_1_1(
-            &db,
-            chain_meta,
-            interrupt_after_first_step,
-        )?;
+        run_synthetic_minor_migration_1_1(&db, chain_meta, interrupt_after_first_step)?;
 
         Ok(Self {
             db,
