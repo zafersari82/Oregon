@@ -607,3 +607,150 @@ fn validate_config(config: &ChainConfig) -> Result<(), ChainStateError> {
 fn corrupt(message: impl Into<String>) -> ChainStateError {
     ChainStateError::CorruptState(message.into())
 }
+
+#[cfg(test)]
+mod deep_reorg_tests {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use oregon_consensus::ConsensusParams;
+    use oregon_primitives::{BlockHeader, Transaction};
+    use oregon_utxo::UtxoError;
+
+    use super::*;
+
+    struct NeverCalledVerifier;
+
+    impl SpendVerifier for NeverCalledVerifier {
+        fn verify_spend(
+            &self,
+            _transaction: &Transaction,
+            _input_index: usize,
+            _prevout: &UtxoEntry,
+        ) -> Result<(), UtxoError> {
+            panic!("deep-reorg preflight must not reach spend verification")
+        }
+    }
+
+    fn test_path() -> PathBuf {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "oregon-task8-deep-reorg-{}-{n}",
+            std::process::id()
+        ))
+    }
+
+    fn test_config() -> ChainConfig {
+        let target = Target::from_le_bytes([0xff; 32]).unwrap();
+        let genesis_timestamp = 1_800_000_000;
+        ChainConfig {
+            anchor_header: BlockHeader {
+                version: 1,
+                previous_block: Hash256::from_bytes([0; 32]),
+                transaction_root: Hash256::from_bytes([0x22; 32]),
+                timestamp: genesis_timestamp,
+                difficulty_commitment: target.to_le_bytes(),
+                nonce: 7,
+            },
+            genesis_timestamp,
+            params: ConsensusParams::new(target, target, [0x42; 32]).unwrap(),
+        }
+    }
+
+    fn candidate_header(
+        config: &ChainConfig,
+        parent: Hash256,
+        height: u64,
+    ) -> BlockHeader {
+        let mut root = [0u8; 32];
+        root[..8].copy_from_slice(&height.to_le_bytes());
+        root[8] = 0xa5;
+        BlockHeader {
+            version: 1,
+            previous_block: parent,
+            transaction_root: Hash256::from_bytes(root),
+            timestamp: config.genesis_timestamp + height * 300,
+            difficulty_commitment: config.params.initial_target.to_le_bytes(),
+            nonce: 50_000 + height,
+        }
+    }
+
+    #[test]
+    fn depth_8065_marks_reindex_before_loading_any_rollback_data() {
+        let path = test_path();
+        std::fs::create_dir_all(&path).unwrap();
+        let config = test_config();
+        let anchor_id = config.anchor_header.block_id();
+        let mut state = ChainState::open(&path, config.clone()).unwrap();
+
+        let per_block_work = block_work(config.params.initial_target);
+        let mut cumulative_work = ChainWork::zero();
+        let mut parent_id = anchor_id;
+        let mut batch = StorageBatch::new();
+
+        for height in 1..=REORG_WINDOW + 1 {
+            let header = candidate_header(&config, parent_id, height);
+            cumulative_work.add_assign(&per_block_work);
+            let id = header.block_id();
+            batch.put_index(BlockIndexRecord {
+                header,
+                parent: parent_id,
+                height,
+                cumulative_work: cumulative_work.clone(),
+                validation: ValidationStatus::HeaderValidated,
+                body_retained: false,
+            });
+            parent_id = id;
+        }
+        state.db.commit_durable(batch).unwrap();
+
+        state.tip = Tip {
+            block_id: Hash256::from_bytes([0x77; 32]),
+            height: REORG_WINDOW + 1,
+            cumulative_work: cumulative_work.clone(),
+        };
+        let before_tip = state.tip.clone();
+        let before_utxos = state.utxos.clone();
+
+        let candidate_height = REORG_WINDOW + 2;
+        let candidate_header = candidate_header(&config, parent_id, candidate_height);
+        let candidate_id = candidate_header.block_id();
+        let mut candidate_work = cumulative_work;
+        candidate_work.add_assign(&per_block_work);
+        let candidate_index = BlockIndexRecord {
+            header: candidate_header.clone(),
+            parent: parent_id,
+            height: candidate_height,
+            cumulative_work: candidate_work,
+            validation: ValidationStatus::HeaderValidated,
+            body_retained: true,
+        };
+        let candidate_block = Block {
+            header: candidate_header,
+            transactions: Vec::new(),
+        };
+
+        assert!(matches!(
+            state.reorganize(candidate_block, candidate_index, &NeverCalledVerifier),
+            Err(ChainStateError::ReindexRequired)
+        ));
+        assert_eq!(state.tip, before_tip);
+        assert_eq!(state.utxos, before_utxos);
+        assert_eq!(state.session_health, SessionHealth::ReindexRequired);
+        assert_eq!(state.db.health().unwrap(), Some(NodeHealth::ReindexRequired));
+        assert_eq!(state.db.active_tip().unwrap(), Some((anchor_id, 0)));
+        assert!(matches!(
+            state.ensure_mutation_allowed(),
+            Err(ChainStateError::ReindexRequired)
+        ));
+        drop(state);
+
+        assert!(matches!(
+            ChainState::open(&path, config),
+            Err(ChainStateError::ReindexRequired)
+        ));
+        let _ = std::fs::remove_dir_all(path);
+        let _ = candidate_id;
+    }
+}
