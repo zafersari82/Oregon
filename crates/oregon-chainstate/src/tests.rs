@@ -154,3 +154,80 @@ fn reopen_rejects_prune_cursor_that_hides_required_rollback_data() {
 
     assert!(ChainState::open(dir.path(), config).is_err());
 }
+
+#[test]
+fn reopen_accepts_intact_retained_height_one_state() {
+    let dir = TestDir::new("retained-height-one");
+    let config = test_config(1_800_000_000, 7);
+    let block_id = seed_height_one(dir.path(), &config, true, 0);
+
+    let reopened = ChainState::open(dir.path(), config).unwrap();
+    assert_eq!(reopened.tip().block_id, block_id);
+    assert_eq!(reopened.tip().height, 1);
+    assert_eq!(
+        reopened.tip().cumulative_work,
+        block_work(Target::from_le_bytes([0xff; 32]).unwrap())
+    );
+}
+
+#[test]
+fn reopen_rejects_tampered_cumulative_chainwork() {
+    let dir = TestDir::new("tampered-chainwork");
+    let config = test_config(1_800_000_000, 7);
+    let block_id = seed_height_one(dir.path(), &config, true, 0);
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    let mut record = db.get_index(block_id).unwrap().unwrap();
+    record.cumulative_work = ChainWork::zero();
+    let mut batch = StorageBatch::new();
+    batch.put_index(record);
+    db.commit_durable(batch).unwrap();
+    drop(db);
+
+    assert!(ChainState::open(dir.path(), config).is_err());
+}
+
+#[test]
+fn reopen_rejects_missing_active_mapping() {
+    let dir = TestDir::new("missing-active-mapping");
+    let config = test_config(1_800_000_000, 7);
+    seed_height_one(dir.path(), &config, true, 0);
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    let mut batch = StorageBatch::new();
+    batch.delete_active_height(1);
+    db.commit_durable(batch).unwrap();
+    drop(db);
+
+    assert!(ChainState::open(dir.path(), config).is_err());
+}
+
+#[test]
+fn reopen_rejects_missing_retained_undo() {
+    let dir = TestDir::new("missing-retained-undo");
+    let config = test_config(1_800_000_000, 7);
+    let block_id = seed_height_one(dir.path(), &config, true, 0);
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    let mut batch = StorageBatch::new();
+    batch.delete_undo(block_id);
+    db.commit_durable(batch).unwrap();
+    drop(db);
+
+    assert!(ChainState::open(dir.path(), config).is_err());
+}
+
+#[test]
+fn reopen_rejects_missing_retained_block_body() {
+    let dir = TestDir::new("missing-retained-body");
+    let config = test_config(1_800_000_000, 7);
+    let block_id = seed_height_one(dir.path(), &config, true, 0);
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    let mut batch = StorageBatch::new();
+    batch.delete_block(block_id);
+    db.commit_durable(batch).unwrap();
+    drop(db);
+
+    assert!(ChainState::open(dir.path(), config).is_err());
+}
