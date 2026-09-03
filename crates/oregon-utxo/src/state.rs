@@ -23,7 +23,7 @@ impl UtxoState {
         self.entries.insert(outpoint, entry);
     }
 
-    fn insert_coinbase_outputs(
+    pub(crate) fn insert_coinbase_outputs(
         &mut self,
         tx: &Transaction,
         creation_height: u64,
