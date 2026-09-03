@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod branch;
 mod config;
 mod error;
 mod state;
