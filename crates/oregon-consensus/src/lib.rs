@@ -79,12 +79,7 @@ mod pow_bridge_tests {
         };
 
         assert_eq!(
-            validate_header_pow(
-                &header([0xff; 32]),
-                888,
-                &wrong_height_source,
-                &mut engine,
-            ),
+            validate_header_pow(&header([0xff; 32]), 888, &wrong_height_source, &mut engine,),
             Err(ConsensusError::PowKeyBlockUnavailable)
         );
     }
