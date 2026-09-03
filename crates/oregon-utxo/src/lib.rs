@@ -1,11 +1,13 @@
 mod entry;
 mod error;
 mod state;
+mod undo;
 mod verifier;
 
 pub use entry::{COINBASE_MATURITY, UtxoEntry};
 pub use error::UtxoError;
 pub use state::UtxoState;
+pub use undo::BlockUndo;
 pub use verifier::SpendVerifier;
 
 #[cfg(test)]
