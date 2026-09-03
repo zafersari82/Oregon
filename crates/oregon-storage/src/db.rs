@@ -20,8 +20,8 @@ use crate::codec::{
 use crate::error::StorageError;
 use crate::records::{
     ACTIVE_TIP_HEIGHT_KEY, ACTIVE_TIP_ID_KEY, BlockIndexRecord, HEALTH_STATE_KEY, NodeHealth,
-    PRUNE_CURSOR_KEY, active_height_key, decode_block_index, decode_node_health, encode_block_index,
-    encode_node_health,
+    PRUNE_CURSOR_KEY, active_height_key, decode_block_index, decode_node_health,
+    encode_block_index, encode_node_health,
 };
 use crate::schema::{
     SCHEMA_KEY, SCHEMA_VERSION, SchemaVersion, decode_schema_version, encode_schema_version,
@@ -61,11 +61,17 @@ impl TestHooks {
     }
 
     pub fn last_mode(&self) -> Option<DurabilityMode> {
-        *self.last_mode.lock().expect("storage test hook mutex poisoned")
+        *self
+            .last_mode
+            .lock()
+            .expect("storage test hook mutex poisoned")
     }
 
     fn record_mode(&self, mode: DurabilityMode) {
-        *self.last_mode.lock().expect("storage test hook mutex poisoned") = Some(mode);
+        *self
+            .last_mode
+            .lock()
+            .expect("storage test hook mutex poisoned") = Some(mode);
     }
 
     fn should_fail(&self, mode: DurabilityMode) -> bool {
@@ -295,10 +301,7 @@ impl OregonDb {
             .map_err(|error| StorageError::DurabilityFailure(error.to_string()))
     }
 
-    fn column_family(
-        &self,
-        name: &str,
-    ) -> Result<&rocksdb::ColumnFamily, StorageError> {
+    fn column_family(&self, name: &str) -> Result<&rocksdb::ColumnFamily, StorageError> {
         self.db
             .cf_handle(name)
             .ok_or_else(|| corrupt(format!("missing {name} column family")))
@@ -341,10 +344,9 @@ fn encode_operations(operations: Vec<StorageOp>) -> Result<Vec<EncodedOp>, Stora
                     block.encode(),
                 ));
             }
-            StorageOp::DeleteBlock(block_id) => encoded.push(EncodedOp::delete(
-                CF_BLOCKS,
-                block_id.as_bytes().to_vec(),
-            )),
+            StorageOp::DeleteBlock(block_id) => {
+                encoded.push(EncodedOp::delete(CF_BLOCKS, block_id.as_bytes().to_vec()))
+            }
             StorageOp::PutIndex(record) => {
                 let block_id = record.header.block_id();
                 let value = encode_block_index(&record)?;
@@ -368,19 +370,17 @@ fn encode_operations(operations: Vec<StorageOp>) -> Result<Vec<EncodedOp>, Stora
                 block_id.as_bytes().to_vec(),
                 encode_block_undo(&undo)?,
             )),
-            StorageOp::DeleteUndo(block_id) => encoded.push(EncodedOp::delete(
-                CF_UNDO,
-                block_id.as_bytes().to_vec(),
-            )),
+            StorageOp::DeleteUndo(block_id) => {
+                encoded.push(EncodedOp::delete(CF_UNDO, block_id.as_bytes().to_vec()))
+            }
             StorageOp::SetActiveHeight(height, block_id) => encoded.push(EncodedOp::put(
                 CF_CHAIN_META,
                 active_height_key(height),
                 block_id.as_bytes().to_vec(),
             )),
-            StorageOp::DeleteActiveHeight(height) => encoded.push(EncodedOp::delete(
-                CF_CHAIN_META,
-                active_height_key(height),
-            )),
+            StorageOp::DeleteActiveHeight(height) => {
+                encoded.push(EncodedOp::delete(CF_CHAIN_META, active_height_key(height)))
+            }
             StorageOp::SetTip(block_id, height) => {
                 encoded.push(EncodedOp::put(
                     CF_CHAIN_META,
