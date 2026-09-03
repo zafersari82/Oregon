@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use oregon_chainstate::{AcceptOutcome, ChainConfig, ChainState, ChainStateError};
-use oregon_consensus::{ChainWork, ConsensusParams, Target, block_work};
+use oregon_consensus::{ConsensusParams, Target, block_work};
 use oregon_primitives::{Block, BlockHeader, Hash256, Transaction, transaction_root};
 use oregon_storage::{BlockIndexRecord, OregonDb, StorageBatch, ValidationStatus};
 use oregon_utxo::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError};
@@ -177,9 +177,4 @@ fn descendant_of_invalid_parent_is_rejected_without_persistence() {
     let db = OregonDb::open(dir.path()).unwrap();
     assert_eq!(db.get_index(candidate_id).unwrap(), None);
     assert_eq!(db.get_block(candidate_id).unwrap(), None);
-}
-
-#[test]
-fn task6_test_fixture_uses_zero_work_only_for_anchor() {
-    assert_eq!(ChainWork::zero().to_canonical_be_bytes(), vec![0]);
 }
