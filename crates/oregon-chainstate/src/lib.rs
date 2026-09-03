@@ -3,6 +3,7 @@
 mod branch;
 mod config;
 mod error;
+mod reorg;
 mod state;
 
 pub use config::ChainConfig;
