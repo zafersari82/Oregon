@@ -62,3 +62,7 @@ Foundation acceptance record:
 - The deterministic vector generator remains only as a reproducibility aid; the checked-in golden JSON is the protocol artifact consumed by acceptance tests.
 
 Do not delete the recovery checkpoint branches while later protocol milestones are in progress.
+
+## Next milestone
+
+Oregon v1 M1 Consensus Core was developed separately from the frozen v0 foundation. See `docs/checkpoints/OREGON_V1_M1_CONSENSUS_CORE.md` for its acceptance evidence. The v0 foundation checkpoint remains unchanged and recoverable.
