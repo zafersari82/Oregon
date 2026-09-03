@@ -343,6 +343,18 @@ impl OregonDb {
         &self.test_hooks
     }
 
+    #[cfg(any(test, feature = "test-hooks"))]
+    pub fn test_put_raw_utxo_value(
+        &self,
+        outpoint: OutPoint,
+        bytes: &[u8],
+    ) -> Result<(), StorageError> {
+        let utxo_cf = self.column_family(CF_UTXO)?;
+        let key = encode_outpoint_key(&outpoint);
+        self.db.put_cf(utxo_cf, key, bytes)?;
+        Ok(())
+    }
+
     #[cfg(test)]
     pub(crate) fn has_column_family(&self, name: &str) -> bool {
         self.db.cf_handle(name).is_some()
