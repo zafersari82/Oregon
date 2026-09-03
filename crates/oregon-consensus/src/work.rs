@@ -1,4 +1,29 @@
-//! RED phase: exact chain-work consensus tests.
+use num_bigint::BigUint;
+
+use crate::Target;
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ChainWork(BigUint);
+
+impl ChainWork {
+    pub fn zero() -> Self {
+        Self(BigUint::from(0u8))
+    }
+
+    pub fn to_biguint(&self) -> BigUint {
+        self.0.clone()
+    }
+
+    pub fn add_assign(&mut self, rhs: &Self) {
+        self.0 += &rhs.0;
+    }
+}
+
+pub fn block_work(target: Target) -> ChainWork {
+    let numerator = BigUint::from(1u8) << 256usize;
+    let denominator = target.to_biguint() + BigUint::from(1u8);
+    ChainWork(numerator / denominator)
+}
 
 #[cfg(test)]
 mod tests {
