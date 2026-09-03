@@ -14,5 +14,8 @@ pub use emission::{
     SCHEDULED_MINING_ISSUANCE_BASE_UNITS, SCHEDULED_TOTAL_WITH_FOUNDER_BASE_UNITS, block_subsidy,
 };
 pub use error::ConsensusError;
+pub use header::{HeaderContext, PrePowHeaderFacts, validate_header_pre_pow};
 pub use params::ConsensusParams;
 pub use target::Target;
+pub use time::median_time_past;
+pub use work::{ChainWork, block_work};
