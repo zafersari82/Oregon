@@ -31,11 +31,7 @@ impl<'a> StorageCursor<'a> {
             .map_err(|error| primitive_error(context, error))
     }
 
-    pub(crate) fn read_len(
-        &mut self,
-        max: usize,
-        context: &str,
-    ) -> Result<usize, StorageError> {
+    pub(crate) fn read_len(&mut self, max: usize, context: &str) -> Result<usize, StorageError> {
         self.decoder
             .read_len(max)
             .map_err(|error| primitive_error(context, error))
@@ -123,7 +119,9 @@ pub fn decode_utxo_entry(bytes: &[u8]) -> Result<UtxoEntry, StorageError> {
     let mut cursor = StorageCursor::new(bytes);
     let version = cursor.read_u8("utxo record version")?;
     if version != STORAGE_RECORD_VERSION {
-        return Err(corrupt(format!("unsupported utxo record version {version}")));
+        return Err(corrupt(format!(
+            "unsupported utxo record version {version}"
+        )));
     }
 
     let value = Amount::from_base_units(cursor.read_u64("utxo value")?)
@@ -166,7 +164,9 @@ pub fn encode_block_undo(undo: &BlockUndo) -> Result<Vec<u8>, StorageError> {
 
     let spent_set: BTreeSet<[u8; 36]> = spent_keys.iter().copied().collect();
     if created_keys.iter().any(|key| spent_set.contains(key)) {
-        return Err(corrupt("undo outpoint appears in both spent and created sets"));
+        return Err(corrupt(
+            "undo outpoint appears in both spent and created sets",
+        ));
     }
 
     let mut bytes = Vec::new();
@@ -190,7 +190,9 @@ pub fn decode_block_undo(bytes: &[u8]) -> Result<BlockUndo, StorageError> {
     let mut cursor = StorageCursor::new(bytes);
     let version = cursor.read_u8("undo record version")?;
     if version != STORAGE_RECORD_VERSION {
-        return Err(corrupt(format!("unsupported undo record version {version}")));
+        return Err(corrupt(format!(
+            "unsupported undo record version {version}"
+        )));
     }
 
     let spent_count = cursor.read_len(MAX_UNDO_ENTRIES, "undo spent count")?;
@@ -218,7 +220,9 @@ pub fn decode_block_undo(bytes: &[u8]) -> Result<BlockUndo, StorageError> {
         require_next_key(previous_created, key, "created undo outpoints")?;
         previous_created = Some(key);
         if spent_keys.contains(&key) {
-            return Err(corrupt("undo outpoint appears in both spent and created sets"));
+            return Err(corrupt(
+                "undo outpoint appears in both spent and created sets",
+            ));
         }
         created.push(decode_outpoint_key(&key)?);
     }
@@ -237,10 +241,7 @@ fn read_outpoint_key(
         .map_err(|_| corrupt(format!("{context} must be 36 bytes")))
 }
 
-fn require_strictly_sorted(
-    keys: &[[u8; 36]],
-    context: &str,
-) -> Result<(), StorageError> {
+fn require_strictly_sorted(keys: &[[u8; 36]], context: &str) -> Result<(), StorageError> {
     if keys.windows(2).any(|pair| pair[0] >= pair[1]) {
         return Err(corrupt(format!("{context} are not strictly sorted")));
     }

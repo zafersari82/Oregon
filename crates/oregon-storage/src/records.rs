@@ -42,7 +42,9 @@ pub enum NodeHealth {
 
 pub fn encode_block_index(record: &BlockIndexRecord) -> Result<Vec<u8>, StorageError> {
     if record.parent != record.header.previous_block {
-        return Err(corrupt("block index parent does not match header previous block"));
+        return Err(corrupt(
+            "block index parent does not match header previous block",
+        ));
     }
 
     let chainwork = record.cumulative_work.to_canonical_be_bytes();
@@ -61,9 +63,7 @@ pub fn encode_block_index(record: &BlockIndexRecord) -> Result<Vec<u8>, StorageE
         )));
     }
 
-    let mut bytes = Vec::with_capacity(
-        1 + BLOCK_HEADER_BYTES + 32 + 8 + 1 + chainwork.len() + 2,
-    );
+    let mut bytes = Vec::with_capacity(1 + BLOCK_HEADER_BYTES + 32 + 8 + 1 + chainwork.len() + 2);
     bytes.push(STORAGE_RECORD_VERSION);
     bytes.extend_from_slice(&header);
     bytes.extend_from_slice(record.parent.as_bytes());
@@ -103,7 +103,9 @@ pub fn decode_block_index(bytes: &[u8]) -> Result<BlockIndexRecord, StorageError
     cursor.finish("block index trailing bytes")?;
 
     if parent != header.previous_block {
-        return Err(corrupt("block index parent does not match header previous block"));
+        return Err(corrupt(
+            "block index parent does not match header previous block",
+        ));
     }
 
     Ok(BlockIndexRecord {
