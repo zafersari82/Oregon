@@ -13,10 +13,8 @@ impl TestDir {
     fn new(label: &str) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "oregon-task6-{label}-{}-{n}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("oregon-task6-{label}-{}-{n}", std::process::id()));
         std::fs::create_dir_all(&path).unwrap();
         Self(path)
     }
@@ -138,7 +136,10 @@ fn known_side_chain_block_is_idempotent() {
     let db = OregonDb::open(dir.path()).unwrap();
     let index = db.get_index(candidate_id).unwrap().unwrap();
     assert_eq!(index.validation, ValidationStatus::HeaderValidated);
-    assert_eq!(index.cumulative_work, block_work(config.params.initial_target));
+    assert_eq!(
+        index.cumulative_work,
+        block_work(config.params.initial_target)
+    );
     assert_eq!(db.get_block(candidate_id).unwrap(), Some(candidate));
     assert_eq!(db.active_tip().unwrap(), Some((active_id, 1)));
 }
