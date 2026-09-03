@@ -1,4 +1,14 @@
-//! RED phase: median-time-past consensus tests.
+use crate::ConsensusError;
+
+pub fn median_time_past(window: &[u64]) -> Result<u64, ConsensusError> {
+    if window.is_empty() || window.len() > 11 {
+        return Err(ConsensusError::InvalidMtpWindow);
+    }
+
+    let mut sorted = window.to_vec();
+    sorted.sort_unstable();
+    Ok(sorted[sorted.len() / 2])
+}
 
 #[cfg(test)]
 mod tests {
