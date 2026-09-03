@@ -3,6 +3,7 @@
 mod branch;
 mod config;
 mod error;
+mod prune;
 mod reorg;
 mod state;
 
