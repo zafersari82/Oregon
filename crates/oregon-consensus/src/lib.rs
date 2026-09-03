@@ -2,8 +2,11 @@ pub mod asert;
 pub mod coinbase;
 pub mod emission;
 pub mod error;
+pub mod header;
 pub mod params;
 pub mod target;
+pub mod time;
+pub mod work;
 
 pub use asert::required_target;
 pub use coinbase::{is_coinbase_form, validate_coinbase};
