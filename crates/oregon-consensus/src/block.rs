@@ -28,7 +28,8 @@ pub fn validate_non_genesis_block_structure(
         }
     }
 
-    let root = transaction_root(&block.transactions).map_err(|_| ConsensusError::MerkleRootMismatch)?;
+    let root =
+        transaction_root(&block.transactions).map_err(|_| ConsensusError::MerkleRootMismatch)?;
     if root != block.header.transaction_root {
         return Err(ConsensusError::MerkleRootMismatch);
     }
