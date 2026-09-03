@@ -19,6 +19,8 @@ jobs:
           submodules: recursive
       - name: Install Rust 1.85.0
         run: rustup toolchain install 1.85.0 --profile minimal --component rustfmt,clippy
+      - name: Install RocksDB build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Format

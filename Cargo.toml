@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/oregon-primitives", "crates/oregon-consensus", "crates/oregon-pow", "crates/oregon-utxo"]
+members = ["crates/oregon-primitives", "crates/oregon-consensus", "crates/oregon-pow", "crates/oregon-utxo", "crates/oregon-storage"]
 resolver = "3"
 
 [workspace.package]
