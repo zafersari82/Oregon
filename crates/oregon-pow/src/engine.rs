@@ -28,6 +28,7 @@ impl fmt::Display for PowError {
 impl Error for PowError {}
 
 pub struct LightEngine {
+    key: [u8; 32],
     cache: NonNull<RandomxCache>,
     vm: NonNull<RandomxVm>,
 }
@@ -47,7 +48,11 @@ impl LightEngine {
             return Err(PowError::VmAllocationFailed);
         };
 
-        Ok(Self { cache, vm })
+        Ok(Self { key, cache, vm })
+    }
+
+    pub const fn key(&self) -> [u8; 32] {
+        self.key
     }
 
     pub fn hash(&mut self, input: &[u8]) -> [u8; 32] {
