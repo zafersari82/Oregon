@@ -27,4 +27,6 @@ pub use schema::{SCHEMA_VERSION, SchemaVersion};
 #[cfg(test)]
 mod batch_tests;
 #[cfg(test)]
+mod migration_tests;
+#[cfg(test)]
 mod tests;
