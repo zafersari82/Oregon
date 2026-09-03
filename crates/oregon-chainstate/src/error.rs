@@ -23,6 +23,8 @@ pub enum ChainStateError {
     CorruptState(String),
     #[error("candidate transition is deferred to a later M4 stage: {0}")]
     DeferredTransition(&'static str),
+    #[error("chainstate session is storage-faulted")]
+    StorageFaulted,
     #[error("reindex required")]
     ReindexRequired,
 }
