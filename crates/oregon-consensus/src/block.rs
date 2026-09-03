@@ -1,4 +1,54 @@
-//! RED phase: non-genesis structural block consensus tests.
+use oregon_primitives::{Amount, Block, Hash256, transaction_root};
+
+use crate::{
+    ConsensusError, ConsensusParams,
+    coinbase::{is_coinbase_form, validate_coinbase},
+    params::{MAX_BLOCK_BYTES, MAX_TRANSACTION_BYTES},
+};
+
+pub fn validate_non_genesis_block_structure(
+    block: &Block,
+    height: u64,
+    total_fees: Amount,
+    params: &ConsensusParams,
+) -> Result<(), ConsensusError> {
+    if height == 0 {
+        return Err(ConsensusError::InvalidHeight);
+    }
+    if block.encode().len() > MAX_BLOCK_BYTES {
+        return Err(ConsensusError::BlockTooLarge);
+    }
+    if block.transactions.is_empty() {
+        return Err(ConsensusError::EmptyNonGenesisBlock);
+    }
+
+    for (index, transaction) in block.transactions.iter().enumerate() {
+        if transaction.encode().len() > MAX_TRANSACTION_BYTES {
+            return Err(ConsensusError::TransactionTooLarge(index));
+        }
+    }
+
+    let root = transaction_root(&block.transactions).map_err(|_| ConsensusError::MerkleRootMismatch)?;
+    if root != block.header.transaction_root {
+        return Err(ConsensusError::MerkleRootMismatch);
+    }
+
+    validate_coinbase(&block.transactions[0], height, total_fees, params)?;
+
+    let null_txid = Hash256::from_bytes([0u8; 32]);
+    for transaction in &block.transactions[1..] {
+        if is_coinbase_form(transaction) {
+            return Err(ConsensusError::MultipleCoinbase);
+        }
+        if transaction.inputs.iter().any(|input| {
+            input.previous_txid == null_txid && input.previous_output_index == u32::MAX
+        }) {
+            return Err(ConsensusError::NullOutpointInNormalTransaction);
+        }
+    }
+
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
