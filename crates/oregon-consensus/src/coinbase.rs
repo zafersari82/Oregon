@@ -2,10 +2,7 @@ use oregon_primitives::{
     Amount, FOUNDER_ALLOCATION_BASE_UNITS, Hash256, Transaction, write_varint,
 };
 
-use crate::{
-    ConsensusError, ConsensusParams, block_subsidy,
-    params::KEY_COMMIT_V1,
-};
+use crate::{ConsensusError, ConsensusParams, block_subsidy, params::KEY_COMMIT_V1};
 
 pub fn is_coinbase_form(tx: &Transaction) -> bool {
     tx.inputs.len() == 1
