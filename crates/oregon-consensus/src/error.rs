@@ -46,6 +46,10 @@ pub enum ConsensusError {
     MerkleRootMismatch,
     #[error("normal transaction uses null outpoint")]
     NullOutpointInNormalTransaction,
+    #[error("normal transaction {0} has no inputs")]
+    EmptyNormalTransactionInputs(usize),
+    #[error("normal transaction {0} has no outputs")]
+    EmptyNormalTransactionOutputs(usize),
     #[error("multiple coinbase-form transactions")]
     MultipleCoinbase,
 }
