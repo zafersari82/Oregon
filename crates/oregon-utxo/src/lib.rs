@@ -9,6 +9,9 @@ pub use state::UtxoState;
 pub use verifier::SpendVerifier;
 
 #[cfg(test)]
+mod block_tests;
+
+#[cfg(test)]
 mod tests {
     use oregon_primitives::{Amount, Hash256, OutPoint, Transaction, TxInput, TxOutput};
 
