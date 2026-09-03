@@ -79,9 +79,11 @@ pub fn required_target(
 
     let mut candidate = params.initial_target.to_biguint() * BigUint::from(factor);
     if num_shifts < 0 {
-        candidate >>= usize::try_from(-num_shifts).map_err(|_| ConsensusError::ArithmeticOverflow)?;
+        candidate >>=
+            usize::try_from(-num_shifts).map_err(|_| ConsensusError::ArithmeticOverflow)?;
     } else {
-        candidate <<= usize::try_from(num_shifts).map_err(|_| ConsensusError::ArithmeticOverflow)?;
+        candidate <<=
+            usize::try_from(num_shifts).map_err(|_| ConsensusError::ArithmeticOverflow)?;
     }
     candidate >>= 16usize;
 
@@ -163,10 +165,7 @@ mod tests {
 
     #[test]
     fn huge_negative_exponent_clamps_to_one() {
-        assert_eq!(
-            required_target(2, 0, G, &params()).unwrap(),
-            target(1)
-        );
+        assert_eq!(required_target(2, 0, G, &params()).unwrap(), target(1));
     }
 
     proptest! {
