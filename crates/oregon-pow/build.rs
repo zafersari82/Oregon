@@ -22,7 +22,8 @@ fn copy_dir(source: &Path, destination: &Path) {
 }
 
 fn main() {
-    let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
+    let manifest_dir =
+        PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let repo_root = manifest_dir
         .parent()
         .and_then(Path::parent)
@@ -49,8 +50,14 @@ fn main() {
     fs::write(&configuration, patched_source).expect("write Oregon RandomX configuration.h copy");
 
     let destination = cmake::Config::new(&patched).profile("Release").build();
-    println!("cargo:rustc-link-search=native={}", destination.join("lib").display());
-    println!("cargo:rustc-link-search=native={}", destination.join("lib64").display());
+    println!(
+        "cargo:rustc-link-search=native={}",
+        destination.join("lib").display()
+    );
+    println!(
+        "cargo:rustc-link-search=native={}",
+        destination.join("lib64").display()
+    );
     println!("cargo:rustc-link-lib=static=randomx");
 
     match env::var("CARGO_CFG_TARGET_ENV").as_deref() {
