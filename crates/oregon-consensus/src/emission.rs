@@ -1,4 +1,28 @@
-//! RED phase: tests define the Oregon v1 issuance contract before implementation.
+use oregon_primitives::{Amount, FOUNDER_ALLOCATION_BASE_UNITS};
+
+use crate::{
+    ConsensusError,
+    params::{HALVING_INTERVAL, INITIAL_SUBSIDY_BASE_UNITS},
+};
+
+pub const SCHEDULED_MINING_ISSUANCE_BASE_UNITS: u64 = 94_999_997_000_000;
+pub const SCHEDULED_TOTAL_WITH_FOUNDER_BASE_UNITS: u64 =
+    SCHEDULED_MINING_ISSUANCE_BASE_UNITS + FOUNDER_ALLOCATION_BASE_UNITS;
+
+pub fn block_subsidy(height: u64) -> Result<Amount, ConsensusError> {
+    if height == 0 {
+        return Amount::from_base_units(0).map_err(|_| ConsensusError::ArithmeticOverflow);
+    }
+
+    let era = (height - 1) / HALVING_INTERVAL;
+    let subsidy = if era >= 64 {
+        0
+    } else {
+        INITIAL_SUBSIDY_BASE_UNITS >> era as u32
+    };
+
+    Amount::from_base_units(subsidy).map_err(|_| ConsensusError::ArithmeticOverflow)
+}
 
 #[cfg(test)]
 mod tests {
