@@ -6,11 +6,9 @@ use crate::{
     params::{MAX_BLOCK_BYTES, MAX_TRANSACTION_BYTES},
 };
 
-pub fn validate_non_genesis_block_structure(
+pub fn validate_non_genesis_block_skeleton(
     block: &Block,
     height: u64,
-    total_fees: Amount,
-    params: &ConsensusParams,
 ) -> Result<(), ConsensusError> {
     if height == 0 {
         return Err(ConsensusError::InvalidHeight);
@@ -34,7 +32,9 @@ pub fn validate_non_genesis_block_structure(
         return Err(ConsensusError::MerkleRootMismatch);
     }
 
-    validate_coinbase(&block.transactions[0], height, total_fees, params)?;
+    if !is_coinbase_form(&block.transactions[0]) {
+        return Err(ConsensusError::InvalidCoinbase);
+    }
 
     let null_txid = Hash256::from_bytes([0u8; 32]);
     for transaction in &block.transactions[1..] {
@@ -48,6 +48,17 @@ pub fn validate_non_genesis_block_structure(
         }
     }
 
+    Ok(())
+}
+
+pub fn validate_non_genesis_block_structure(
+    block: &Block,
+    height: u64,
+    total_fees: Amount,
+    params: &ConsensusParams,
+) -> Result<(), ConsensusError> {
+    validate_non_genesis_block_skeleton(block, height)?;
+    validate_coinbase(&block.transactions[0], height, total_fees, params)?;
     Ok(())
 }
 
