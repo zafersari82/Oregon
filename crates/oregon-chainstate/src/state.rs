@@ -13,6 +13,7 @@ use oregon_storage::{
 use oregon_utxo::{BlockUndo, SpendVerifier, UtxoEntry, UtxoState};
 
 use crate::branch::BranchView;
+use crate::reorg::{ReorgPlan, discover_fork, load_reorg_plan, reorg_depth_allowed};
 use crate::{ChainConfig, ChainStateError};
 
 pub const REORG_WINDOW: u64 = 8_064;
@@ -137,55 +138,180 @@ impl ChainState {
         cumulative_work.add_assign(&facts.work());
 
         if parent_id == self.tip.block_id {
-            let mut staged = self.utxos.clone();
-            let undo = staged.connect_block(&block, height, &self.config.params, verifier)?;
-            let delta = build_utxo_delta(&staged, &undo)?;
-            let index = BlockIndexRecord {
-                header: block.header.clone(),
-                parent: parent_id,
-                height,
-                cumulative_work: cumulative_work.clone(),
-                validation: ValidationStatus::FullyValidated,
-                body_retained: true,
-            };
-
-            let mut batch = StorageBatch::new();
-            batch.put_block(block);
-            batch.put_index(index);
-            batch.put_undo(block_id, undo);
-            apply_utxo_delta(&mut batch, delta);
-            batch.set_active_height(height, block_id);
-            batch.set_tip(block_id, height);
-            self.db.commit_durable(batch)?;
-
-            self.utxos = staged;
-            self.tip = Tip {
-                block_id,
-                height,
-                cumulative_work,
-            };
-            return Ok(AcceptOutcome::Extended);
-        }
-        if cumulative_work > self.tip.cumulative_work {
-            return Err(ChainStateError::DeferredTransition(
-                "heavier side-chain reorganization is implemented in Task 8",
-            ));
+            return self.extend_active(block, height, cumulative_work, verifier);
         }
 
         let index = BlockIndexRecord {
             header: block.header.clone(),
             parent: parent_id,
             height,
-            cumulative_work,
+            cumulative_work: cumulative_work.clone(),
             validation: ValidationStatus::HeaderValidated,
             body_retained: true,
         };
+
+        if cumulative_work > self.tip.cumulative_work {
+            return self.reorganize(block, index, verifier);
+        }
+
         let mut batch = StorageBatch::new();
         batch.put_block(block);
         batch.put_index(index);
         self.db.commit_durable(batch)?;
 
         Ok(AcceptOutcome::StoredSideChain)
+    }
+
+    fn extend_active<V: SpendVerifier>(
+        &mut self,
+        block: Block,
+        height: u64,
+        cumulative_work: ChainWork,
+        verifier: &V,
+    ) -> Result<AcceptOutcome, ChainStateError> {
+        let block_id = block.header.block_id();
+        let parent_id = block.header.previous_block;
+        let mut staged = self.utxos.clone();
+        let undo = staged.connect_block(&block, height, &self.config.params, verifier)?;
+        let delta = build_utxo_delta(&staged, &undo)?;
+        let index = BlockIndexRecord {
+            header: block.header.clone(),
+            parent: parent_id,
+            height,
+            cumulative_work: cumulative_work.clone(),
+            validation: ValidationStatus::FullyValidated,
+            body_retained: true,
+        };
+
+        let mut batch = StorageBatch::new();
+        batch.put_block(block);
+        batch.put_index(index);
+        batch.put_undo(block_id, undo);
+        apply_utxo_delta(&mut batch, delta);
+        batch.set_active_height(height, block_id);
+        batch.set_tip(block_id, height);
+        self.db.commit_durable(batch)?;
+
+        self.utxos = staged;
+        self.tip = Tip {
+            block_id,
+            height,
+            cumulative_work,
+        };
+        Ok(AcceptOutcome::Extended)
+    }
+
+    fn reorganize<V: SpendVerifier>(
+        &mut self,
+        candidate_block: Block,
+        candidate_index: BlockIndexRecord,
+        verifier: &V,
+    ) -> Result<AcceptOutcome, ChainStateError> {
+        let candidate_id = candidate_block.header.block_id();
+        let discovery = discover_fork(&self.db, candidate_id, candidate_index)?;
+        let depth = self
+            .tip
+            .height
+            .checked_sub(discovery.fork_height)
+            .ok_or_else(|| corrupt("candidate fork height exceeds active tip"))?;
+
+        if !reorg_depth_allowed(depth) {
+            let mut batch = StorageBatch::new();
+            batch.set_health(NodeHealth::ReindexRequired);
+            self.db.commit_durable(batch)?;
+            self.session_health = SessionHealth::ReindexRequired;
+            return Err(ChainStateError::ReindexRequired);
+        }
+
+        let plan = load_reorg_plan(
+            &self.db,
+            self.tip.height,
+            discovery,
+            candidate_id,
+            &candidate_block,
+        )?;
+        self.apply_reorg_plan(plan, candidate_id, verifier)
+    }
+
+    fn apply_reorg_plan<V: SpendVerifier>(
+        &mut self,
+        plan: ReorgPlan,
+        current_candidate_id: Hash256,
+        verifier: &V,
+    ) -> Result<AcceptOutcome, ChainStateError> {
+        let ReorgPlan {
+            fork_height,
+            old_active,
+            candidate,
+        } = plan;
+        if candidate.is_empty() {
+            return Err(corrupt("reorg candidate path is empty"));
+        }
+
+        let mut staged = self.utxos.clone();
+        let mut delta = UtxoDelta::new();
+        for (_, undo) in old_active {
+            record_disconnect_delta(&mut delta, &undo);
+            staged.disconnect_block(undo)?;
+        }
+
+        let mut new_undos = Vec::with_capacity(candidate.len());
+        for (position, node) in candidate.iter().enumerate() {
+            match staged.connect_block(&node.block, node.index.height, &self.config.params, verifier) {
+                Ok(undo) => {
+                    record_connect_delta(&mut delta, &staged, &undo)?;
+                    new_undos.push(undo);
+                }
+                Err(error) => {
+                    let mut batch = StorageBatch::new();
+                    for invalid in &candidate[position..] {
+                        let mut index = invalid.index.clone();
+                        index.validation = ValidationStatus::Invalid;
+                        if invalid.id == current_candidate_id {
+                            index.body_retained = false;
+                        }
+                        batch.put_index(index);
+                    }
+                    self.db.commit_durable(batch)?;
+                    return Err(ChainStateError::Utxo(error));
+                }
+            }
+        }
+
+        let new_tip = candidate
+            .last()
+            .ok_or_else(|| corrupt("reorg candidate path is empty"))?;
+        let new_tip_id = new_tip.id;
+        let new_tip_height = new_tip.index.height;
+        let new_tip_work = new_tip.index.cumulative_work.clone();
+
+        let mut batch = StorageBatch::new();
+        let first_replaced_height = fork_height
+            .checked_add(1)
+            .ok_or_else(|| corrupt("reorg fork height overflow"))?;
+        for height in first_replaced_height..=self.tip.height {
+            batch.delete_active_height(height);
+        }
+        for (node, undo) in candidate.iter().zip(new_undos) {
+            let mut index = node.index.clone();
+            index.validation = ValidationStatus::FullyValidated;
+            index.body_retained = true;
+            batch.put_block(node.block.clone());
+            batch.put_index(index);
+            batch.put_undo(node.id, undo);
+            batch.set_active_height(node.index.height, node.id);
+        }
+        apply_utxo_delta(&mut batch, delta);
+        batch.set_tip(new_tip_id, new_tip_height);
+        self.db.commit_durable(batch)?;
+
+        self.utxos = staged;
+        self.tip = Tip {
+            block_id: new_tip_id,
+            height: new_tip_height,
+            cumulative_work: new_tip_work,
+        };
+        Ok(AcceptOutcome::Reorganized)
     }
 
     fn ensure_mutation_allowed(&self) -> Result<(), ChainStateError> {
@@ -215,6 +341,36 @@ fn build_utxo_delta(staged: &UtxoState, undo: &BlockUndo) -> Result<UtxoDelta, C
         delta.insert(encode_outpoint_key(outpoint), (*outpoint, Some(entry)));
     }
     Ok(delta)
+}
+
+fn record_disconnect_delta(delta: &mut UtxoDelta, undo: &BlockUndo) {
+    for outpoint in &undo.created {
+        delta.insert(encode_outpoint_key(outpoint), (*outpoint, None));
+    }
+    for (outpoint, entry) in &undo.spent {
+        delta.insert(
+            encode_outpoint_key(outpoint),
+            (*outpoint, Some(entry.clone())),
+        );
+    }
+}
+
+fn record_connect_delta(
+    delta: &mut UtxoDelta,
+    staged: &UtxoState,
+    undo: &BlockUndo,
+) -> Result<(), ChainStateError> {
+    for (outpoint, _) in &undo.spent {
+        delta.insert(encode_outpoint_key(outpoint), (*outpoint, None));
+    }
+    for outpoint in &undo.created {
+        let entry = staged
+            .get(outpoint)
+            .cloned()
+            .ok_or_else(|| corrupt("created outpoint missing from staged reorg UTXO state"))?;
+        delta.insert(encode_outpoint_key(outpoint), (*outpoint, Some(entry)));
+    }
+    Ok(())
 }
 
 fn apply_utxo_delta(batch: &mut StorageBatch, delta: UtxoDelta) {
