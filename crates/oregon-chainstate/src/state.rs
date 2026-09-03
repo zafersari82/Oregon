@@ -7,6 +7,8 @@ use oregon_utxo::UtxoState;
 
 use crate::{ChainConfig, ChainStateError};
 
+pub const REORG_WINDOW: u64 = 8_064;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tip {
     pub block_id: Hash256,
@@ -133,8 +135,11 @@ fn reopen(
     let prune_cursor = db
         .prune_cursor()?
         .ok_or_else(|| corrupt("missing prune cursor"))?;
-    if prune_cursor > tip_height {
-        return Err(corrupt("prune cursor is above active tip"));
+    let maximum_safe_prune_cursor = tip_height.saturating_sub(REORG_WINDOW);
+    if prune_cursor > maximum_safe_prune_cursor {
+        return Err(corrupt(format!(
+            "prune cursor {prune_cursor} exceeds safe cursor {maximum_safe_prune_cursor} for tip {tip_height}"
+        )));
     }
 
     let mut previous_id = None;
@@ -196,7 +201,7 @@ fn reopen(
                 )));
             }
 
-            let must_retain = height > prune_cursor;
+            let must_retain = height > maximum_safe_prune_cursor;
             if must_retain && !record.body_retained {
                 return Err(corrupt(format!(
                     "active block at height {height} is inside retained range but marked pruned"
