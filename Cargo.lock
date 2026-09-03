@@ -203,6 +203,7 @@ version = "0.1.0"
 dependencies = [
  "num-bigint",
  "num-traits",
+ "oregon-pow",
  "oregon-primitives",
  "proptest",
  "serde",
