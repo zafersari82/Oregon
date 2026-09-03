@@ -1,8 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use oregon_consensus::{
-    ConsensusParams, validate_coinbase, validate_non_genesis_block_skeleton,
-};
+use oregon_consensus::{ConsensusParams, validate_coinbase, validate_non_genesis_block_skeleton};
 use oregon_primitives::{Amount, Block, Hash256, OutPoint, Transaction};
 
 use crate::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError};
