@@ -54,13 +54,19 @@ fn block(height: u64, txs: Vec<Transaction>) -> Block {
 
 #[test]
 fn skeleton_accepts_shape_without_knowing_fees() {
-    let candidate = block(200, vec![coinbase(200), normal(Hash256::from_bytes([0x22; 32]))]);
+    let candidate = block(
+        200,
+        vec![coinbase(200), normal(Hash256::from_bytes([0x22; 32]))],
+    );
     assert_eq!(validate_non_genesis_block_skeleton(&candidate, 200), Ok(()));
 }
 
 #[test]
 fn skeleton_rejects_merkle_mutation_before_fee_accounting() {
-    let mut candidate = block(200, vec![coinbase(200), normal(Hash256::from_bytes([0x22; 32]))]);
+    let mut candidate = block(
+        200,
+        vec![coinbase(200), normal(Hash256::from_bytes([0x22; 32]))],
+    );
     candidate.header.transaction_root = Hash256::from_bytes([0x99; 32]);
     assert_eq!(
         validate_non_genesis_block_skeleton(&candidate, 200),
