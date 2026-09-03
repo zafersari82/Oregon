@@ -8,7 +8,10 @@ const VECTOR: &str = include_str!("vectors/randomx-v1.expected");
 fn field(name: &str) -> &str {
     VECTOR
         .lines()
-        .find_map(|line| line.strip_prefix(name).and_then(|rest| rest.strip_prefix('=')))
+        .find_map(|line| {
+            line.strip_prefix(name)
+                .and_then(|rest| rest.strip_prefix('='))
+        })
         .unwrap_or_else(|| panic!("missing vector field: {name}"))
 }
 
