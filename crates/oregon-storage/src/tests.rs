@@ -1,7 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb, SchemaVersion};
+use rocksdb::{ColumnFamilyDescriptor, DB, Options};
+
+use crate::{
+    CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb, SchemaVersion,
+    StorageError,
+};
 
 struct TestDir(PathBuf);
 
@@ -25,6 +30,16 @@ impl Drop for TestDir {
     }
 }
 
+fn open_raw_without_schema(path: &Path) -> DB {
+    let mut options = Options::default();
+    options.create_if_missing(true);
+    options.create_missing_column_families(true);
+    let descriptors = [CF_BLOCKS, CF_BLOCK_INDEX, CF_UTXO, CF_UNDO, CF_CHAIN_META]
+        .into_iter()
+        .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
+    DB::open_cf_descriptors(&options, path, descriptors).unwrap()
+}
+
 #[test]
 fn new_database_opens_with_schema_1_0_and_required_column_families() {
     let dir = TestDir::new("schema-open");
@@ -43,4 +58,28 @@ fn new_database_opens_with_schema_1_0_and_required_column_families() {
         reopened.schema_version().unwrap(),
         SchemaVersion { major: 1, minor: 0 }
     );
+}
+
+#[test]
+fn schema_less_empty_database_can_finish_initialization() {
+    let dir = TestDir::new("schema-empty");
+    drop(open_raw_without_schema(dir.path()));
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    assert_eq!(
+        db.schema_version().unwrap(),
+        SchemaVersion { major: 1, minor: 0 }
+    );
+}
+
+#[test]
+fn schema_less_database_with_existing_data_fails_closed() {
+    let dir = TestDir::new("schema-populated");
+    let raw = open_raw_without_schema(dir.path());
+    let blocks = raw.cf_handle(CF_BLOCKS).unwrap();
+    raw.put_cf(blocks, b"orphan/block", b"non-empty").unwrap();
+    drop(raw);
+
+    let result = OregonDb::open(dir.path());
+    assert!(matches!(result, Err(StorageError::CorruptData(_))));
 }
