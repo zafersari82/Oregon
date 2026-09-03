@@ -15,6 +15,23 @@ impl UtxoState {
         Self::default()
     }
 
+    pub fn from_persisted_entries<I>(entries: I) -> Result<Self, UtxoError>
+    where
+        I: IntoIterator<Item = (OutPoint, UtxoEntry)>,
+    {
+        let mut restored = HashMap::new();
+        for (outpoint, entry) in entries {
+            if restored.insert(outpoint, entry).is_some() {
+                return Err(UtxoError::DuplicatePersistedOutpoint(outpoint));
+            }
+        }
+        Ok(Self { entries: restored })
+    }
+
+    pub fn entries(&self) -> impl Iterator<Item = (&OutPoint, &UtxoEntry)> {
+        self.entries.iter()
+    }
+
     pub fn get(&self, outpoint: &OutPoint) -> Option<&UtxoEntry> {
         self.entries.get(outpoint)
     }
