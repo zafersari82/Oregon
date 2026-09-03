@@ -12,6 +12,8 @@ pub use verifier::SpendVerifier;
 
 #[cfg(test)]
 mod block_tests;
+#[cfg(test)]
+mod undo_tests;
 
 #[cfg(test)]
 mod tests {
