@@ -253,7 +253,9 @@ fn multiple_blocks_with_a_spend_reopen_to_identical_tip_and_sorted_utxos() {
         vec![coinbase(&config, 1), spend(seeded, 90)],
     );
     assert_eq!(
-        state.accept_block(block1.clone(), &AcceptAllSpends).unwrap(),
+        state
+            .accept_block(block1.clone(), &AcceptAllSpends)
+            .unwrap(),
         AcceptOutcome::Extended
     );
     let block2 = block(
@@ -292,7 +294,9 @@ fn accepted_active_state_reopens_when_pruning_was_skipped_and_side_data_remains(
         vec![coinbase(&config, 1)],
     );
     assert_eq!(
-        state.accept_block(active.clone(), &AcceptAllSpends).unwrap(),
+        state
+            .accept_block(active.clone(), &AcceptAllSpends)
+            .unwrap(),
         AcceptOutcome::Extended
     );
 
@@ -322,7 +326,10 @@ fn accepted_active_state_reopens_when_pruning_was_skipped_and_side_data_remains(
 
     let db = OregonDb::open(dir.path()).unwrap();
     assert!(db.get_block(side_id).unwrap().is_some());
-    assert_eq!(db.active_tip().unwrap(), Some((active.header.block_id(), 1)));
+    assert_eq!(
+        db.active_tip().unwrap(),
+        Some((active.header.block_id(), 1))
+    );
 }
 
 #[test]
