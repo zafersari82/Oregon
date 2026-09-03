@@ -12,9 +12,9 @@ pub use codec::{
     decode_block_undo, decode_outpoint_key, decode_utxo_entry, encode_block_undo,
     encode_outpoint_key, encode_utxo_entry,
 };
-pub use db::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb};
 #[cfg(any(test, feature = "test-hooks"))]
 pub use db::TestHooks;
+pub use db::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb};
 pub use error::StorageError;
 pub use records::{
     ACTIVE_TIP_HEIGHT_KEY, ACTIVE_TIP_ID_KEY, BlockIndexRecord, CONFIG_ANCHOR_ID_KEY,
