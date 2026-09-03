@@ -16,10 +16,8 @@ impl TestDir {
     fn new(label: &str) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "oregon-task7-{label}-{}-{n}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("oregon-task7-{label}-{}-{n}", std::process::id()));
         std::fs::create_dir_all(&path).unwrap();
         Self(path)
     }
@@ -111,14 +109,22 @@ fn direct_extension_persists_tip_undo_and_founder_utxo_across_reopen() {
 
     let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
     assert_eq!(
-        state.accept_block(block.clone(), &AcceptTestSpends).unwrap(),
+        state
+            .accept_block(block.clone(), &AcceptTestSpends)
+            .unwrap(),
         AcceptOutcome::Extended
     );
     assert_eq!(state.tip().block_id, block_id);
     assert_eq!(state.tip().height, 1);
-    assert_eq!(state.tip().cumulative_work, block_work(config.params.initial_target));
+    assert_eq!(
+        state.tip().cumulative_work,
+        block_work(config.params.initial_target)
+    );
     let founder = state.utxos().get(&founder_outpoint).unwrap();
-    assert_eq!(founder.output.value.base_units(), FOUNDER_ALLOCATION_BASE_UNITS);
+    assert_eq!(
+        founder.output.value.base_units(),
+        FOUNDER_ALLOCATION_BASE_UNITS
+    );
     assert_eq!(founder.creation_height, 1);
     assert!(founder.is_coinbase);
     drop(state);
@@ -131,7 +137,10 @@ fn direct_extension_persists_tip_undo_and_founder_utxo_across_reopen() {
         block_work(config.params.initial_target)
     );
     let founder = reopened.utxos().get(&founder_outpoint).unwrap();
-    assert_eq!(founder.output.value.base_units(), FOUNDER_ALLOCATION_BASE_UNITS);
+    assert_eq!(
+        founder.output.value.base_units(),
+        FOUNDER_ALLOCATION_BASE_UNITS
+    );
     assert_eq!(founder.creation_height, 1);
     assert!(founder.is_coinbase);
     drop(reopened);
