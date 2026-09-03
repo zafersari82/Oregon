@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use oregon_consensus::{
-    ChainWork, ConsensusError, ConsensusParams, HeaderContext, PowKeyBlockSource, Target, block_work,
-    validate_header_pow, validate_header_pre_pow,
+    ChainWork, ConsensusError, ConsensusParams, HeaderContext, PowKeyBlockSource, Target,
+    block_work, validate_header_pow, validate_header_pre_pow,
 };
 use oregon_pow::{LightEngine, derive_randomx_key, key_block_height};
 use oregon_primitives::{Block, BlockHeader, Hash256, OutPoint, Transaction, transaction_root};
