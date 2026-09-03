@@ -1,0 +1,16 @@
+[package]
+name = "oregon-chainstate"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+oregon-consensus = { path = "../oregon-consensus" }
+oregon-pow = { path = "../oregon-pow" }
+oregon-primitives = { path = "../oregon-primitives" }
+oregon-storage = { path = "../oregon-storage" }
+oregon-utxo = { path = "../oregon-utxo" }
+thiserror = "2"
+
+[dev-dependencies]
+oregon-storage = { path = "../oregon-storage", features = ["test-hooks"] }
