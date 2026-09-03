@@ -9,6 +9,7 @@ mod state;
 
 pub use config::ChainConfig;
 pub use error::ChainStateError;
+pub use prune::PruneReport;
 pub use state::{AcceptOutcome, ChainState, SessionHealth, Tip};
 
 #[cfg(test)]
