@@ -1,8 +1,10 @@
 mod engine;
 mod ffi;
+mod input;
 mod key;
 
 pub use engine::{LightEngine, PowError};
+pub use input::{POW_INPUT_DOMAIN, pow_input};
 pub use key::{
     RANDOMX_KEY_DELAY, RANDOMX_KEY_DOMAIN, RANDOMX_KEY_EPOCH, derive_randomx_key, key_block_height,
 };
