@@ -27,10 +27,7 @@ mod tests {
 
     #[test]
     fn empty_or_twelve_item_window_is_invalid() {
-        assert_eq!(
-            median_time_past(&[]),
-            Err(ConsensusError::InvalidMtpWindow)
-        );
+        assert_eq!(median_time_past(&[]), Err(ConsensusError::InvalidMtpWindow));
         assert_eq!(
             median_time_past(&[0; 12]),
             Err(ConsensusError::InvalidMtpWindow)
