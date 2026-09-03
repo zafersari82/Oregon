@@ -53,7 +53,9 @@ fn synthetic_minor_migration_resumes_after_reopen_and_clears_marker() {
     let meta = raw.cf_handle(CF_CHAIN_META).unwrap();
     assert!(raw.get_cf(meta, SCHEMA_MIGRATION_KEY).unwrap().is_some());
     assert_eq!(
-        raw.get_cf(meta, b"test/migration/step1").unwrap().as_deref(),
+        raw.get_cf(meta, b"test/migration/step1")
+            .unwrap()
+            .as_deref(),
         Some(b"applied".as_slice())
     );
     assert!(raw.get_cf(meta, b"test/migration/step2").unwrap().is_none());
@@ -70,11 +72,15 @@ fn synthetic_minor_migration_resumes_after_reopen_and_clears_marker() {
     let meta = raw.cf_handle(CF_CHAIN_META).unwrap();
     assert!(raw.get_cf(meta, SCHEMA_MIGRATION_KEY).unwrap().is_none());
     assert_eq!(
-        raw.get_cf(meta, b"test/migration/step1").unwrap().as_deref(),
+        raw.get_cf(meta, b"test/migration/step1")
+            .unwrap()
+            .as_deref(),
         Some(b"applied".as_slice())
     );
     assert_eq!(
-        raw.get_cf(meta, b"test/migration/step2").unwrap().as_deref(),
+        raw.get_cf(meta, b"test/migration/step2")
+            .unwrap()
+            .as_deref(),
         Some(b"applied".as_slice())
     );
 }
@@ -91,7 +97,10 @@ fn unknown_major_schema_is_rejected_without_rewrite() {
 
     assert!(matches!(
         OregonDb::open(dir.path()),
-        Err(StorageError::UnsupportedSchema(SchemaVersion { major: 2, minor: 0 }))
+        Err(StorageError::UnsupportedSchema(SchemaVersion {
+            major: 2,
+            minor: 0
+        }))
     ));
 
     let raw = open_raw_existing(dir.path());
