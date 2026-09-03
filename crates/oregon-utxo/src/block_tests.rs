@@ -1,7 +1,7 @@
 use oregon_consensus::{ConsensusError, ConsensusParams, Target, block_subsidy};
 use oregon_primitives::{
-    Amount, Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, transaction_root,
-    write_varint,
+    Amount, Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput,
+    transaction_root, write_varint,
 };
 
 use crate::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError, UtxoState};
@@ -114,12 +114,14 @@ fn same_block_parent_then_child_spend_connects_atomically() {
         .expect("topologically ordered block");
 
     assert!(state.get(&seed).is_none());
-    assert!(state
-        .get(&OutPoint {
-            txid: child.txid(),
-            index: 0,
-        })
-        .is_some());
+    assert!(
+        state
+            .get(&OutPoint {
+                txid: child.txid(),
+                index: 0,
+            })
+            .is_some()
+    );
     assert!(!undo.spent.is_empty());
 }
 
@@ -164,9 +166,11 @@ fn double_spend_across_transactions_rejects_entire_block() {
     let second = spend(seed, 80);
     let candidate = block(200, vec![coinbase(200, vec![]), first, second]);
 
-    assert!(state
-        .connect_block(&candidate, 200, &params(), &AcceptAll)
-        .is_err());
+    assert!(
+        state
+            .connect_block(&candidate, 200, &params(), &AcceptAll)
+            .is_err()
+    );
     assert_eq!(state, before);
 }
 
@@ -208,8 +212,10 @@ fn final_invalid_transaction_rolls_back_all_earlier_overlay_changes() {
     let invalid = spend(missing, 1);
     let candidate = block(200, vec![coinbase(200, vec![]), valid, invalid]);
 
-    assert!(state
-        .connect_block(&candidate, 200, &params(), &AcceptAll)
-        .is_err());
+    assert!(
+        state
+            .connect_block(&candidate, 200, &params(), &AcceptAll)
+            .is_err()
+    );
     assert_eq!(state, before);
 }
