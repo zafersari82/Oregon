@@ -658,11 +658,7 @@ mod deep_reorg_tests {
         }
     }
 
-    fn candidate_header(
-        config: &ChainConfig,
-        parent: Hash256,
-        height: u64,
-    ) -> BlockHeader {
+    fn candidate_header(config: &ChainConfig, parent: Hash256, height: u64) -> BlockHeader {
         let mut root = [0u8; 32];
         root[..8].copy_from_slice(&height.to_le_bytes());
         root[8] = 0xa5;
@@ -738,7 +734,10 @@ mod deep_reorg_tests {
         assert_eq!(state.tip, before_tip);
         assert_eq!(state.utxos, before_utxos);
         assert_eq!(state.session_health, SessionHealth::ReindexRequired);
-        assert_eq!(state.db.health().unwrap(), Some(NodeHealth::ReindexRequired));
+        assert_eq!(
+            state.db.health().unwrap(),
+            Some(NodeHealth::ReindexRequired)
+        );
         assert_eq!(state.db.active_tip().unwrap(), Some((anchor_id, 0)));
         assert!(matches!(
             state.ensure_mutation_allowed(),
