@@ -89,9 +89,9 @@ fn database_has_no_user_records(db: &DB) -> Result<bool, StorageError> {
         .into_iter()
         .chain(std::iter::once(DEFAULT_COLUMN_FAMILY_NAME))
     {
-        let column_family = db.cf_handle(name).ok_or_else(|| {
-            StorageError::CorruptData(format!("missing {name} column family"))
-        })?;
+        let column_family = db
+            .cf_handle(name)
+            .ok_or_else(|| StorageError::CorruptData(format!("missing {name} column family")))?;
         match db.iterator_cf(column_family, IteratorMode::Start).next() {
             None => {}
             Some(Ok(_)) => return Ok(false),
