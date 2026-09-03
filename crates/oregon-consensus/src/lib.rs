@@ -5,6 +5,7 @@ pub mod emission;
 pub mod error;
 pub mod header;
 pub mod params;
+pub mod pow;
 pub mod target;
 pub mod time;
 pub mod work;
@@ -18,6 +19,7 @@ pub use emission::{
 pub use error::ConsensusError;
 pub use header::{HeaderContext, PrePowHeaderFacts, validate_header_pre_pow};
 pub use params::ConsensusParams;
+pub use pow::{PowContext, validate_header_pow};
 pub use target::Target;
 pub use time::median_time_past;
 pub use work::{ChainWork, block_work};
