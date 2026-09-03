@@ -23,6 +23,31 @@ impl UtxoState {
         self.entries.insert(outpoint, entry);
     }
 
+    fn insert_coinbase_outputs(
+        &mut self,
+        tx: &Transaction,
+        creation_height: u64,
+    ) -> Result<(), UtxoError> {
+        let txid = tx.txid();
+        let mut created = Vec::with_capacity(tx.outputs.len());
+        for (index, output) in tx.outputs.iter().enumerate() {
+            let index = u32::try_from(index).map_err(|_| UtxoError::OutputIndexOverflow)?;
+            created.push((
+                OutPoint { txid, index },
+                UtxoEntry {
+                    output: output.clone(),
+                    creation_height,
+                    is_coinbase: true,
+                },
+            ));
+        }
+
+        for (outpoint, entry) in created {
+            self.entries.insert(outpoint, entry);
+        }
+        Ok(())
+    }
+
     pub fn apply_normal_transaction<V: SpendVerifier>(
         &mut self,
         tx: &Transaction,
