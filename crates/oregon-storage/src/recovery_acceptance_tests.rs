@@ -138,6 +138,38 @@ fn block_index_parent_header_mismatch_fails_closed_on_read() {
 }
 
 #[test]
+fn corrupt_block_and_undo_bytes_fail_closed_on_read() {
+    let dir = TestDir::new("corrupt-body-undo");
+    drop(OregonDb::open(dir.path()).unwrap());
+    let block_id = Hash256::from_bytes([0x44; 32]);
+
+    let raw = open_raw_existing(dir.path());
+    raw.put_cf(
+        raw.cf_handle(CF_BLOCKS).unwrap(),
+        block_id.as_bytes(),
+        [0xff, 0x00],
+    )
+    .unwrap();
+    raw.put_cf(
+        raw.cf_handle(CF_UNDO).unwrap(),
+        block_id.as_bytes(),
+        [0xff, 0x00],
+    )
+    .unwrap();
+    drop(raw);
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    assert!(matches!(
+        db.get_block(block_id),
+        Err(StorageError::CorruptData(_))
+    ));
+    assert!(matches!(
+        db.get_undo(block_id),
+        Err(StorageError::CorruptData(_))
+    ));
+}
+
+#[test]
 fn opposite_storage_operation_orders_produce_identical_utxo_and_undo_bytes() {
     let left = TestDir::new("deterministic-left");
     let right = TestDir::new("deterministic-right");
