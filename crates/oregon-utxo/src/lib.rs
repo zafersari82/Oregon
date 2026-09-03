@@ -1,3 +1,11 @@
+mod entry;
+mod error;
+mod verifier;
+
+pub use entry::{COINBASE_MATURITY, UtxoEntry};
+pub use error::UtxoError;
+pub use verifier::SpendVerifier;
+
 #[cfg(test)]
 mod tests {
     use oregon_primitives::{Amount, Transaction, TxOutput};
