@@ -7,7 +7,7 @@ mod state;
 
 pub use config::ChainConfig;
 pub use error::ChainStateError;
-pub use state::{ChainState, SessionHealth, Tip};
+pub use state::{AcceptOutcome, ChainState, SessionHealth, Tip};
 
 #[cfg(test)]
 mod tests;
