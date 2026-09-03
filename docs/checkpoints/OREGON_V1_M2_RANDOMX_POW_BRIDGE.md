@@ -23,4 +23,15 @@ Accepted CI run: `33725750221`
 
 CI run `33725750221` passed workspace tests, rustfmt and clippy with warnings denied.
 
-This is an intermediate M2 recovery checkpoint, not final M2 acceptance. Full/light parity, architecture vectors and mutation evidence remain to be completed.
+Endian mutation evidence:
+- mutation branch: `oregon-v1-m2-mutation-endian-2026-09-03`
+- mutation commit: `77ee893610760c5008aa5c08bee051cb368be2e4`
+- CI trigger commit: `0849726b409fd7a52ef954785a6e19eb9ea4dfdf`
+- CI run: `33726007274`
+- result: expected failure
+- exact caught test: `tests::randomx_hash_target_comparison_is_little_endian`
+- the deliberately incorrect big-endian comparator accepted the crafted `above` hash; the test rejected that mutation.
+
+The accepted execution branch and recovery checkpoint never contained the bad-endian mutation.
+
+This is an intermediate M2 recovery checkpoint, not final M2 acceptance. Architecture vectors, full/light parity and final review remain to be completed.
