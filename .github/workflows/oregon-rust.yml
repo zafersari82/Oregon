@@ -3,7 +3,7 @@ name: Oregon Rust CI
 # M1 consensus branch is intentionally CI-gated during test-first development.
 on:
   push:
-    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core]
+    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m1-mutation-emission-asert]
   pull_request:
     branches: [main]
 
