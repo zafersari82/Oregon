@@ -36,8 +36,9 @@ jobs:
           set -euo pipefail
           rm -rf .git
           if [ -e vendor/RandomX/.git ]; then rm -rf vendor/RandomX/.git; fi
-          zip -q -r ../OREGON_M3_HANDOFF_2026-09-03.zip .
-          cd ..
+          zip -q -r OREGON_M3_HANDOFF_2026-09-03.zip . \
+            -x 'OREGON_M3_HANDOFF_2026-09-03.zip' \
+               'OREGON_M3_HANDOFF_2026-09-03.zip.sha256'
           sha256sum OREGON_M3_HANDOFF_2026-09-03.zip > OREGON_M3_HANDOFF_2026-09-03.zip.sha256
           unzip -t OREGON_M3_HANDOFF_2026-09-03.zip >/dev/null
 
@@ -46,7 +47,7 @@ jobs:
         with:
           name: OREGON_M3_HANDOFF_2026-09-03
           path: |
-            ../OREGON_M3_HANDOFF_2026-09-03.zip
-            ../OREGON_M3_HANDOFF_2026-09-03.zip.sha256
+            OREGON_M3_HANDOFF_2026-09-03.zip
+            OREGON_M3_HANDOFF_2026-09-03.zip.sha256
           if-no-files-found: error
           retention-days: 7
