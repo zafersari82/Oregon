@@ -1,3 +1,4 @@
+pub mod coinbase;
 pub mod emission;
 pub mod error;
 pub mod params;
