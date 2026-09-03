@@ -2,7 +2,7 @@ use oregon_storage::{OregonDb, StorageBatch, ValidationStatus};
 
 use crate::ChainStateError;
 use crate::reorg::discover_fork;
-use crate::state::REORG_WINDOW;
+use crate::state::{ChainState, REORG_WINDOW, SessionHealth};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PruneReport {
@@ -102,6 +102,21 @@ pub(crate) fn plan_prune(
 
     batch.set_prune_cursor(prune_cursor_for_tip(active_tip_height));
     Ok((batch, report))
+}
+
+impl ChainState {
+    pub fn prune(&mut self) -> Result<PruneReport, ChainStateError> {
+        match self.session_health() {
+            SessionHealth::Healthy => {}
+            SessionHealth::StorageFaulted => return Err(ChainStateError::StorageFaulted),
+            SessionHealth::ReindexRequired => return Err(ChainStateError::ReindexRequired),
+        }
+
+        let tip_height = self.tip().height;
+        let (batch, report) = plan_prune(self.storage(), tip_height)?;
+        self.storage().commit_maintenance(batch)?;
+        Ok(report)
+    }
 }
 
 fn corrupt(message: impl Into<String>) -> ChainStateError {
