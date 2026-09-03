@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use oregon_consensus::{ChainWork, ConsensusParams, Target, block_work};
-use oregon_primitives::{Block, BlockHeader, Hash256, Transaction, transaction_root};
+use oregon_primitives::{Block, BlockHeader, Hash256, OutPoint, Transaction, transaction_root};
 use oregon_storage::{BlockIndexRecord, OregonDb, StorageBatch, ValidationStatus};
 use oregon_utxo::BlockUndo;
 
@@ -227,6 +227,23 @@ fn reopen_rejects_missing_retained_block_body() {
     let mut batch = StorageBatch::new();
     batch.delete_block(block_id);
     db.commit_durable(batch).unwrap();
+    drop(db);
+
+    assert!(ChainState::open(dir.path(), config).is_err());
+}
+
+#[test]
+fn reopen_rejects_corrupt_persisted_utxo_bytes() {
+    let dir = TestDir::new("corrupt-utxo");
+    let config = test_config(1_800_000_000, 7);
+    drop(ChainState::open(dir.path(), config.clone()).unwrap());
+
+    let db = OregonDb::open_with_test_hooks(dir.path()).unwrap();
+    let outpoint = OutPoint {
+        txid: Hash256::from_bytes([0x55; 32]),
+        index: 3,
+    };
+    db.test_put_raw_utxo_value(outpoint, &[0xff, 0x00]).unwrap();
     drop(db);
 
     assert!(ChainState::open(dir.path(), config).is_err());
