@@ -46,4 +46,17 @@ mod tests {
             BigUint::from(1u8) << 255usize
         );
     }
+
+    #[test]
+    fn chainwork_canonical_storage_bytes_round_trip() {
+        let zero = ChainWork::zero();
+        assert_eq!(zero.to_canonical_be_bytes(), vec![0]);
+        assert_eq!(ChainWork::from_canonical_be_bytes(&[0]).unwrap(), zero);
+
+        let work = block_work(Target::from_biguint(&BigUint::from(1u8)).unwrap());
+        let encoded = work.to_canonical_be_bytes();
+        assert_eq!(ChainWork::from_canonical_be_bytes(&encoded).unwrap(), work);
+        assert_eq!(ChainWork::from_canonical_be_bytes(&[]), None);
+        assert_eq!(ChainWork::from_canonical_be_bytes(&[0, 1]), None);
+    }
 }
