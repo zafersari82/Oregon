@@ -160,6 +160,9 @@ impl UtxoState {
                 .ok_or(UtxoError::AmountOverflow)?;
         }
 
+        // Deliberate mutation: leak the partially validated overlay into live state.
+        *self = overlay.clone();
+
         let fee_amount =
             Amount::from_base_units(total_fees).map_err(|_| UtxoError::AmountOverflow)?;
         validate_coinbase(&block.transactions[0], height, fee_amount, params)?;
