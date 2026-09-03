@@ -184,6 +184,40 @@ impl UtxoState {
         *self = overlay;
         Ok(BlockUndo { spent, created })
     }
+
+    pub fn disconnect_block(&mut self, undo: BlockUndo) -> Result<(), UtxoError> {
+        let mut seen_created = HashSet::with_capacity(undo.created.len());
+        for outpoint in &undo.created {
+            if !seen_created.insert(*outpoint) || !self.entries.contains_key(outpoint) {
+                return Err(UtxoError::UndoMismatch);
+            }
+        }
+
+        let mut seen_spent = HashSet::with_capacity(undo.spent.len());
+        for (outpoint, _) in &undo.spent {
+            if !seen_spent.insert(*outpoint)
+                || seen_created.contains(outpoint)
+                || self.entries.contains_key(outpoint)
+            {
+                return Err(UtxoError::UndoMismatch);
+            }
+        }
+
+        let mut overlay = self.clone();
+        for outpoint in undo.created {
+            if overlay.entries.remove(&outpoint).is_none() {
+                return Err(UtxoError::UndoMismatch);
+            }
+        }
+        for (outpoint, entry) in undo.spent {
+            if overlay.entries.insert(outpoint, entry).is_some() {
+                return Err(UtxoError::UndoMismatch);
+            }
+        }
+
+        *self = overlay;
+        Ok(())
+    }
 }
 
 fn compare_outpoints(left: &OutPoint, right: &OutPoint) -> std::cmp::Ordering {
