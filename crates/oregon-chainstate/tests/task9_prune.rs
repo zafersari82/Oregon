@@ -1,7 +1,19 @@
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use oregon_chainstate::{ChainConfig, ChainState};
 use oregon_consensus::{ConsensusParams, Target};
 use oregon_primitives::{BlockHeader, Hash256};
 use oregon_storage::OregonDb;
+
+fn test_path() -> PathBuf {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let n = NEXT.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "oregon-task9-public-prune-{}-{n}",
+        std::process::id()
+    ))
+}
 
 fn test_config() -> ChainConfig {
     let target = Target::from_le_bytes([0xff; 32]).unwrap();
@@ -22,9 +34,10 @@ fn test_config() -> ChainConfig {
 
 #[test]
 fn chainstate_prune_runs_maintenance_without_changing_consensus_state() {
-    let dir = tempfile::tempdir().unwrap();
+    let path = test_path();
+    std::fs::create_dir_all(&path).unwrap();
     let config = test_config();
-    let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
+    let mut state = ChainState::open(&path, config.clone()).unwrap();
     let before_tip = state.tip().clone();
     let before_utxos = state.utxos().clone();
 
@@ -36,11 +49,13 @@ fn chainstate_prune_runs_maintenance_without_changing_consensus_state() {
     assert_eq!(state.utxos(), &before_utxos);
     drop(state);
 
-    let db = OregonDb::open(dir.path()).unwrap();
+    let db = OregonDb::open(&path).unwrap();
     assert_eq!(db.prune_cursor().unwrap(), Some(0));
     drop(db);
 
-    let reopened = ChainState::open(dir.path(), config).unwrap();
+    let reopened = ChainState::open(&path, config).unwrap();
     assert_eq!(reopened.tip(), &before_tip);
     assert_eq!(reopened.utxos(), &before_utxos);
+    drop(reopened);
+    let _ = std::fs::remove_dir_all(path);
 }
