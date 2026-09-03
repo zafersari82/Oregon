@@ -16,10 +16,8 @@ impl TestDir {
     fn new(label: &str) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "oregon-task8-{label}-{}-{n}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("oregon-task8-{label}-{}-{n}", std::process::id()));
         std::fs::create_dir_all(&path).unwrap();
         Self(path)
     }
@@ -245,27 +243,21 @@ fn invalid_candidate_body_marks_failing_block_and_descendants_without_active_pub
     let candidate1 = block(&config, anchor, 1, 40_000, 0xd1, 1);
     let candidate1_id = candidate1.header.block_id();
     assert_eq!(
-        state
-            .accept_block(candidate1, &AcceptTestSpends)
-            .unwrap(),
+        state.accept_block(candidate1, &AcceptTestSpends).unwrap(),
         AcceptOutcome::StoredSideChain
     );
 
     let candidate2 = block(&config, candidate1_id, 2, 40_000, 0xd2, 99);
     let candidate2_id = candidate2.header.block_id();
     assert_eq!(
-        state
-            .accept_block(candidate2, &AcceptTestSpends)
-            .unwrap(),
+        state.accept_block(candidate2, &AcceptTestSpends).unwrap(),
         AcceptOutcome::StoredSideChain
     );
 
     let candidate3 = block(&config, candidate2_id, 3, 40_000, 0xd3, 3);
     let candidate3_id = candidate3.header.block_id();
     assert_eq!(
-        state
-            .accept_block(candidate3, &AcceptTestSpends)
-            .unwrap(),
+        state.accept_block(candidate3, &AcceptTestSpends).unwrap(),
         AcceptOutcome::StoredSideChain
     );
 
@@ -281,7 +273,10 @@ fn invalid_candidate_body_marks_failing_block_and_descendants_without_active_pub
     drop(state);
 
     let db = OregonDb::open(dir.path()).unwrap();
-    assert_eq!(db.active_tip().unwrap(), Some((active3.header.block_id(), 3)));
+    assert_eq!(
+        db.active_tip().unwrap(),
+        Some((active3.header.block_id(), 3))
+    );
     assert_eq!(
         db.get_index(candidate1_id).unwrap().unwrap().validation,
         ValidationStatus::HeaderValidated
