@@ -43,6 +43,7 @@ mod tests {
         input_b[0] ^= 1;
 
         let mut engine_a = LightEngine::new(key_a).expect("light engine A");
+        assert_eq!(engine_a.key(), key_a);
         let first = engine_a.hash(input_a);
         let second = engine_a.hash(input_a);
         assert_eq!(first, second);
@@ -52,6 +53,7 @@ mod tests {
         drop(engine_a);
 
         let mut engine_b = LightEngine::new(key_b).expect("light engine B");
+        assert_eq!(engine_b.key(), key_b);
         let changed_key = engine_b.hash(input_a);
         assert_ne!(first, changed_key);
     }
