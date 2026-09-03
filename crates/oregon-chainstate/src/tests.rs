@@ -1,8 +1,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use oregon_consensus::{ChainWork, ConsensusParams, Target};
-use oregon_primitives::{BlockHeader, Hash256};
+use oregon_consensus::{ChainWork, ConsensusParams, Target, block_work};
+use oregon_primitives::{Block, BlockHeader, Hash256, Transaction, transaction_root};
+use oregon_storage::{BlockIndexRecord, OregonDb, StorageBatch, ValidationStatus};
+use oregon_utxo::BlockUndo;
 
 use crate::{ChainConfig, ChainState, SessionHealth};
 
@@ -51,6 +53,63 @@ fn test_config(genesis_timestamp: u64, nonce: u64) -> ChainConfig {
     }
 }
 
+fn seed_height_one(
+    path: &Path,
+    config: &ChainConfig,
+    body_retained: bool,
+    prune_cursor: u64,
+) -> Hash256 {
+    drop(ChainState::open(path, config.clone()).unwrap());
+
+    let transaction = Transaction {
+        version: 1,
+        inputs: vec![],
+        outputs: vec![],
+        lock_time: 1,
+    };
+    let transactions = vec![transaction];
+    let header = BlockHeader {
+        version: 1,
+        previous_block: config.anchor_header.block_id(),
+        transaction_root: transaction_root(&transactions).unwrap(),
+        timestamp: config.genesis_timestamp + 1,
+        difficulty_commitment: config.params.initial_target.to_le_bytes(),
+        nonce: 11,
+    };
+    let block = Block {
+        header: header.clone(),
+        transactions,
+    };
+    let block_id = header.block_id();
+    let index = BlockIndexRecord {
+        header,
+        parent: config.anchor_header.block_id(),
+        height: 1,
+        cumulative_work: block_work(config.params.initial_target),
+        validation: ValidationStatus::FullyValidated,
+        body_retained,
+    };
+
+    let db = OregonDb::open(path).unwrap();
+    let mut batch = StorageBatch::new();
+    batch.put_index(index);
+    if body_retained {
+        batch.put_block(block);
+        batch.put_undo(
+            block_id,
+            BlockUndo {
+                spent: vec![],
+                created: vec![],
+            },
+        );
+    }
+    batch.set_active_height(1, block_id);
+    batch.set_tip(block_id, 1);
+    batch.set_prune_cursor(prune_cursor);
+    db.commit_durable(batch).unwrap();
+    block_id
+}
+
 #[test]
 fn bootstrap_new_database_persists_zero_work_anchor_and_reopens_identically() {
     let dir = TestDir::new("bootstrap");
@@ -85,4 +144,13 @@ fn reopen_fails_closed_if_anchor_or_genesis_timestamp_changes() {
     let reopened = ChainState::open(dir.path(), original).unwrap();
     assert_eq!(reopened.tip().height, 0);
     assert_eq!(reopened.tip().cumulative_work, ChainWork::zero());
+}
+
+#[test]
+fn reopen_rejects_prune_cursor_that_hides_required_rollback_data() {
+    let dir = TestDir::new("prune-cursor-retention");
+    let config = test_config(1_800_000_000, 7);
+    seed_height_one(dir.path(), &config, false, 1);
+
+    assert!(ChainState::open(dir.path(), config).is_err());
 }
