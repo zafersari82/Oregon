@@ -220,7 +220,10 @@ fn block_undo_encoding_is_deterministic_and_strictly_sorted() {
     ));
 
     let unsorted = BlockUndo {
-        spent: vec![(second_point, sample_utxo(1)), (first_point, sample_utxo(2))],
+        spent: vec![
+            (second_point, sample_utxo(1)),
+            (first_point, sample_utxo(2)),
+        ],
         created: vec![],
     };
     assert!(matches!(
