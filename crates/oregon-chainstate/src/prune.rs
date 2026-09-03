@@ -285,4 +285,74 @@ mod tests {
         drop(db);
         let _ = std::fs::remove_dir_all(path);
     }
+
+    #[test]
+    fn interrupted_pruning_changes_nothing_and_retry_converges() {
+        let path = test_path();
+        std::fs::create_dir_all(&path).unwrap();
+        let db = OregonDb::open_with_test_hooks(&path).unwrap();
+
+        let block1 = stored_block(Hash256::from_bytes([0; 32]), 1);
+        let id1 = block1.header.block_id();
+        let block2 = stored_block(id1, 2);
+        let id2 = block2.header.block_id();
+        let undo = BlockUndo {
+            spent: Vec::new(),
+            created: Vec::new(),
+        };
+
+        let mut seed = StorageBatch::new();
+        seed.put_block(block1.clone());
+        seed.put_index(BlockIndexRecord {
+            header: block1.header.clone(),
+            parent: block1.header.previous_block,
+            height: 1,
+            cumulative_work: ChainWork::zero(),
+            validation: ValidationStatus::FullyValidated,
+            body_retained: true,
+        });
+        seed.put_undo(id1, undo.clone());
+        seed.set_active_height(1, id1);
+        seed.put_block(block2.clone());
+        seed.put_index(BlockIndexRecord {
+            header: block2.header.clone(),
+            parent: block2.header.previous_block,
+            height: 2,
+            cumulative_work: ChainWork::zero(),
+            validation: ValidationStatus::FullyValidated,
+            body_retained: true,
+        });
+        seed.put_undo(id2, undo);
+        seed.set_active_height(2, id2);
+        seed.set_prune_cursor(0);
+        db.commit_durable(seed).unwrap();
+
+        let tip = REORG_WINDOW + 1;
+        let before_index = db.get_index(id1).unwrap().unwrap();
+        db.test_hooks().fail_next_maintenance_write();
+        let (failed_batch, expected_report) = plan_prune(&db, tip).unwrap();
+        assert_eq!(expected_report.deleted_bodies, 1);
+        assert_eq!(expected_report.deleted_undos, 1);
+        assert!(db.commit_maintenance(failed_batch).is_err());
+
+        assert!(db.get_block(id1).unwrap().is_some());
+        assert!(db.get_undo(id1).unwrap().is_some());
+        assert_eq!(db.get_index(id1).unwrap().unwrap(), before_index);
+        assert!(db.get_block(id2).unwrap().is_some());
+        assert!(db.get_undo(id2).unwrap().is_some());
+        assert_eq!(db.prune_cursor().unwrap(), Some(0));
+
+        let (retry_batch, retry_report) = plan_prune(&db, tip).unwrap();
+        assert_eq!(retry_report, expected_report);
+        db.commit_maintenance(retry_batch).unwrap();
+        assert!(db.get_block(id1).unwrap().is_none());
+        assert!(db.get_undo(id1).unwrap().is_none());
+        assert!(!db.get_index(id1).unwrap().unwrap().body_retained);
+        assert!(db.get_block(id2).unwrap().is_some());
+        assert!(db.get_undo(id2).unwrap().is_some());
+        assert_eq!(db.prune_cursor().unwrap(), Some(1));
+
+        drop(db);
+        let _ = std::fs::remove_dir_all(path);
+    }
 }
