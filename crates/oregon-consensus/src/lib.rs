@@ -11,7 +11,7 @@ pub mod time;
 pub mod work;
 
 pub use asert::required_target;
-pub use block::validate_non_genesis_block_structure;
+pub use block::{validate_non_genesis_block_skeleton, validate_non_genesis_block_structure};
 pub use coinbase::{is_coinbase_form, validate_coinbase};
 pub use emission::{
     SCHEDULED_MINING_ISSUANCE_BASE_UNITS, SCHEDULED_TOTAL_WITH_FOUNDER_BASE_UNITS, block_subsidy,
