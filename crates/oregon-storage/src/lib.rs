@@ -29,4 +29,6 @@ mod batch_tests;
 #[cfg(test)]
 mod migration_tests;
 #[cfg(test)]
+mod recovery_acceptance_tests;
+#[cfg(test)]
 mod tests;
