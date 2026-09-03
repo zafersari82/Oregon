@@ -1,4 +1,4 @@
-use oregon_primitives::BlockHeader;
+use oregon_primitives::{BlockHeader, Hash256};
 
 use crate::{
     ConsensusError, ConsensusParams, Target,
@@ -16,8 +16,28 @@ pub struct HeaderContext<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrePowHeaderFacts {
-    pub target: Target,
-    pub work: ChainWork,
+    height: u64,
+    header_id: Hash256,
+    target: Target,
+    work: ChainWork,
+}
+
+impl PrePowHeaderFacts {
+    pub const fn height(&self) -> u64 {
+        self.height
+    }
+
+    pub const fn target(&self) -> Target {
+        self.target
+    }
+
+    pub fn work(&self) -> ChainWork {
+        self.work.clone()
+    }
+
+    pub(crate) const fn header_id(&self) -> Hash256 {
+        self.header_id
+    }
 }
 
 pub fn validate_header_pre_pow(
@@ -50,6 +70,8 @@ pub fn validate_header_pre_pow(
     }
 
     Ok(PrePowHeaderFacts {
+        height: context.height,
+        header_id: header.block_id(),
         target: actual,
         work: block_work(actual),
     })
@@ -96,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_context_returns_target_and_work_without_pow() {
+    fn valid_context_returns_header_bound_target_and_work_without_pow() {
         let params = params();
         let parent = parent();
         let mtp = [G + 299];
@@ -109,8 +131,10 @@ mod tests {
         };
 
         let facts = validate_header_pre_pow(&header, &context, &params).unwrap();
-        assert_eq!(facts.target, target(1_000_000));
-        assert_eq!(facts.work, block_work(target(1_000_000)));
+        assert_eq!(facts.height(), 2);
+        assert_eq!(facts.header_id(), header.block_id());
+        assert_eq!(facts.target(), target(1_000_000));
+        assert_eq!(facts.work(), block_work(target(1_000_000)));
     }
 
     #[test]
@@ -227,13 +251,13 @@ mod tests {
         assert_eq!(
             validate_header_pre_pow(&near, &context, &params)
                 .unwrap()
-                .target,
+                .target(),
             target(1_000_000)
         );
         assert_eq!(
             validate_header_pre_pow(&far, &context, &params)
                 .unwrap()
-                .target,
+                .target(),
             target(1_000_000)
         );
     }
