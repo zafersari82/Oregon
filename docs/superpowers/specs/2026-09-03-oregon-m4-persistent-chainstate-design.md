@@ -1,7 +1,7 @@
 # Oregon v1 M4 Persistent Chainstate Design
 
 Date: 2026-09-03
-Status: approved design, implementation not started
+Status: in-chat design approved; written spec awaiting user review
 Development branch: `oregon-v1-m4-persistent-chainstate`
 Accepted base: `8f3ee9043b9cf3beb7b8e4653c0f2ab183233b71` (M3 checkpoint commit)
 
@@ -24,7 +24,7 @@ A generic multi-backend storage trait is intentionally not introduced in M4. Roc
 
 ## 3. RocksDB column families
 
-The database contains these named column families:
+The database contains these named column families. RocksDB's mandatory `default` column family remains reserved/unused by M4 so all Oregon records have an explicit ownership domain.
 
 ### `blocks`
 
@@ -80,7 +80,7 @@ Contains versioned metadata including:
 - active `height -> block_id` mapping
 - prune horizon/cursor
 - migration marker/state
-- durable node health state such as `Healthy`, `ReindexRequired` or equivalent
+- durable node health state such as `Healthy` or `ReindexRequired`
 
 ## 4. Canonical storage encodings
 
@@ -94,7 +94,20 @@ Outpoints use a fixed 36-byte key.
 
 All M4 decoders reject truncation, unknown versions where no migration is defined, malformed lengths and trailing bytes.
 
-## 5. Chain selection
+## 5. M3 UTXO persistence bridge
+
+The current M3 `UtxoState` intentionally owns its internal map. M4 needs a narrow persistence bridge so a validated database can reconstruct the in-memory UTXO state after restart without exposing a consensus bypass path inside `oregon-chainstate`.
+
+M4 may add a small API to `oregon-utxo` equivalent to a checked `UtxoState::from_persisted_entries(...)` constructor and/or a read-only entry access boundary. The restoration API must:
+
+- reject duplicate outpoints
+- accept only already decoded `UtxoEntry` values
+- not disable normal `SpendVerifier`, maturity, fee or block-connect validation
+- be used by chainstate startup/recovery, not as an alternative block-validation path
+
+Per-block persistence does not require whole-state export: `BlockUndo.created` plus `UtxoState::get()` is sufficient to obtain newly surviving entries, while `BlockUndo.spent` identifies pre-existing entries removed by the block.
+
+## 6. Chain selection
 
 Candidate chains are selected by cumulative validated chainwork.
 
@@ -104,7 +117,7 @@ Only a candidate with strictly greater cumulative chainwork than the current act
 
 M2 RandomX key provenance remains binding. Side-chain PoW validation must obtain scheduled key-block identity from an already validated branch-aware chain view. Candidate callers do not supply arbitrary key-block IDs.
 
-## 6. Durable block acceptance
+## 7. Durable block acceptance
 
 The active-state acceptance write is one atomic RocksDB `WriteBatch` containing all changes necessary for the accepted state, including as applicable:
 
@@ -118,11 +131,13 @@ The active-state acceptance write is one atomic RocksDB `WriteBatch` containing 
 
 WAL remains enabled and the acceptance write uses `sync=true`.
 
-A block or reorg is not reported as accepted until that durable write succeeds. If the write fails, the API returns an error and neither the durable chainstate nor the authoritative in-memory chainstate may advance.
+A block or reorg is not reported as accepted until that durable write succeeds. The implementation stages consensus/state changes first and publishes the new in-memory active state only after the durable write reports success.
 
-The implementation must stage consensus/state changes first and publish the new in-memory active state only after the durable write succeeds, or use an equivalent ordering that proves memory and disk cannot diverge on a failed durable commit.
+A storage write/sync error is fail-stop for the current chainstate session. The new in-memory state is not published, the operation is never reported as accepted, and no further chain mutations are permitted until the database is closed/reopened and restart invariants determine which atomic batch state is actually durable. M4 does not assume that every low-level I/O error proves the disk remained byte-for-byte at the old state.
 
-## 7. Restart invariants
+This resolves the unavoidable distinction between "not acknowledged as accepted" and "provably absent from storage after an ambiguous device-level error" while preserving the user-approved rule that acknowledged blocks survive restart.
+
+## 8. Restart invariants
 
 On database open, M4 validates at least:
 
@@ -135,17 +150,19 @@ On database open, M4 validates at least:
 - deterministic decoding of retained UTXO, undo and index records
 - migration marker validity
 
+The persisted UTXO column family is decoded and reconstructed through the checked M3 persistence bridge before the chainstate is considered healthy.
+
 Missing body/undo data behind the valid prune horizon is expected. Missing or corrupt body/undo data inside the rollback window is not repaired heuristically.
 
 Critical inconsistency causes fail-closed startup with `ReindexRequired`, `CorruptData`, `UnsupportedSchema` or another explicit non-healthy result. M4 does not silently invent replacement state.
 
-## 8. Reorg state machine
+## 9. Reorg state machine
 
 For a candidate chain with strictly greater cumulative work:
 
 1. Locate the common fork point using validated index ancestry.
 2. Compute active-chain disconnect depth before mutating live state.
-3. If disconnect depth is greater than `8_064`, perform no UTXO or active-mapping mutation and enter/report durable `ReindexRequired` or `ResyncRequired` state.
+3. If disconnect depth is greater than `8_064`, perform no UTXO or active-mapping mutation and durably enter/report `ReindexRequired`.
 4. For an allowed reorg, preflight all required old-branch undo data and new-branch block bodies before applying state changes.
 5. Clone/stage the current M3 UTXO state.
 6. Disconnect old active blocks from tip to fork using validated `BlockUndo`.
@@ -156,11 +173,11 @@ For a candidate chain with strictly greater cumulative work:
 
 There is no production `AcceptAll` spend verifier introduced by M4.
 
-## 9. Pruning policy
+## 10. Pruning policy
 
 M4 is pruning-aware from its first accepted version.
 
-The configured/frozen rollback retention window for this milestone is `8_064` active blocks, approximately 28 days at the 300-second target interval.
+The frozen rollback retention window for this milestone is `8_064` active blocks, approximately 28 days at the 300-second target interval.
 
 If active tip height is `H`, active block body and undo data for heights:
 
@@ -173,15 +190,15 @@ The deepest permitted disconnect has depth exactly `8_064`, whose fork point is 
 Therefore:
 
 - disconnect depth `8_064`: allowed, assuming all retained data required for the operation exists
-- disconnect depth `8_065`: rejected fail-closed
+- disconnect depth `8_065`: rejected fail-closed and transitions to `ReindexRequired`
 
 The implementation and tests must explicitly guard this off-by-one boundary.
 
 `block_index` and chain identity metadata are not pruned. Large block bodies and undo data older than the safe horizon may be removed.
 
-Side-branch bodies that can still participate in an otherwise permitted reorg must not be pruned prematurely.
+Side-branch bodies that can still participate in an otherwise permitted reorg must not be pruned prematurely. The implementation plan must define the exact side-branch retention predicate and tests before production pruning code is written.
 
-## 10. Pruning transaction model
+## 11. Pruning transaction model
 
 Pruning is separate from block acceptance.
 
@@ -191,9 +208,9 @@ Pruning is allowed to use `sync=false` because a pruning crash may leave extra o
 
 Pruning must delete only data proven older than the safe retention horizon. It must never delete index/history metadata required to identify the active chain or support RandomX ancestor/key scheduling.
 
-## 11. Schema versioning and migration
+## 12. Schema versioning and migration
 
-The M4 database schema uses a major/minor version.
+The initial M4 disk schema is `1.0` and uses a major/minor version.
 
 Supported minor upgrades may migrate automatically. Minor migrations must be:
 
@@ -202,13 +219,13 @@ Supported minor upgrades may migrate automatically. Minor migrations must be:
 - restart-resumable
 - covered by crash/interruption tests
 
-Before mutating a database during migration, a durable migration marker/state is written. After a crash, reopening the same supported migration resumes or safely repeats deterministic steps.
+Before mutating a database during migration, a durable migration marker/state is written with synchronous durability. After a crash, reopening the same supported migration resumes or safely repeats deterministic steps.
 
-An unknown/incompatible major schema version is never modified automatically. Opening it fails closed with `UnsupportedSchema` and/or `ReindexRequired`.
+An unknown/incompatible major schema version is never modified automatically. Opening it fails closed with `UnsupportedSchema`; the operator-facing recovery requirement is `ReindexRequired`.
 
 M4 does not promise indefinite migration support for all future historical schema versions.
 
-## 12. Error model
+## 13. Error model
 
 `oregon-storage` owns storage-specific errors such as I/O/RocksDB failures, corrupt encoded records, unsupported schema and durability failure.
 
@@ -220,11 +237,12 @@ M4 does not promise indefinite migration support for all future historical schem
 - `MissingBlockBody`
 - `DeepReorg`
 - `DurabilityFailure`
+- `StorageFaulted`
 - `ReindexRequired`
 
 Consensus-invalid blocks remain distinct from database corruption or local storage failure.
 
-## 13. UTXO persistence strategy
+## 14. UTXO persistence strategy
 
 M4 does not rewrite the complete UTXO set for every accepted block.
 
@@ -236,48 +254,53 @@ The existing M3 transition and `BlockUndo` result determine the delta. Persisted
 
 Same-block intermediate outputs that do not survive the final M3 UTXO state are not materialized as persistent UTXOs merely because they existed transiently during block execution.
 
-## 14. Crash-safety model
+## 15. Crash-safety model
 
 The principal invariant is:
 
-> After an API reports a block or reorg accepted, a clean restart observes that accepted active state. If the durable acceptance write fails, the previous active state remains authoritative in both memory and storage.
+> After an API reports a block or reorg accepted, a clean restart observes that accepted active state. Until the synchronous durable acceptance write reports success, the new state is never published or acknowledged as accepted.
+
+If a write/sync call reports a storage error, the chainstate session becomes `StorageFaulted`: no further chain mutation is allowed until reopen/recovery validates the durable database state.
 
 Crash points tested in M4 include at minimum:
 
 - before durable acceptance write
-- failed durable acceptance write
+- injected write failure before atomic batch commit
+- storage-faulted session behavior
 - after successful durable acceptance write but before subsequent pruning
 - during pruning
 - during supported minor migration
 
 A startup path may not infer that a partially durable state was accepted unless all active-state invariants prove it.
 
-## 15. TDD acceptance tests
+## 16. TDD acceptance tests
 
 Implementation follows strict RED -> observed failure -> minimal GREEN -> fresh verification.
 
 M4 acceptance tests include at least:
 
 1. Close/reopen preserves active tip, UTXO state and chain index exactly.
-2. Failed durable block write leaves both memory and disk at the old state.
-3. Reorg depth exactly `8_064` is permitted when required data exists.
-4. Reorg depth `8_065` is rejected with no active-state mutation.
-5. Missing or tampered undo prevents reorg without partial mutation.
-6. Invalid final candidate block rolls back/stages away all earlier candidate branch changes.
-7. Equal cumulative chainwork retains the current active tip.
-8. Lower-work candidate never becomes active.
-9. Pruning does not delete any body/undo still required by the rollback window.
-10. Interrupted pruning is idempotently recoverable.
-11. Storage codecs reject truncation, trailing bytes, malformed lengths and unsupported record versions.
-12. Supported minor migration interrupted mid-step resumes deterministically.
-13. Unknown major schema fails closed without rewriting the database.
-14. Corrupt/missing retained-window records cause explicit non-healthy startup.
-15. On-disk UTXO/undo bytes are deterministic and independent of `HashMap` iteration order.
-16. Reorg durable commit is all-or-nothing across UTXO, undo, active mapping and tip metadata.
-17. Restart after successful durable acceptance but before pruning sees the accepted tip and merely retains extra old data.
-18. Side-chain validation preserves M2 key-block provenance and does not accept caller-injected RandomX key identity.
+2. Injected pre-commit durable-write failure leaves memory at the old state and faults the session; reopen determines durable state before further mutation.
+3. A `StorageFaulted` session rejects subsequent chain mutations.
+4. Reorg depth exactly `8_064` is permitted when required data exists.
+5. Reorg depth `8_065` is rejected with no active-state mutation and enters `ReindexRequired`.
+6. Missing or tampered undo prevents reorg without partial mutation.
+7. Invalid final candidate block rolls back/stages away all earlier candidate branch changes.
+8. Equal cumulative chainwork retains the current active tip.
+9. Lower-work candidate never becomes active.
+10. Pruning does not delete any body/undo still required by the rollback window.
+11. Interrupted pruning is idempotently recoverable.
+12. Storage codecs reject truncation, trailing bytes, malformed lengths and unsupported record versions.
+13. Supported minor migration interrupted mid-step resumes deterministically.
+14. Unknown major schema fails closed without rewriting the database.
+15. Corrupt/missing retained-window records cause explicit non-healthy startup.
+16. On-disk UTXO/undo bytes are deterministic and independent of `HashMap` iteration order.
+17. Reorg durable commit is all-or-nothing across UTXO, undo, active mapping and tip metadata.
+18. Restart after successful durable acceptance but before pruning sees the accepted tip and merely retains extra old data.
+19. Side-chain validation preserves M2 key-block provenance and does not accept caller-injected RandomX key identity.
+20. Persisted UTXO reconstruction rejects duplicate outpoints and does not create a spend-validation bypass.
 
-## 16. Required security mutations
+## 17. Required security mutations
 
 M4 is not accepted until targeted throwaway mutations are killed by intended tests. At minimum:
 
@@ -287,7 +310,7 @@ Change the `8_064` boundary so a depth-`8_065` reorg becomes allowed or a valid 
 
 ### Mutation B: durability weakening
 
-Remove or bypass the required synchronous durable acceptance semantics, or otherwise make acceptance publish before the durable write has succeeded. Crash/durability tests must fail.
+Remove/bypass synchronous acceptance or publish the in-memory active state before the durable batch reports success. Durability/fault-injection tests must fail.
 
 ### Mutation C: early reorg publication
 
@@ -295,17 +318,19 @@ Publish/persist active UTXO or tip state before the complete candidate branch ha
 
 Mutations live only on throwaway branches and never enter the accepted M4 branch.
 
-## 17. Security review scope
+## 18. Security review scope
 
 Before M4 checkpoint acceptance, manual review covers at least:
 
 - RocksDB WAL/sync write options on acceptance paths
-- memory/disk publish ordering
+- memory/disk publish ordering and ambiguous storage-error handling
+- fail-stop `StorageFaulted` behavior
 - WriteBatch atomic coverage
 - block/index/UTXO/undo encoding determinism
+- UTXO restart reconstruction boundary
 - bounds and corruption handling
 - pruning horizon off-by-one behavior
-- side-branch retention
+- exact side-branch retention predicate
 - deep-reorg fail-closed path
 - migration restart safety
 - cumulative-work provenance
@@ -315,7 +340,7 @@ Before M4 checkpoint acceptance, manual review covers at least:
 - no unchecked consensus-value arithmetic introduced by M4
 - no `HashMap` iteration order influencing stored canonical records
 
-## 18. Definition of M4 accepted
+## 19. Definition of M4 accepted
 
 M4 is accepted only when all of the following are true at one reviewed code commit:
 
@@ -332,7 +357,7 @@ M4 is accepted only when all of the following are true at one reviewed code comm
 
 `main` is not merged or modified as part of M4 implementation unless the user later explicitly requests that integration.
 
-## 19. Explicit exclusions
+## 20. Explicit exclusions
 
 M4 does not claim completion of:
 
