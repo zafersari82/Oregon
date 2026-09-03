@@ -33,7 +33,7 @@ pub fn required_target(
     let exponent = drift
         .checked_mul(ASERT_RADIX)
         .ok_or(ConsensusError::ArithmeticOverflow)?
-        / ASERT_HALF_LIFE_SECONDS;
+        / (ASERT_HALF_LIFE_SECONDS + 1);
 
     let num_shifts = exponent >> 16;
     let frac = exponent
