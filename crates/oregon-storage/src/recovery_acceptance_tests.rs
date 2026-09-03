@@ -173,8 +173,14 @@ fn opposite_storage_operation_orders_produce_identical_utxo_and_undo_bytes() {
     drop(left_db);
     drop(right_db);
 
-    assert_eq!(raw_cf_entries(left.path(), CF_UTXO), raw_cf_entries(right.path(), CF_UTXO));
-    assert_eq!(raw_cf_entries(left.path(), CF_UNDO), raw_cf_entries(right.path(), CF_UNDO));
+    assert_eq!(
+        raw_cf_entries(left.path(), CF_UTXO),
+        raw_cf_entries(right.path(), CF_UTXO)
+    );
+    assert_eq!(
+        raw_cf_entries(left.path(), CF_UNDO),
+        raw_cf_entries(right.path(), CF_UNDO)
+    );
 }
 
 #[test]
