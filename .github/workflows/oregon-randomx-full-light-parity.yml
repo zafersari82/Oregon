@@ -1,0 +1,31 @@
+name: Oregon RandomX Full Light Parity
+
+on:
+  push:
+    branches: [oregon-v1-m2-randomx-pow-exec]
+    paths:
+      - 'crates/oregon-pow/**'
+      - 'crates/oregon-primitives/**'
+      - 'vendor/RandomX'
+      - '.github/workflows/oregon-randomx-full-light-parity.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+
+permissions:
+  contents: read
+
+jobs:
+  full-light-parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Rust 1.85.0
+        run: rustup toolchain install 1.85.0 --profile minimal
+      - name: Verify RandomX full-light parity
+        run: cargo +1.85.0 test --locked -p oregon-pow --test randomx_full_light_parity -- --ignored --nocapture
