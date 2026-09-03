@@ -26,10 +26,16 @@ pub use work::{ChainWork, block_work};
 
 #[cfg(test)]
 mod pow_bridge_tests {
+    use num_bigint::BigUint;
     use oregon_pow::{LightEngine, derive_randomx_key};
     use oregon_primitives::{BlockHeader, Hash256};
 
-    use super::{ConsensusError, PowKeyBlockSource, validate_header_pow};
+    use super::{
+        ConsensusError, ConsensusParams, HeaderContext, PowKeyBlockSource, PrePowHeaderFacts,
+        Target, validate_header_pow, validate_header_pre_pow,
+    };
+
+    const G: u64 = 1_800_000_000;
 
     struct KeyBlocks {
         height: u64,
@@ -42,19 +48,46 @@ mod pow_bridge_tests {
         }
     }
 
-    fn header(target: [u8; 32]) -> BlockHeader {
-        BlockHeader {
+    fn max_target() -> Target {
+        Target::from_le_bytes([0xff; 32]).unwrap()
+    }
+
+    fn target(value: u64) -> Target {
+        Target::from_biguint(&BigUint::from(value)).unwrap()
+    }
+
+    fn prevalidated_header(height: u64, difficulty: Target) -> (BlockHeader, PrePowHeaderFacts) {
+        let parent_timestamp = G + 300 * height.saturating_sub(1);
+        let parent = BlockHeader {
             version: 1,
-            previous_block: Hash256::from_bytes([0x11; 32]),
+            previous_block: Hash256::from_bytes([0x10; 32]),
+            transaction_root: Hash256::from_bytes([0x20; 32]),
+            timestamp: parent_timestamp,
+            difficulty_commitment: difficulty.to_le_bytes(),
+            nonce: 6,
+        };
+        let header = BlockHeader {
+            version: 1,
+            previous_block: parent.block_id(),
             transaction_root: Hash256::from_bytes([0x22; 32]),
-            timestamp: 1_800_000_000,
-            difficulty_commitment: target,
+            timestamp: parent_timestamp + 1,
+            difficulty_commitment: difficulty.to_le_bytes(),
             nonce: 7,
-        }
+        };
+        let mtp = [parent_timestamp];
+        let context = HeaderContext {
+            height,
+            parent: &parent,
+            genesis_timestamp: G,
+            mtp_window: &mtp,
+        };
+        let params = ConsensusParams::new(max_target(), difficulty, [0x42; 32]).unwrap();
+        let facts = validate_header_pre_pow(&header, &context, &params).unwrap();
+        (header, facts)
     }
 
     #[test]
-    fn randomx_pow_bridge_fetches_required_key_block_from_validated_chain() {
+    fn randomx_pow_bridge_requires_prevalidated_header_facts_and_chain_key() {
         let key_block_id = Hash256::from_bytes([0x44; 32]);
         let key = derive_randomx_key(key_block_id);
         let mut engine = LightEngine::new(key).expect("RandomX light engine");
@@ -62,10 +95,29 @@ mod pow_bridge_tests {
             height: 864,
             id: key_block_id,
         };
+        let (header, facts) = prevalidated_header(888, max_target());
 
-        let hash = validate_header_pow(&header([0xff; 32]), 888, &key_blocks, &mut engine)
+        let hash = validate_header_pow(&header, &facts, &key_blocks, &mut engine)
             .expect("max target accepts every RandomX hash");
         assert_ne!(hash, [0u8; 32]);
+    }
+
+    #[test]
+    fn randomx_pow_bridge_rejects_facts_from_a_different_header() {
+        let key_block_id = Hash256::from_bytes([0x44; 32]);
+        let key = derive_randomx_key(key_block_id);
+        let mut engine = LightEngine::new(key).expect("RandomX light engine");
+        let key_blocks = KeyBlocks {
+            height: 864,
+            id: key_block_id,
+        };
+        let (mut header, facts) = prevalidated_header(888, max_target());
+        header.nonce += 1;
+
+        assert_eq!(
+            validate_header_pow(&header, &facts, &key_blocks, &mut engine),
+            Err(ConsensusError::PowPrevalidationMismatch)
+        );
     }
 
     #[test]
@@ -77,9 +129,10 @@ mod pow_bridge_tests {
             height: 0,
             id: key_block_id,
         };
+        let (header, facts) = prevalidated_header(888, max_target());
 
         assert_eq!(
-            validate_header_pow(&header([0xff; 32]), 888, &wrong_height_source, &mut engine,),
+            validate_header_pow(&header, &facts, &wrong_height_source, &mut engine),
             Err(ConsensusError::PowKeyBlockUnavailable)
         );
     }
@@ -94,27 +147,27 @@ mod pow_bridge_tests {
             height: 864,
             id: key_block_id,
         };
+        let (header, facts) = prevalidated_header(888, max_target());
 
         assert_eq!(
-            validate_header_pow(&header([0xff; 32]), 888, &key_blocks, &mut engine),
+            validate_header_pow(&header, &facts, &key_blocks, &mut engine),
             Err(ConsensusError::PowEngineKeyMismatch)
         );
     }
 
     #[test]
-    fn randomx_pow_bridge_rejects_insufficient_work() {
+    fn randomx_pow_bridge_rejects_insufficient_work_after_prevalidation() {
         let key_block_id = Hash256::from_bytes([0x44; 32]);
         let key = derive_randomx_key(key_block_id);
         let mut engine = LightEngine::new(key).expect("RandomX light engine");
         let key_blocks = KeyBlocks {
-            height: 864,
+            height: 0,
             id: key_block_id,
         };
-        let mut tiny_target = [0u8; 32];
-        tiny_target[0] = 1;
+        let (header, facts) = prevalidated_header(1, target(1));
 
         assert_eq!(
-            validate_header_pow(&header(tiny_target), 888, &key_blocks, &mut engine),
+            validate_header_pow(&header, &facts, &key_blocks, &mut engine),
             Err(ConsensusError::InsufficientProofOfWork)
         );
     }
