@@ -158,6 +158,7 @@ impl UtxoState {
             total_fees = total_fees
                 .checked_add(fee)
                 .ok_or(UtxoError::AmountOverflow)?;
+            *self = overlay.clone();
         }
 
         let fee_amount =
