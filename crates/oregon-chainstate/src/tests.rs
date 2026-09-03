@@ -8,10 +8,10 @@ use oregon_consensus::{
 use oregon_pow::{LightEngine, derive_randomx_key, key_block_height};
 use oregon_primitives::{Block, BlockHeader, Hash256, OutPoint, Transaction, transaction_root};
 use oregon_storage::{BlockIndexRecord, OregonDb, StorageBatch, ValidationStatus};
-use oregon_utxo::BlockUndo;
+use oregon_utxo::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError};
 
 use crate::branch::BranchView;
-use crate::{ChainConfig, ChainState, SessionHealth};
+use crate::{AcceptOutcome, ChainConfig, ChainState, SessionHealth};
 
 struct TestDir(PathBuf);
 
@@ -35,6 +35,19 @@ impl TestDir {
 impl Drop for TestDir {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+struct RejectTestSpends;
+
+impl SpendVerifier for RejectTestSpends {
+    fn verify_spend(
+        &self,
+        _transaction: &Transaction,
+        _input_index: usize,
+        _prevout: &UtxoEntry,
+    ) -> Result<(), UtxoError> {
+        Err(UtxoError::SpendAuthorizationFailed)
     }
 }
 
@@ -360,4 +373,54 @@ fn branch_view_supplies_randomx_key_block_from_candidate_ancestry() {
         validate_header_pow(&candidate, &facts, &view, &mut wrong_engine),
         Err(ConsensusError::PowEngineKeyMismatch)
     );
+}
+
+#[test]
+fn side_chain_header_is_durably_stored_without_mutating_active_state() {
+    let dir = TestDir::new("side-chain-admission");
+    let config = test_config(1_800_000_000, 7);
+    let active_id = seed_height_one(dir.path(), &config, true, 0);
+    let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
+    let before_tip = state.tip().clone();
+    assert!(state.utxos().entries().next().is_none());
+
+    let transactions = vec![Transaction {
+        version: 1,
+        inputs: vec![],
+        outputs: vec![],
+        lock_time: 77,
+    }];
+    let candidate = Block {
+        header: BlockHeader {
+            version: 1,
+            previous_block: config.anchor_header.block_id(),
+            transaction_root: transaction_root(&transactions).unwrap(),
+            timestamp: config.genesis_timestamp + 300,
+            difficulty_commitment: config.params.initial_target.to_le_bytes(),
+            nonce: 99,
+        },
+        transactions,
+    };
+    let candidate_id = candidate.header.block_id();
+
+    assert_eq!(
+        state
+            .accept_block(candidate.clone(), &RejectTestSpends)
+            .unwrap(),
+        AcceptOutcome::StoredSideChain
+    );
+    assert_eq!(state.tip(), &before_tip);
+    assert!(state.utxos().entries().next().is_none());
+    drop(state);
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    let index = db.get_index(candidate_id).unwrap().unwrap();
+    assert_eq!(index.header, candidate.header);
+    assert_eq!(index.parent, config.anchor_header.block_id());
+    assert_eq!(index.height, 1);
+    assert_eq!(index.cumulative_work, block_work(config.params.initial_target));
+    assert_eq!(index.validation, ValidationStatus::HeaderValidated);
+    assert!(index.body_retained);
+    assert_eq!(db.get_block(candidate_id).unwrap(), Some(candidate));
+    assert_eq!(db.active_tip().unwrap(), Some((active_id, 1)));
 }
