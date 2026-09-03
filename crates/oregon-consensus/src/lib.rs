@@ -3,6 +3,9 @@ pub mod error;
 pub mod params;
 pub mod target;
 
+pub use emission::{
+    SCHEDULED_MINING_ISSUANCE_BASE_UNITS, SCHEDULED_TOTAL_WITH_FOUNDER_BASE_UNITS, block_subsidy,
+};
 pub use error::ConsensusError;
 pub use params::ConsensusParams;
 pub use target::Target;
