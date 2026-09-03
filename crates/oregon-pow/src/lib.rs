@@ -12,11 +12,11 @@ pub const OREGON_RANDOMX_ARGON_SALT: &str = "OREGON-RANDOMX-V1";
 
 #[cfg(test)]
 mod tests {
-    use oregon_primitives::Hash256;
+    use oregon_primitives::{BlockHeader, Hash256};
 
     use super::{
         LightEngine, OREGON_RANDOMX_ARGON_SALT, RANDOMX_UPSTREAM_COMMIT, derive_randomx_key,
-        key_block_height,
+        key_block_height, pow_input,
     };
 
     #[test]
@@ -72,5 +72,28 @@ mod tests {
         let first = derive_randomx_key(first_id);
         assert_eq!(first, derive_randomx_key(first_id));
         assert_ne!(first, derive_randomx_key(second_id));
+    }
+
+    #[test]
+    fn pow_input_is_domain_plus_exact_canonical_header() {
+        let header = BlockHeader {
+            version: 1,
+            previous_block: Hash256::from_bytes([0x11; 32]),
+            transaction_root: Hash256::from_bytes([0x22; 32]),
+            timestamp: 1_800_000_000,
+            difficulty_commitment: [0x33; 32],
+            nonce: 7,
+        };
+
+        let input = pow_input(&header);
+        let domain = b"OREGON/POW/V1\0";
+        assert_eq!(header.encode().len(), 114);
+        assert_eq!(input.len(), domain.len() + 114);
+        assert_eq!(&input[..domain.len()], domain);
+        assert_eq!(&input[domain.len()..], header.encode());
+
+        let mut changed = header.clone();
+        changed.nonce += 1;
+        assert_ne!(input, pow_input(&changed));
     }
 }
