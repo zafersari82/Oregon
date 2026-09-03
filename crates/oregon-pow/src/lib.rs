@@ -1,3 +1,10 @@
+//! Oregon RandomX hashing primitives and engine wrappers.
+//!
+//! This crate is deliberately not a standalone consensus validator. Callers must first validate
+//! the candidate header's parent, timestamp, ASERT-required target and POW_LIMIT in
+//! `oregon-consensus`, then bind the RandomX epoch key to the validated active chain. The engine
+//! only computes the frozen Oregon RandomX hash and compares raw hash/target bytes when asked.
+
 mod engine;
 mod ffi;
 mod input;
