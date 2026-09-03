@@ -22,6 +22,8 @@ pub enum ConsensusError {
     TimestampNotAfterMtp,
     #[error("previous block id does not match parent")]
     PreviousBlockMismatch,
+    #[error("PoW prevalidation facts do not match the candidate header")]
+    PowPrevalidationMismatch,
     #[error("required RandomX key block is unavailable from the validated chain")]
     PowKeyBlockUnavailable,
     #[error("RandomX engine is bound to the wrong epoch key")]
