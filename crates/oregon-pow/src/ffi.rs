@@ -17,9 +17,11 @@ pub(crate) struct RandomxVm {
 
 pub(crate) const RANDOMX_FLAG_DEFAULT: u32 = 0;
 pub(crate) const RANDOMX_FLAG_FULL_MEM: u32 = 4;
+pub(crate) const RANDOMX_FLAG_ARGON2: u32 = 96;
 pub(crate) const RANDOMX_FLAG_V2: u32 = 128;
 
 unsafe extern "C" {
+    pub(crate) fn randomx_get_flags() -> u32;
     pub(crate) fn randomx_alloc_cache(flags: u32) -> *mut RandomxCache;
     pub(crate) fn randomx_init_cache(cache: *mut RandomxCache, key: *const c_void, key_size: usize);
     pub(crate) fn randomx_release_cache(cache: *mut RandomxCache);
