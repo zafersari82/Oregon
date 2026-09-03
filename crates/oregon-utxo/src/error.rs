@@ -13,6 +13,8 @@ pub enum UtxoError {
     OutputValueExceedsInput,
     #[error("amount arithmetic overflow")]
     AmountOverflow,
+    #[error("transaction output index exceeds u32")]
+    OutputIndexOverflow,
     #[error("spend authorization failed")]
     SpendAuthorizationFailed,
     #[error("transaction order is invalid for current UTXO state")]
