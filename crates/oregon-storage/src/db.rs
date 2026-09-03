@@ -157,7 +157,6 @@ impl OregonDb {
         let chain_meta = db.cf_handle(CF_CHAIN_META).ok_or_else(|| {
             StorageError::CorruptData("missing chain_meta column family".to_owned())
         })?;
-
         match db.get_cf(chain_meta, SCHEMA_KEY)? {
             Some(bytes) => {
                 let version = decode_schema_version(&bytes)?;
@@ -202,7 +201,7 @@ impl OregonDb {
     }
 
     pub fn commit_durable(&self, batch: StorageBatch) -> Result<(), StorageError> {
-        self.commit(batch, DurabilityMode::Sync)
+        self.commit(batch, DurabilityMode::NoSync)
     }
 
     pub fn commit_maintenance(&self, batch: StorageBatch) -> Result<(), StorageError> {
