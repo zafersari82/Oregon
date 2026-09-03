@@ -18,7 +18,7 @@ mod tests {
 
     use super::{
         LightEngine, OREGON_RANDOMX_ARGON_SALT, RANDOMX_UPSTREAM_COMMIT, derive_randomx_key,
-        key_block_height, pow_input,
+        hash_meets_target, key_block_height, pow_input,
     };
 
     #[test]
@@ -97,5 +97,25 @@ mod tests {
         let mut changed = header.clone();
         changed.nonce += 1;
         assert_ne!(input, pow_input(&changed));
+    }
+
+    #[test]
+    fn randomx_hash_target_comparison_is_little_endian() {
+        let mut target = [0u8; 32];
+        target[0] = 0xff;
+
+        let equal = target;
+        let mut below = [0u8; 32];
+        below[0] = 0xfe;
+        let mut above = [0u8; 32];
+        above[1] = 0x01;
+
+        assert!(hash_meets_target(equal, target));
+        assert!(hash_meets_target(below, target));
+        assert!(!hash_meets_target(above, target));
+
+        let mut high_byte = [0u8; 32];
+        high_byte[31] = 1;
+        assert!(!hash_meets_target(high_byte, target));
     }
 }
