@@ -228,14 +228,8 @@ mod tests {
     #[test]
     fn persisted_utxo_reconstruction_rejects_duplicate_outpoints() {
         let point = outpoint(0x61, 0);
-        let result = UtxoState::from_persisted_entries([
-            (point, entry(100)),
-            (point, entry(100)),
-        ]);
-        assert_eq!(
-            result,
-            Err(UtxoError::DuplicatePersistedOutpoint(point))
-        );
+        let result = UtxoState::from_persisted_entries([(point, entry(100)), (point, entry(100))]);
+        assert_eq!(result, Err(UtxoError::DuplicatePersistedOutpoint(point)));
     }
 
     #[test]
