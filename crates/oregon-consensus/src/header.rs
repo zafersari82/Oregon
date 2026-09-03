@@ -1,4 +1,59 @@
-//! RED phase: pre-PoW header-context consensus tests.
+use oregon_primitives::BlockHeader;
+
+use crate::{
+    ConsensusError, ConsensusParams, Target,
+    asert::required_target,
+    time::median_time_past,
+    work::{ChainWork, block_work},
+};
+
+pub struct HeaderContext<'a> {
+    pub height: u64,
+    pub parent: &'a BlockHeader,
+    pub genesis_timestamp: u64,
+    pub mtp_window: &'a [u64],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrePowHeaderFacts {
+    pub target: Target,
+    pub work: ChainWork,
+}
+
+pub fn validate_header_pre_pow(
+    header: &BlockHeader,
+    context: &HeaderContext<'_>,
+    params: &ConsensusParams,
+) -> Result<PrePowHeaderFacts, ConsensusError> {
+    if context.height == 0 {
+        return Err(ConsensusError::InvalidHeight);
+    }
+    if header.previous_block != context.parent.block_id() {
+        return Err(ConsensusError::PreviousBlockMismatch);
+    }
+
+    let mtp = median_time_past(context.mtp_window)?;
+    if header.timestamp <= mtp {
+        return Err(ConsensusError::TimestampNotAfterMtp);
+    }
+
+    let expected = required_target(
+        context.height,
+        context.parent.timestamp,
+        context.genesis_timestamp,
+        params,
+    )?;
+    let actual = Target::from_le_bytes(header.difficulty_commitment)?;
+    actual.validate_against(params.pow_limit)?;
+    if actual != expected {
+        return Err(ConsensusError::UnexpectedTarget);
+    }
+
+    Ok(PrePowHeaderFacts {
+        target: actual,
+        work: block_work(actual),
+    })
+}
 
 #[cfg(test)]
 mod tests {
