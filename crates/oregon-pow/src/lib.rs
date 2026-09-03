@@ -10,8 +10,11 @@ pub const OREGON_RANDOMX_ARGON_SALT: &str = "OREGON-RANDOMX-V1";
 
 #[cfg(test)]
 mod tests {
+    use oregon_primitives::Hash256;
+
     use super::{
-        LightEngine, OREGON_RANDOMX_ARGON_SALT, RANDOMX_UPSTREAM_COMMIT, key_block_height,
+        LightEngine, OREGON_RANDOMX_ARGON_SALT, RANDOMX_UPSTREAM_COMMIT, derive_randomx_key,
+        key_block_height,
     };
 
     #[test]
@@ -55,5 +58,17 @@ mod tests {
         assert_eq!(key_block_height(888), 864);
         assert_eq!(key_block_height(1_751), 864);
         assert_eq!(key_block_height(1_752), 1_728);
+    }
+
+    #[test]
+    fn randomx_key_derivation_is_deterministic_and_block_bound() {
+        let first_id = Hash256::from_bytes([0x22; 32]);
+        let mut second_bytes = [0x22; 32];
+        second_bytes[31] ^= 1;
+        let second_id = Hash256::from_bytes(second_bytes);
+
+        let first = derive_randomx_key(first_id);
+        assert_eq!(first, derive_randomx_key(first_id));
+        assert_ne!(first, derive_randomx_key(second_id));
     }
 }
