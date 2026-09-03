@@ -1,3 +1,4 @@
+pub mod emission;
 pub mod error;
 pub mod params;
 pub mod target;
