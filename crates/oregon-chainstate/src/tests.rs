@@ -418,7 +418,10 @@ fn side_chain_header_is_durably_stored_without_mutating_active_state() {
     assert_eq!(index.header, candidate.header);
     assert_eq!(index.parent, config.anchor_header.block_id());
     assert_eq!(index.height, 1);
-    assert_eq!(index.cumulative_work, block_work(config.params.initial_target));
+    assert_eq!(
+        index.cumulative_work,
+        block_work(config.params.initial_target)
+    );
     assert_eq!(index.validation, ValidationStatus::HeaderValidated);
     assert!(index.body_retained);
     assert_eq!(db.get_block(candidate_id).unwrap(), Some(candidate));
