@@ -139,12 +139,22 @@ mod tests {
 
         assert_eq!(fee, 10);
         assert!(state.get(&previous).is_none());
-        assert!(state
-            .get(&OutPoint { txid: tx.txid(), index: 0 })
-            .is_some());
-        assert!(state
-            .get(&OutPoint { txid: tx.txid(), index: 1 })
-            .is_some());
+        assert!(
+            state
+                .get(&OutPoint {
+                    txid: tx.txid(),
+                    index: 0,
+                })
+                .is_some()
+        );
+        assert!(
+            state
+                .get(&OutPoint {
+                    txid: tx.txid(),
+                    index: 1,
+                })
+                .is_some()
+        );
     }
 
     #[test]
