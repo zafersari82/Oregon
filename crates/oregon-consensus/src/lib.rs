@@ -1,4 +1,5 @@
 pub mod asert;
+pub mod block;
 pub mod coinbase;
 pub mod emission;
 pub mod error;
