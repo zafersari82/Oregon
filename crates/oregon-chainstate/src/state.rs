@@ -1,10 +1,15 @@
 use std::path::Path;
 
-use oregon_consensus::{ChainWork, Target, block_work};
-use oregon_primitives::Hash256;
+use oregon_consensus::{
+    ChainWork, ConsensusError, HeaderContext, Target, block_work, validate_header_pow,
+    validate_header_pre_pow,
+};
+use oregon_pow::{LightEngine, derive_randomx_key, key_block_height};
+use oregon_primitives::{Block, Hash256};
 use oregon_storage::{BlockIndexRecord, NodeHealth, OregonDb, StorageBatch, ValidationStatus};
-use oregon_utxo::UtxoState;
+use oregon_utxo::{SpendVerifier, UtxoState};
 
+use crate::branch::BranchView;
 use crate::{ChainConfig, ChainStateError};
 
 pub const REORG_WINDOW: u64 = 8_064;
@@ -23,9 +28,16 @@ pub enum SessionHealth {
     ReindexRequired,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AcceptOutcome {
+    Extended,
+    StoredSideChain,
+    Reorganized,
+}
+
 pub struct ChainState {
-    _db: OregonDb,
-    _config: ChainConfig,
+    db: OregonDb,
+    config: ChainConfig,
     tip: Tip,
     utxos: UtxoState,
     session_health: SessionHealth,
@@ -51,6 +63,86 @@ impl ChainState {
 
     pub fn session_health(&self) -> SessionHealth {
         self.session_health
+    }
+
+    pub fn accept_block<V: SpendVerifier>(
+        &mut self,
+        block: Block,
+        _verifier: &V,
+    ) -> Result<AcceptOutcome, ChainStateError> {
+        let block_id = block.header.block_id();
+        if let Some(existing) = self.db.get_index(block_id)? {
+            if existing.validation == ValidationStatus::Invalid {
+                return Err(corrupt("known candidate is marked invalid"));
+            }
+            return Ok(if block_id == self.tip.block_id {
+                AcceptOutcome::Extended
+            } else {
+                AcceptOutcome::StoredSideChain
+            });
+        }
+
+        let parent_id = block.header.previous_block;
+        let parent = self
+            .db
+            .get_index(parent_id)?
+            .ok_or(ChainStateError::UnknownParent(parent_id))?;
+        if parent.validation == ValidationStatus::Invalid {
+            return Err(corrupt("candidate parent is marked invalid"));
+        }
+
+        let branch = BranchView::new(&self.db, parent_id);
+        let mtp_window = branch.mtp_window()?;
+        let height = parent
+            .height
+            .checked_add(1)
+            .ok_or_else(|| corrupt("candidate height overflow"))?;
+        let facts = validate_header_pre_pow(
+            &block.header,
+            &HeaderContext {
+                height,
+                parent: &parent.header,
+                genesis_timestamp: self.config.genesis_timestamp,
+                mtp_window: &mtp_window,
+            },
+            &self.config.params,
+        )?;
+
+        let key_height = key_block_height(height);
+        let key_block_id = branch
+            .ancestor_id_at_height(key_height)?
+            .ok_or(ConsensusError::PowKeyBlockUnavailable)?;
+        let mut engine = LightEngine::new(derive_randomx_key(key_block_id))?;
+        validate_header_pow(&block.header, &facts, &branch, &mut engine)?;
+
+        let mut cumulative_work = parent.cumulative_work.clone();
+        cumulative_work.add_assign(&facts.work());
+
+        if parent_id == self.tip.block_id {
+            return Err(ChainStateError::DeferredTransition(
+                "active-chain extension is implemented in Task 7",
+            ));
+        }
+        if cumulative_work > self.tip.cumulative_work {
+            return Err(ChainStateError::DeferredTransition(
+                "heavier side-chain reorganization is implemented in Task 8",
+            ));
+        }
+
+        let index = BlockIndexRecord {
+            header: block.header.clone(),
+            parent: parent_id,
+            height,
+            cumulative_work,
+            validation: ValidationStatus::HeaderValidated,
+            body_retained: true,
+        };
+        let mut batch = StorageBatch::new();
+        batch.put_block(block);
+        batch.put_index(index);
+        self.db.commit_durable(batch)?;
+
+        Ok(AcceptOutcome::StoredSideChain)
     }
 }
 
@@ -87,8 +179,8 @@ fn bootstrap(db: OregonDb, config: ChainConfig) -> Result<ChainState, ChainState
     db.commit_durable(batch)?;
 
     Ok(ChainState {
-        _db: db,
-        _config: config,
+        db,
+        config,
         tip: Tip {
             block_id: anchor_id,
             height: 0,
@@ -232,8 +324,8 @@ fn reopen(
     let utxos = UtxoState::from_persisted_entries(db.iter_utxos()?)?;
 
     Ok(ChainState {
-        _db: db,
-        _config: config,
+        db,
+        config,
         tip: Tip {
             block_id: tip_id,
             height: tip_height,
