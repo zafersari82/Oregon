@@ -1,0 +1,27 @@
+name: Oregon RandomX Architecture Vector
+
+on:
+  push:
+    branches: [oregon-v1-m2-randomx-pow-exec]
+    paths:
+      - 'crates/oregon-pow/**'
+      - 'crates/oregon-primitives/**'
+      - 'vendor/RandomX'
+      - '.github/workflows/oregon-randomx-arch-vector.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+
+permissions:
+  contents: read
+
+jobs:
+  vector-x64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Rust 1.85.0
+        run: rustup toolchain install 1.85.0 --profile minimal
+      - name: Run fixed RandomX architecture vector
+        run: cargo +1.85.0 run --locked -p oregon-pow --example randomx_arch_vector
