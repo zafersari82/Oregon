@@ -16,7 +16,7 @@ impl UtxoEntry {
         }
 
         self.creation_height
-            .checked_add(COINBASE_MATURITY)
+            .checked_add(COINBASE_MATURITY - 1)
             .is_some_and(|mature_height| spend_height >= mature_height)
     }
 }
