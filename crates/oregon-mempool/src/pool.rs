@@ -134,7 +134,11 @@ impl Mempool {
             return Err(MempoolError::AlreadyKnown(txid));
         }
 
-        let spend_claims: Vec<_> = transaction.inputs.iter().map(|input| input.outpoint()).collect();
+        let spend_claims: Vec<_> = transaction
+            .inputs
+            .iter()
+            .map(|input| input.outpoint())
+            .collect();
         for outpoint in &spend_claims {
             if let Some(existing_txid) = self.spenders.get(outpoint) {
                 return Err(MempoolError::Conflict {
@@ -163,7 +167,8 @@ impl Mempool {
         }
 
         let mut validation_state = UtxoState::from_persisted_entries(narrow_entries)?;
-        let fee = validation_state.apply_normal_transaction(&transaction, spend_height, verifier)?;
+        let fee =
+            validation_state.apply_normal_transaction(&transaction, spend_height, verifier)?;
 
         let new_total_bytes = self
             .total_bytes
