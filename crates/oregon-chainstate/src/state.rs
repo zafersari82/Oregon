@@ -88,15 +88,13 @@ impl ChainState {
 
 #[cfg(test)]
 mod deep_reorg_tests {
-    use std::path::PathBuf;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    use oregon_consensus::{ConsensusParams, Target, block_work};
+    use oregon_consensus::block_work;
     use oregon_primitives::{Block, BlockHeader, Transaction};
     use oregon_storage::{BlockIndexRecord, NodeHealth, StorageBatch, ValidationStatus};
     use oregon_utxo::{UtxoEntry, UtxoError};
 
     use super::*;
+    use crate::test_support::{TestDir, standard_chain_config};
     use crate::transition;
 
     struct NeverCalledVerifier;
@@ -109,29 +107,6 @@ mod deep_reorg_tests {
             _prevout: &UtxoEntry,
         ) -> Result<(), UtxoError> {
             panic!("deep-reorg preflight must not reach spend verification")
-        }
-    }
-
-    fn test_path() -> PathBuf {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir().join(format!("oregon-deep-reorg-{}-{n}", std::process::id()))
-    }
-
-    fn test_config() -> ChainConfig {
-        let target = Target::from_le_bytes([0xff; 32]).unwrap();
-        let genesis_timestamp = 1_800_000_000;
-        ChainConfig {
-            anchor_header: BlockHeader {
-                version: 1,
-                previous_block: Hash256::from_bytes([0; 32]),
-                transaction_root: Hash256::from_bytes([0x22; 32]),
-                timestamp: genesis_timestamp,
-                difficulty_commitment: target.to_le_bytes(),
-                nonce: 7,
-            },
-            genesis_timestamp,
-            params: ConsensusParams::new(target, target, [0x42; 32]).unwrap(),
         }
     }
 
@@ -151,11 +126,11 @@ mod deep_reorg_tests {
 
     #[test]
     fn depth_8065_marks_reindex_before_loading_any_rollback_data() {
-        let path = test_path();
-        std::fs::create_dir_all(&path).unwrap();
-        let config = test_config();
+        let dir = TestDir::scoped("deep-reorg", "depth-8065");
+        let path = dir.path();
+        let config = standard_chain_config();
         let anchor_id = config.anchor_header.block_id();
-        let mut state = ChainState::open(&path, config.clone()).unwrap();
+        let mut state = ChainState::open(path, config.clone()).unwrap();
 
         let per_block_work = block_work(config.params.initial_target);
         let mut cumulative_work = ChainWork::zero();
@@ -228,10 +203,9 @@ mod deep_reorg_tests {
         drop(state);
 
         assert!(matches!(
-            ChainState::open(&path, config),
+            ChainState::open(path, config),
             Err(ChainStateError::ReindexRequired)
         ));
-        let _ = std::fs::remove_dir_all(path);
         let _ = candidate_id;
     }
 }
