@@ -15,14 +15,14 @@ impl UtxoState {
         Self::default()
     }
 
-    pub fn from_persisted_entries<I>(entries: I) -> Result<Self, UtxoError>
+    pub fn try_from_entries<I>(entries: I) -> Result<Self, UtxoError>
     where
         I: IntoIterator<Item = (OutPoint, UtxoEntry)>,
     {
         let mut restored = HashMap::new();
         for (outpoint, entry) in entries {
             if restored.insert(outpoint, entry).is_some() {
-                return Err(UtxoError::DuplicatePersistedOutpoint(outpoint));
+                return Err(UtxoError::DuplicateOutpoint(outpoint));
             }
         }
         Ok(Self { entries: restored })
@@ -188,7 +188,7 @@ impl UtxoState {
             .filter(|(outpoint, _)| !overlay.entries.contains_key(outpoint))
             .map(|(outpoint, entry)| (*outpoint, entry.clone()))
             .collect();
-        spent.sort_by(|(left, _), (right, _)| compare_outpoints(left, right));
+        spent.sort_by_key(|(outpoint, _)| *outpoint);
 
         let mut created: Vec<_> = overlay
             .entries
@@ -196,7 +196,7 @@ impl UtxoState {
             .filter(|outpoint| !self.entries.contains_key(outpoint))
             .copied()
             .collect();
-        created.sort_by(compare_outpoints);
+        created.sort();
 
         *self = overlay;
         Ok(BlockUndo { spent, created })
@@ -235,13 +235,6 @@ impl UtxoState {
         *self = overlay;
         Ok(())
     }
-}
-
-fn compare_outpoints(left: &OutPoint, right: &OutPoint) -> std::cmp::Ordering {
-    left.txid
-        .as_bytes()
-        .cmp(right.txid.as_bytes())
-        .then_with(|| left.index.cmp(&right.index))
 }
 
 #[cfg(test)]
