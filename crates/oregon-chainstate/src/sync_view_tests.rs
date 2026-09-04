@@ -45,9 +45,18 @@ fn sync_view_reads_preferred_and_active_ancestry_without_mutating_state() {
     );
 
     assert_eq!(state.chain_id(), anchor_id);
-    assert_eq!(state.preferred_header_id_at_height(0).unwrap(), Some(anchor_id));
-    assert_eq!(state.preferred_header_id_at_height(1).unwrap(), Some(first_id));
-    assert_eq!(state.preferred_header_id_at_height(2).unwrap(), Some(second_id));
+    assert_eq!(
+        state.preferred_header_id_at_height(0).unwrap(),
+        Some(anchor_id)
+    );
+    assert_eq!(
+        state.preferred_header_id_at_height(1).unwrap(),
+        Some(first_id)
+    );
+    assert_eq!(
+        state.preferred_header_id_at_height(2).unwrap(),
+        Some(second_id)
+    );
     assert_eq!(state.preferred_header_id_at_height(3).unwrap(), None);
     assert_eq!(state.preferred_header_at_height(1).unwrap(), Some(first));
     assert_eq!(state.preferred_header_at_height(2).unwrap(), Some(second));
@@ -55,7 +64,11 @@ fn sync_view_reads_preferred_and_active_ancestry_without_mutating_state() {
     assert_eq!(state.active_id_at_height(0).unwrap(), Some(anchor_id));
     assert_eq!(state.active_id_at_height(1).unwrap(), None);
     assert!(!state.body_retained(first_id).unwrap());
-    assert!(!state.body_retained(Hash256::from_bytes([0xee; 32])).unwrap());
+    assert!(
+        !state
+            .body_retained(Hash256::from_bytes([0xee; 32]))
+            .unwrap()
+    );
 
     assert_eq!(state.tip(), &active_before);
     assert_eq!(state.utxos(), &utxos_before);
