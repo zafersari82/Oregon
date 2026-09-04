@@ -1,0 +1,12 @@
+[package]
+name = "oregon-sync"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+oregon-peer = { path = "../oregon-peer" }
+oregon-primitives = { path = "../oregon-primitives" }
+oregon-protocol = { path = "../oregon-protocol" }
+async-trait = "0.1"
+thiserror = "2"
