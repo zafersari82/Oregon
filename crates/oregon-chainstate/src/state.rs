@@ -1,10 +1,11 @@
 use std::path::Path;
 
 use oregon_consensus::ChainWork;
-use oregon_primitives::{Block, Hash256};
+use oregon_primitives::{Block, BlockHeader, Hash256};
 use oregon_storage::OregonDb;
 use oregon_utxo::{SpendVerifier, UtxoState};
 
+use crate::header::{self, HeaderImportOutcome, HeaderTip};
 use crate::{ChainConfig, ChainStateError, admission, recovery};
 
 pub const REORG_WINDOW: u64 = 8_064;
@@ -34,6 +35,7 @@ pub struct ChainState {
     pub(crate) db: OregonDb,
     pub(crate) config: ChainConfig,
     pub(crate) tip: Tip,
+    pub(crate) header_tip: HeaderTip,
     pub(crate) utxos: UtxoState,
     pub(crate) session_health: SessionHealth,
 }
@@ -47,6 +49,10 @@ impl ChainState {
         &self.tip
     }
 
+    pub fn preferred_header_tip(&self) -> &HeaderTip {
+        &self.header_tip
+    }
+
     pub fn utxos(&self) -> &UtxoState {
         &self.utxos
     }
@@ -57,6 +63,18 @@ impl ChainState {
 
     pub(crate) fn storage(&self) -> &OregonDb {
         &self.db
+    }
+
+    pub fn accept_header(
+        &mut self,
+        header: BlockHeader,
+    ) -> Result<HeaderImportOutcome, ChainStateError> {
+        self.ensure_mutation_allowed()?;
+        let result = header::accept_header_healthy(self, header);
+        if matches!(&result, Err(ChainStateError::Storage(_))) {
+            self.session_health = SessionHealth::StorageFaulted;
+        }
+        result
     }
 
     pub fn accept_block<V: SpendVerifier>(

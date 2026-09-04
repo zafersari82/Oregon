@@ -5,6 +5,8 @@ use oregon_primitives::Hash256;
 use oregon_storage::{BlockIndexRecord, NodeHealth, OregonDb, StorageBatch, ValidationStatus};
 use oregon_utxo::UtxoState;
 
+use crate::branch::BranchView;
+use crate::header::HeaderTip;
 use crate::state::{ChainState, REORG_WINDOW, SessionHealth, Tip};
 use crate::{ChainConfig, ChainStateError};
 
@@ -28,6 +30,7 @@ fn bootstrap(db: OregonDb, config: ChainConfig) -> Result<ChainState, ChainState
         || db.health()?.is_some()
         || db.prune_cursor()?.is_some()
         || db.active_id_at_height(0)?.is_some()
+        || db.preferred_header_tip()?.is_some()
         || db.get_index(anchor_id)?.is_some()
     {
         return Err(corrupt("partial chainstate bootstrap metadata"));
@@ -46,6 +49,7 @@ fn bootstrap(db: OregonDb, config: ChainConfig) -> Result<ChainState, ChainState
     batch.put_index(anchor_index);
     batch.set_active_height(0, anchor_id);
     batch.set_tip(anchor_id, 0);
+    batch.set_preferred_header_tip(anchor_id, 0);
     batch.set_config_anchor_id(anchor_id);
     batch.set_config_genesis_timestamp(config.genesis_timestamp);
     batch.set_health(NodeHealth::Healthy);
@@ -56,6 +60,11 @@ fn bootstrap(db: OregonDb, config: ChainConfig) -> Result<ChainState, ChainState
         db,
         config,
         tip: Tip {
+            block_id: anchor_id,
+            height: 0,
+            cumulative_work: ChainWork::zero(),
+        },
+        header_tip: HeaderTip {
             block_id: anchor_id,
             height: 0,
             cumulative_work: ChainWork::zero(),
@@ -195,6 +204,7 @@ fn reopen(
     }
 
     let cumulative_work = final_work.ok_or_else(|| corrupt("active chain has no anchor"))?;
+    let header_tip = load_preferred_header_tip(&db, expected_anchor_id)?;
     let utxos = UtxoState::try_from_entries(db.iter_utxos()?)?;
 
     Ok(ChainState {
@@ -205,8 +215,41 @@ fn reopen(
             height: tip_height,
             cumulative_work,
         },
+        header_tip,
         utxos,
         session_health: SessionHealth::Healthy,
+    })
+}
+
+fn load_preferred_header_tip(
+    db: &OregonDb,
+    expected_anchor_id: Hash256,
+) -> Result<HeaderTip, ChainStateError> {
+    let (block_id, height) = db
+        .preferred_header_tip()?
+        .ok_or_else(|| corrupt("missing preferred header tip"))?;
+    let record = db
+        .get_index(block_id)?
+        .ok_or_else(|| corrupt("missing preferred header tip index"))?;
+    if record.height != height {
+        return Err(corrupt("preferred header tip height does not match index"));
+    }
+    if record.validation == ValidationStatus::Invalid {
+        return Err(corrupt("preferred header tip is marked invalid"));
+    }
+
+    let branch = BranchView::new(db, block_id);
+    let anchor_id = branch
+        .ancestor_id_at_height(0)?
+        .ok_or_else(|| corrupt("preferred header branch has no height-zero anchor"))?;
+    if anchor_id != expected_anchor_id {
+        return Err(corrupt("preferred header branch does not reach configured anchor"));
+    }
+
+    Ok(HeaderTip {
+        block_id,
+        height,
+        cumulative_work: record.cumulative_work,
     })
 }
 

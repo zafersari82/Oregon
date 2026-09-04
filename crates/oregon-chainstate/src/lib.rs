@@ -4,6 +4,7 @@ mod admission;
 mod branch;
 mod config;
 mod error;
+mod header;
 mod prune;
 mod recovery;
 mod reorg;
@@ -13,6 +14,7 @@ mod utxo_delta;
 
 pub use config::ChainConfig;
 pub use error::ChainStateError;
+pub use header::{HeaderImportOutcome, HeaderImportStatus, HeaderTip};
 pub use prune::PruneReport;
 pub use state::{AcceptOutcome, ChainState, SessionHealth, Tip};
 
