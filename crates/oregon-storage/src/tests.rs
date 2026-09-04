@@ -233,6 +233,22 @@ fn block_undo_encoding_is_deterministic_and_strictly_sorted() {
 }
 
 #[test]
+fn block_undo_order_is_semantic_even_when_little_endian_key_bytes_disagree() {
+    let txid = Hash256::from_bytes([0x33; 32]);
+    let lower = OutPoint { txid, index: 1 };
+    let higher = OutPoint { txid, index: 256 };
+    assert!(lower < higher);
+    assert!(encode_outpoint_key(&lower) > encode_outpoint_key(&higher));
+
+    let undo = BlockUndo {
+        spent: vec![(lower, sample_utxo(1)), (higher, sample_utxo(2))],
+        created: vec![],
+    };
+    let encoded = encode_block_undo(&undo).unwrap();
+    assert_eq!(decode_block_undo(&encoded).unwrap(), undo);
+}
+
+#[test]
 fn block_index_codec_binds_parent_and_canonical_chainwork() {
     let index = sample_index();
     let encoded = encode_block_index(&index).unwrap();
