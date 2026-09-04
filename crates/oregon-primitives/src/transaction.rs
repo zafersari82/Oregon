@@ -3,7 +3,7 @@ use crate::{Amount, DecodeLimits, Decoder, Hash256, PrimitiveError, write_varint
 
 const TX_DOMAIN: &[u8] = b"OREGON/TX/V0\0";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OutPoint {
     pub txid: Hash256,
     pub index: u32,
