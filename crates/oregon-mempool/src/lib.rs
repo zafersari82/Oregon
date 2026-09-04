@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+mod admission;
+mod capacity;
 mod config;
 mod entry;
 mod error;
