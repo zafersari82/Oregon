@@ -1,9 +1,8 @@
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 
 use oregon_consensus::ChainWork;
-use oregon_primitives::{Amount, BlockHeader, Hash256, OutPoint, TxOutput};
-use oregon_utxo::{BlockUndo, UtxoEntry};
+use oregon_primitives::{BlockHeader, Hash256, OutPoint};
+use oregon_utxo::BlockUndo;
 use rocksdb::{ColumnFamilyDescriptor, DB, Options};
 
 use crate::codec::{
@@ -17,28 +16,7 @@ use crate::records::{
     decode_node_health, encode_block_index, encode_node_health,
 };
 use crate::schema::SchemaVersion;
-
-struct TestDir(PathBuf);
-
-impl TestDir {
-    fn new(label: &str) -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!("oregon-{label}-{}-{n}", std::process::id()));
-        std::fs::create_dir_all(&path).unwrap();
-        Self(path)
-    }
-
-    fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for TestDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
+use crate::test_support::{TestDir, sample_sorted_undo, sample_utxo};
 
 fn open_raw_without_schema(path: &Path) -> DB {
     let mut options = Options::default();
@@ -48,32 +26,6 @@ fn open_raw_without_schema(path: &Path) -> DB {
         .into_iter()
         .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
     DB::open_cf_descriptors(&options, path, descriptors).unwrap()
-}
-
-fn sample_utxo(value: u64) -> UtxoEntry {
-    UtxoEntry {
-        output: TxOutput {
-            value: Amount::from_base_units(value).unwrap(),
-            locking_program: vec![0x51],
-        },
-        creation_height: 7,
-        is_coinbase: false,
-    }
-}
-
-fn sample_sorted_undo() -> BlockUndo {
-    let first = OutPoint {
-        txid: Hash256::from_bytes([0x11; 32]),
-        index: 0,
-    };
-    let second = OutPoint {
-        txid: Hash256::from_bytes([0x22; 32]),
-        index: 1,
-    };
-    BlockUndo {
-        spent: vec![(first, sample_utxo(100))],
-        created: vec![second],
-    }
 }
 
 fn sample_header() -> BlockHeader {
