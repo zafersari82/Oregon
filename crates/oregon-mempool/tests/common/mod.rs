@@ -78,5 +78,5 @@ pub fn spend(inputs: Vec<OutPoint>, outputs: &[u64], lock_time: u64) -> Transact
 }
 
 pub fn state_with(entries: Vec<(OutPoint, UtxoEntry)>) -> UtxoState {
-    UtxoState::from_persisted_entries(entries).expect("valid test UTXO state")
+    UtxoState::try_from_entries(entries).expect("valid test UTXO state")
 }
