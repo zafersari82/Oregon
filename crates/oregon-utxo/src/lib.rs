@@ -15,6 +15,8 @@ pub use verifier::SpendVerifier;
 #[cfg(test)]
 mod block_tests;
 #[cfg(test)]
+mod test_support;
+#[cfg(test)]
 mod undo_tests;
 
 #[cfg(test)]
@@ -22,6 +24,7 @@ mod tests {
     use oregon_primitives::{Amount, Hash256, OutPoint, Transaction, TxInput, TxOutput};
 
     use super::{COINBASE_MATURITY, SpendVerifier, UtxoEntry, UtxoError, UtxoState};
+    use crate::test_support::AcceptAllSpends;
 
     fn output_with_value(value: u64) -> TxOutput {
         TxOutput {
@@ -64,19 +67,6 @@ mod tests {
             output: output_with_value(value),
             creation_height: 1,
             is_coinbase: false,
-        }
-    }
-
-    struct AcceptAll;
-
-    impl SpendVerifier for AcceptAll {
-        fn verify_spend(
-            &self,
-            _transaction: &Transaction,
-            _input_index: usize,
-            _prevout: &UtxoEntry,
-        ) -> Result<(), UtxoError> {
-            Ok(())
         }
     }
 
@@ -143,7 +133,7 @@ mod tests {
         let tx = spend(vec![previous], &[60, 30]);
 
         let fee = state
-            .apply_normal_transaction(&tx, 20, &AcceptAll)
+            .apply_normal_transaction(&tx, 20, &AcceptAllSpends)
             .expect("valid state transition");
 
         assert_eq!(fee, 10);
@@ -176,7 +166,7 @@ mod tests {
         let tx = spend(vec![present, missing], &[90]);
 
         assert_eq!(
-            state.apply_normal_transaction(&tx, 20, &AcceptAll),
+            state.apply_normal_transaction(&tx, 20, &AcceptAllSpends),
             Err(UtxoError::MissingUtxo(missing))
         );
         assert_eq!(state, before);
@@ -191,7 +181,7 @@ mod tests {
         let tx = spend(vec![previous, previous], &[90]);
 
         assert_eq!(
-            state.apply_normal_transaction(&tx, 20, &AcceptAll),
+            state.apply_normal_transaction(&tx, 20, &AcceptAllSpends),
             Err(UtxoError::DuplicateInput(previous))
         );
         assert_eq!(state, before);
@@ -206,7 +196,7 @@ mod tests {
         let tx = spend(vec![previous], &[101]);
 
         assert_eq!(
-            state.apply_normal_transaction(&tx, 20, &AcceptAll),
+            state.apply_normal_transaction(&tx, 20, &AcceptAllSpends),
             Err(UtxoError::OutputValueExceedsInput)
         );
         assert_eq!(state, before);
