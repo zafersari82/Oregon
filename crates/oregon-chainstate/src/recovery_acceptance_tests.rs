@@ -6,9 +6,7 @@ use oregon_primitives::{
     Amount, Block, BlockHeader, FOUNDER_ALLOCATION_BASE_UNITS, Hash256, OutPoint, Transaction,
     TxInput, TxOutput, transaction_root, write_varint,
 };
-use oregon_storage::{
-    BlockIndexRecord, OregonDb, StorageBatch, ValidationStatus, encode_outpoint_key,
-};
+use oregon_storage::{BlockIndexRecord, OregonDb, StorageBatch, ValidationStatus};
 use oregon_utxo::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError};
 
 use crate::state::REORG_WINDOW;
@@ -137,13 +135,13 @@ fn block(
     }
 }
 
-fn sorted_utxos(state: &ChainState) -> Vec<([u8; 36], UtxoEntry)> {
+fn sorted_utxos(state: &ChainState) -> Vec<(OutPoint, UtxoEntry)> {
     let mut entries: Vec<_> = state
         .utxos()
         .entries()
-        .map(|(outpoint, entry)| (encode_outpoint_key(outpoint), entry.clone()))
+        .map(|(outpoint, entry)| (*outpoint, entry.clone()))
         .collect();
-    entries.sort_by_key(|(key, _)| *key);
+    entries.sort_by_key(|(outpoint, _)| *outpoint);
     entries
 }
 
