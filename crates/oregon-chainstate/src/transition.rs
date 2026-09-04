@@ -149,6 +149,7 @@ fn apply_reorg_plan<V: SpendVerifier>(
     let new_tip_id = new_tip.id;
     let new_tip_height = new_tip.index.height;
     let new_tip_work = new_tip.index.cumulative_work.clone();
+    let becomes_preferred = new_tip_work > state.header_tip.cumulative_work;
 
     let mut batch = StorageBatch::new();
     let first_replaced_height = fork_height
@@ -168,14 +169,24 @@ fn apply_reorg_plan<V: SpendVerifier>(
     }
     apply_utxo_delta(&mut batch, delta);
     batch.set_tip(new_tip_id, new_tip_height);
+    if becomes_preferred {
+        batch.set_preferred_header_tip(new_tip_id, new_tip_height);
+    }
     state.db.commit_durable(batch)?;
 
     state.utxos = staged;
     state.tip = Tip {
         block_id: new_tip_id,
         height: new_tip_height,
-        cumulative_work: new_tip_work,
+        cumulative_work: new_tip_work.clone(),
     };
+    if becomes_preferred {
+        state.header_tip = HeaderTip {
+            block_id: new_tip_id,
+            height: new_tip_height,
+            cumulative_work: new_tip_work,
+        };
+    }
     Ok(AcceptOutcome::Reorganized)
 }
 
