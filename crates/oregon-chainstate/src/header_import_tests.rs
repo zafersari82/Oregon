@@ -3,7 +3,7 @@ use oregon_primitives::{BlockHeader, Hash256};
 use oregon_storage::ValidationStatus;
 
 use crate::test_support::{TestDir, standard_chain_config};
-use crate::{ChainState, HeaderImportStatus};
+use crate::{ChainState, ChainStateError, HeaderImportStatus};
 
 fn candidate_header(
     config: &crate::ChainConfig,
@@ -130,4 +130,30 @@ fn lower_work_valid_header_is_stored_without_replacing_preferred_tip() {
     assert_eq!(index.header, lower_work);
     assert_eq!(index.validation, ValidationStatus::HeaderValidated);
     assert!(!index.body_retained);
+}
+
+#[test]
+fn unknown_parent_header_is_rejected_without_persistence_or_tip_mutation() {
+    let dir = TestDir::scoped("header-import", "unknown-parent");
+    let config = standard_chain_config();
+    let missing_parent = Hash256::from_bytes([0xab; 32]);
+    let header = candidate_header(&config, missing_parent, 1, 404);
+    let header_id = header.block_id();
+    let mut state = ChainState::open(dir.path(), config).unwrap();
+    let active_before = state.tip().clone();
+    let preferred_before = state.preferred_header_tip().clone();
+    let utxos_before = state.utxos().clone();
+
+    assert!(matches!(
+        state.accept_header(header),
+        Err(ChainStateError::UnknownParent(parent)) if parent == missing_parent
+    ));
+    assert_eq!(state.tip(), &active_before);
+    assert_eq!(state.preferred_header_tip(), &preferred_before);
+    assert_eq!(state.utxos(), &utxos_before);
+    assert_eq!(state.storage().get_index(header_id).unwrap(), None);
+    assert_eq!(
+        state.storage().preferred_header_tip().unwrap(),
+        Some((preferred_before.block_id, preferred_before.height))
+    );
 }
