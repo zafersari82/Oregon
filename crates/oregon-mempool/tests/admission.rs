@@ -7,12 +7,21 @@ use oregon_primitives::{Amount, Hash256, Transaction, TxOutput};
 use oregon_utxo::UtxoError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct EntrySnapshot {
+    txid: Hash256,
+    fee: u64,
+    encoded_bytes: usize,
+    parents: Vec<Hash256>,
+    children: Vec<Hash256>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct PoolSnapshot {
     base: ChainBase,
     len: usize,
     total_bytes: usize,
     order: Vec<Hash256>,
-    entries: Vec<(Hash256, u64, usize, Vec<Hash256>, Vec<Hash256>)>,
+    entries: Vec<EntrySnapshot>,
 }
 
 fn snapshot(pool: &Mempool) -> PoolSnapshot {
@@ -21,13 +30,13 @@ fn snapshot(pool: &Mempool) -> PoolSnapshot {
         .iter()
         .map(|txid| {
             let entry = pool.entry(txid).expect("ordered txid exists");
-            (
-                *txid,
-                entry.fee(),
-                entry.encoded_bytes(),
-                entry.parents().iter().copied().collect(),
-                entry.children().iter().copied().collect(),
-            )
+            EntrySnapshot {
+                txid: *txid,
+                fee: entry.fee(),
+                encoded_bytes: entry.encoded_bytes(),
+                parents: entry.parents().iter().copied().collect(),
+                children: entry.children().iter().copied().collect(),
+            }
         })
         .collect();
     PoolSnapshot {
