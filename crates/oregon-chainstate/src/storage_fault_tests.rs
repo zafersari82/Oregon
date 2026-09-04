@@ -1,69 +1,11 @@
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-
-use oregon_consensus::{ConsensusParams, Target, params::KEY_COMMIT_V1};
+use oregon_consensus::params::KEY_COMMIT_V1;
 use oregon_primitives::{
     Amount, Block, BlockHeader, FOUNDER_ALLOCATION_BASE_UNITS, Hash256, Transaction, TxInput,
     TxOutput, transaction_root, write_varint,
 };
-use oregon_utxo::{SpendVerifier, UtxoEntry, UtxoError};
 
+use crate::test_support::{AcceptAllSpends, TestDir, standard_chain_config};
 use crate::{ChainConfig, ChainState, ChainStateError, SessionHealth};
-
-struct TestDir(PathBuf);
-
-impl TestDir {
-    fn new(label: &str) -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "oregon-storage-fault-{label}-{}-{n}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&path).unwrap();
-        Self(path)
-    }
-
-    fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for TestDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
-struct AcceptTestSpends;
-
-impl SpendVerifier for AcceptTestSpends {
-    fn verify_spend(
-        &self,
-        _transaction: &Transaction,
-        _input_index: usize,
-        _prevout: &UtxoEntry,
-    ) -> Result<(), UtxoError> {
-        Ok(())
-    }
-}
-
-fn config() -> ChainConfig {
-    let target = Target::from_le_bytes([0xff; 32]).unwrap();
-    let genesis_timestamp = 1_800_000_000;
-    ChainConfig {
-        anchor_header: BlockHeader {
-            version: 1,
-            previous_block: Hash256::from_bytes([0; 32]),
-            transaction_root: Hash256::from_bytes([0x22; 32]),
-            timestamp: genesis_timestamp,
-            difficulty_commitment: target.to_le_bytes(),
-            nonce: 7,
-        },
-        genesis_timestamp,
-        params: ConsensusParams::new(target, target, [0x42; 32]).unwrap(),
-    }
-}
 
 fn height_one_founder_block(config: &ChainConfig) -> Block {
     let mut height_bytes = Vec::new();
@@ -100,8 +42,8 @@ fn height_one_founder_block(config: &ChainConfig) -> Block {
 
 #[test]
 fn durable_failure_faults_session_without_publishing_or_persisting_candidate() {
-    let dir = TestDir::new("direct-extension");
-    let config = config();
+    let dir = TestDir::scoped("storage-fault", "direct-extension");
+    let config = standard_chain_config();
     let block = height_one_founder_block(&config);
     let block_id = block.header.block_id();
 
@@ -111,7 +53,7 @@ fn durable_failure_faults_session_without_publishing_or_persisting_candidate() {
     state.test_fail_next_durable_write();
 
     assert!(matches!(
-        state.accept_block(block.clone(), &AcceptTestSpends),
+        state.accept_block(block.clone(), &AcceptAllSpends),
         Err(ChainStateError::Storage(_))
     ));
     assert_eq!(state.tip(), &before_tip);
@@ -121,7 +63,7 @@ fn durable_failure_faults_session_without_publishing_or_persisting_candidate() {
     let mut invalid_second = block;
     invalid_second.header.previous_block = Hash256::from_bytes([0xee; 32]);
     assert!(matches!(
-        state.accept_block(invalid_second, &AcceptTestSpends),
+        state.accept_block(invalid_second, &AcceptAllSpends),
         Err(ChainStateError::StorageFaulted)
     ));
     assert_eq!(state.tip(), &before_tip);
