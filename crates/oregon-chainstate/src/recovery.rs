@@ -243,7 +243,9 @@ fn load_preferred_header_tip(
         .ancestor_id_at_height(0)?
         .ok_or_else(|| corrupt("preferred header branch has no height-zero anchor"))?;
     if anchor_id != expected_anchor_id {
-        return Err(corrupt("preferred header branch does not reach configured anchor"));
+        return Err(corrupt(
+            "preferred header branch does not reach configured anchor",
+        ));
     }
 
     Ok(HeaderTip {

@@ -1,7 +1,7 @@
 use oregon_storage::OregonDb;
 
-use crate::test_support::{TestDir, standard_chain_config};
 use crate::ChainState;
+use crate::test_support::{TestDir, standard_chain_config};
 
 #[test]
 fn bootstrap_persists_anchor_as_preferred_header_tip() {
