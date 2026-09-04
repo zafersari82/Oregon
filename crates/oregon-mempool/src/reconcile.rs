@@ -1,7 +1,105 @@
+use std::collections::BTreeSet;
+
+use oregon_primitives::{Block, Hash256, Transaction};
+use oregon_utxo::{SpendVerifier, UtxoState};
+
+use crate::graph::{descendant_closure, topological_order};
+use crate::{ChainBase, Mempool, MempoolError, ReconcileReport};
+
+impl Mempool {
+    pub fn reconcile_active_block<V: SpendVerifier>(
+        &mut self,
+        block: &Block,
+        new_base: ChainBase,
+        chain_utxos: &UtxoState,
+        verifier: &V,
+    ) -> Result<ReconcileReport, MempoolError> {
+        let order = topological_order(&self.entries)?;
+        let confirmed: BTreeSet<_> = block.transactions.iter().map(Transaction::txid).collect();
+        let mut excluded = BTreeSet::new();
+
+        for transaction in &block.transactions {
+            for input in &transaction.inputs {
+                let outpoint = input.outpoint();
+                let Some(conflicting_txid) = self.spenders.get(&outpoint).copied() else {
+                    continue;
+                };
+                if confirmed.contains(&conflicting_txid) {
+                    continue;
+                }
+                excluded.insert(conflicting_txid);
+                excluded.extend(descendant_closure(&self.entries, conflicting_txid)?);
+            }
+        }
+
+        let mut source = Vec::new();
+        for txid in order {
+            if confirmed.contains(&txid) || excluded.contains(&txid) {
+                continue;
+            }
+            let entry = self
+                .entries
+                .get(&txid)
+                .ok_or(MempoolError::InvariantViolation)?;
+            source.push((txid, entry.transaction.clone()));
+        }
+
+        let rebuilt = self.rebuild_against_chain(&source, new_base, chain_utxos, verifier)?;
+        let mut removed: Vec<_> = self
+            .entries
+            .keys()
+            .filter(|txid| !rebuilt.entries.contains_key(txid))
+            .copied()
+            .collect();
+        removed.sort();
+        let retained = rebuilt.entries.len();
+
+        *self = rebuilt;
+        Ok(ReconcileReport { removed, retained })
+    }
+
+    pub(crate) fn rebuild_against_chain<V: SpendVerifier>(
+        &self,
+        ordered_source: &[(Hash256, Transaction)],
+        new_base: ChainBase,
+        chain_utxos: &UtxoState,
+        verifier: &V,
+    ) -> Result<Mempool, MempoolError> {
+        let mut rebuilt = Mempool::new(new_base, self.config.clone())?;
+
+        for (expected_txid, transaction) in ordered_source {
+            if transaction.txid() != *expected_txid {
+                return Err(MempoolError::InvariantViolation);
+            }
+
+            match rebuilt.admit(transaction.clone(), new_base, chain_utxos, verifier) {
+                Ok(_) => {}
+                Err(error) if is_filterable_rebuild_error(&error) => {}
+                Err(error) => return Err(error),
+            }
+        }
+
+        Ok(rebuilt)
+    }
+}
+
+fn is_filterable_rebuild_error(error: &MempoolError) -> bool {
+    matches!(
+        error,
+        MempoolError::MissingDependency(_)
+            | MempoolError::InvalidParentOutput(_)
+            | MempoolError::TooManyAncestors
+            | MempoolError::TooManyDescendants
+            | MempoolError::CapacityRejected
+            | MempoolError::Structural(_)
+            | MempoolError::Utxo(_)
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use oregon_primitives::{Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput};
     use oregon_primitives::Amount;
+    use oregon_primitives::{Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput};
     use oregon_utxo::{SpendVerifier, UtxoEntry, UtxoError, UtxoState};
 
     use crate::{ChainBase, Mempool, MempoolConfig, MempoolError};
@@ -69,8 +167,10 @@ mod tests {
             index: 0,
         };
         let child = transaction(child_input, 80, 2);
-        pool.admit(parent.clone(), old_base, &chain, &Accept).unwrap();
-        pool.admit(child.clone(), old_base, &chain, &Accept).unwrap();
+        pool.admit(parent.clone(), old_base, &chain, &Accept)
+            .unwrap();
+        pool.admit(child.clone(), old_base, &chain, &Accept)
+            .unwrap();
 
         pool.entries
             .get_mut(&parent.txid())
