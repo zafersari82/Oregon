@@ -22,4 +22,6 @@ mod migration_tests;
 #[cfg(test)]
 mod recovery_acceptance_tests;
 #[cfg(test)]
+mod test_support;
+#[cfg(test)]
 mod tests;
