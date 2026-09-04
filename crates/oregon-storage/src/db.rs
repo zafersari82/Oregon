@@ -32,11 +32,11 @@ use crate::schema::{
 #[cfg(test)]
 use crate::schema::{decode_migration_marker, encode_migration_marker};
 
-pub const CF_BLOCKS: &str = "blocks";
-pub const CF_BLOCK_INDEX: &str = "block_index";
-pub const CF_UTXO: &str = "utxo";
-pub const CF_UNDO: &str = "undo";
-pub const CF_CHAIN_META: &str = "chain_meta";
+pub(crate) const CF_BLOCKS: &str = "blocks";
+pub(crate) const CF_BLOCK_INDEX: &str = "block_index";
+pub(crate) const CF_UTXO: &str = "utxo";
+pub(crate) const CF_UNDO: &str = "undo";
+pub(crate) const CF_CHAIN_META: &str = "chain_meta";
 
 const OREGON_COLUMN_FAMILIES: [&str; 5] =
     [CF_BLOCKS, CF_BLOCK_INDEX, CF_UTXO, CF_UNDO, CF_CHAIN_META];
