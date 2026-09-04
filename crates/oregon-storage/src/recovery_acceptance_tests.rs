@@ -1,10 +1,9 @@
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 
 use oregon_consensus::ChainWork;
 use oregon_primitives::{Amount, BlockHeader, Hash256, OutPoint, TxOutput};
 use oregon_utxo::{BlockUndo, UtxoEntry};
-use rocksdb::{ColumnFamilyDescriptor, DB, IteratorMode, Options};
+use rocksdb::IteratorMode;
 
 use crate::batch::StorageBatch;
 use crate::db::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb};
@@ -13,39 +12,7 @@ use crate::records::{
     BlockIndexRecord, SCHEMA_MIGRATION_KEY, ValidationStatus, encode_block_index,
 };
 use crate::schema::SchemaVersion;
-
-struct TestDir(PathBuf);
-
-impl TestDir {
-    fn new(label: &str) -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "oregon-recovery-{label}-{}-{n}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&path).unwrap();
-        Self(path)
-    }
-
-    fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for TestDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
-fn open_raw_existing(path: &Path) -> DB {
-    let options = Options::default();
-    let descriptors = [CF_BLOCKS, CF_BLOCK_INDEX, CF_UTXO, CF_UNDO, CF_CHAIN_META]
-        .into_iter()
-        .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
-    DB::open_cf_descriptors(&options, path, descriptors).unwrap()
-}
+use crate::test_support::{TestDir, open_raw_existing};
 
 fn sample_header() -> BlockHeader {
     BlockHeader {
@@ -94,7 +61,7 @@ fn raw_cf_entries(path: &Path, name: &str) -> Vec<(Vec<u8>, Vec<u8>)> {
 
 #[test]
 fn block_index_header_key_mismatch_fails_closed_on_read() {
-    let dir = TestDir::new("index-key-mismatch");
+    let dir = TestDir::scoped("recovery", "index-key-mismatch");
     drop(OregonDb::open(dir.path()).unwrap());
 
     let record = sample_index();
@@ -117,7 +84,7 @@ fn block_index_header_key_mismatch_fails_closed_on_read() {
 
 #[test]
 fn block_index_parent_header_mismatch_fails_closed_on_read() {
-    let dir = TestDir::new("index-parent-mismatch");
+    let dir = TestDir::scoped("recovery", "index-parent-mismatch");
     drop(OregonDb::open(dir.path()).unwrap());
 
     let record = sample_index();
@@ -141,7 +108,7 @@ fn block_index_parent_header_mismatch_fails_closed_on_read() {
 
 #[test]
 fn corrupt_block_and_undo_bytes_fail_closed_on_read() {
-    let dir = TestDir::new("corrupt-body-undo");
+    let dir = TestDir::scoped("recovery", "corrupt-body-undo");
     drop(OregonDb::open(dir.path()).unwrap());
     let block_id = Hash256::from_bytes([0x44; 32]);
 
@@ -173,8 +140,8 @@ fn corrupt_block_and_undo_bytes_fail_closed_on_read() {
 
 #[test]
 fn opposite_storage_operation_orders_produce_identical_utxo_and_undo_bytes() {
-    let left = TestDir::new("deterministic-left");
-    let right = TestDir::new("deterministic-right");
+    let left = TestDir::scoped("recovery", "deterministic-left");
+    let right = TestDir::scoped("recovery", "deterministic-right");
     let left_db = OregonDb::open(left.path()).unwrap();
     let right_db = OregonDb::open(right.path()).unwrap();
 
@@ -219,7 +186,7 @@ fn opposite_storage_operation_orders_produce_identical_utxo_and_undo_bytes() {
 
 #[test]
 fn synthetic_minor_migration_converges_when_restart_happens_before_marker() {
-    let dir = TestDir::new("migration-before-marker");
+    let dir = TestDir::scoped("recovery", "migration-before-marker");
     drop(OregonDb::open(dir.path()).unwrap());
 
     let raw = open_raw_existing(dir.path());
@@ -237,7 +204,7 @@ fn synthetic_minor_migration_converges_when_restart_happens_before_marker() {
 
 #[test]
 fn synthetic_minor_migration_converges_when_restart_happens_after_marker() {
-    let dir = TestDir::new("migration-after-marker");
+    let dir = TestDir::scoped("recovery", "migration-after-marker");
     drop(OregonDb::open(dir.path()).unwrap());
 
     // marker v1: from schema 1.0 to synthetic schema 1.1
