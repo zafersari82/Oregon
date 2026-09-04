@@ -30,7 +30,7 @@ pub use work::{ChainWork, block_work};
 #[cfg(test)]
 mod pow_bridge_tests {
     use num_bigint::BigUint;
-    use oregon_pow::{LightEngine, derive_randomx_key};
+    use oregon_pow::{LightEngine, PowEngine, derive_randomx_key};
     use oregon_primitives::{BlockHeader, Hash256};
 
     use super::{
@@ -43,6 +43,23 @@ mod pow_bridge_tests {
     struct KeyBlocks {
         height: u64,
         id: Hash256,
+    }
+
+    struct FakeEngine {
+        key: [u8; 32],
+        hash: [u8; 32],
+        calls: usize,
+    }
+
+    impl PowEngine for FakeEngine {
+        fn key(&self) -> [u8; 32] {
+            self.key
+        }
+
+        fn hash(&mut self, _input: &[u8]) -> [u8; 32] {
+            self.calls += 1;
+            self.hash
+        }
     }
 
     impl PowKeyBlockSource for KeyBlocks {
@@ -103,6 +120,42 @@ mod pow_bridge_tests {
         let hash = validate_header_pow(&header, &facts, &key_blocks, &mut engine)
             .expect("max target accepts every RandomX hash");
         assert_ne!(hash, [0u8; 32]);
+    }
+
+    #[test]
+    fn generic_pow_engine_preserves_validation_order() {
+        let key_block_id = Hash256::from_bytes([0x44; 32]);
+        let expected_key = derive_randomx_key(key_block_id);
+        let key_blocks = KeyBlocks {
+            height: 0,
+            id: key_block_id,
+        };
+        let (header, facts) = prevalidated_header(1, max_target());
+
+        let expected_hash = [0x5a; 32];
+        let mut matching = FakeEngine {
+            key: expected_key,
+            hash: expected_hash,
+            calls: 0,
+        };
+        assert_eq!(
+            validate_header_pow(&header, &facts, &key_blocks, &mut matching),
+            Ok(expected_hash)
+        );
+        assert_eq!(matching.calls, 1);
+
+        let mut wrong_key = expected_key;
+        wrong_key[0] ^= 1;
+        let mut mismatched = FakeEngine {
+            key: wrong_key,
+            hash: expected_hash,
+            calls: 0,
+        };
+        assert_eq!(
+            validate_header_pow(&header, &facts, &key_blocks, &mut mismatched),
+            Err(ConsensusError::PowEngineKeyMismatch)
+        );
+        assert_eq!(mismatched.calls, 0);
     }
 
     #[test]
