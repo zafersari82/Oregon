@@ -1,9 +1,9 @@
-use oregon_consensus::{ConsensusError, block_work};
+use oregon_consensus::{ConsensusError, ConsensusParams, Target, block_work};
 use oregon_primitives::{BlockHeader, Hash256};
 use oregon_storage::ValidationStatus;
 
 use crate::test_support::{TestDir, standard_chain_config};
-use crate::{ChainState, ChainStateError, HeaderImportStatus};
+use crate::{ChainConfig, ChainState, ChainStateError, HeaderImportStatus};
 
 fn candidate_header(
     config: &crate::ChainConfig,
@@ -21,6 +21,25 @@ fn candidate_header(
         timestamp: config.genesis_timestamp + height * 300,
         difficulty_commitment: config.params.initial_target.to_le_bytes(),
         nonce,
+    }
+}
+
+fn target_one_chain_config() -> ChainConfig {
+    let mut target_bytes = [0u8; 32];
+    target_bytes[0] = 1;
+    let target = Target::from_le_bytes(target_bytes).unwrap();
+    let genesis_timestamp = 1_800_000_000;
+    ChainConfig {
+        anchor_header: BlockHeader {
+            version: 1,
+            previous_block: Hash256::from_bytes([0; 32]),
+            transaction_root: Hash256::from_bytes([0x22; 32]),
+            timestamp: genesis_timestamp,
+            difficulty_commitment: target.to_le_bytes(),
+            nonce: 7,
+        },
+        genesis_timestamp,
+        params: ConsensusParams::new(target, target, [0x42; 32]).unwrap(),
     }
 }
 
@@ -214,6 +233,34 @@ fn contextual_invalid_header_is_rejected_without_persistence_or_tip_mutation() {
         state.accept_header(header),
         Err(ChainStateError::Consensus(
             ConsensusError::TimestampNotAfterMtp
+        ))
+    ));
+    assert_eq!(state.tip(), &active_before);
+    assert_eq!(state.preferred_header_tip(), &preferred_before);
+    assert_eq!(state.utxos(), &utxos_before);
+    assert_eq!(state.storage().get_index(header_id).unwrap(), None);
+    assert_eq!(
+        state.storage().preferred_header_tip().unwrap(),
+        Some((preferred_before.block_id, preferred_before.height))
+    );
+}
+
+#[test]
+fn insufficient_pow_header_is_rejected_without_persistence_or_tip_mutation() {
+    let dir = TestDir::scoped("header-import", "invalid-pow");
+    let config = target_one_chain_config();
+    let anchor_id = config.anchor_header.block_id();
+    let header = candidate_header(&config, anchor_id, 1, 701);
+    let header_id = header.block_id();
+    let mut state = ChainState::open(dir.path(), config).unwrap();
+    let active_before = state.tip().clone();
+    let preferred_before = state.preferred_header_tip().clone();
+    let utxos_before = state.utxos().clone();
+
+    assert!(matches!(
+        state.accept_header(header),
+        Err(ChainStateError::Consensus(
+            ConsensusError::InsufficientProofOfWork
         ))
     ));
     assert_eq!(state.tip(), &active_before);
