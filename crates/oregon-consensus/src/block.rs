@@ -234,12 +234,20 @@ mod tests {
     fn normal_helper_rejects_null_outpoint() {
         let tx = Transaction {
             version: 1,
-            inputs: vec![TxInput {
-                previous_txid: Hash256::from_bytes([0; 32]),
-                previous_output_index: u32::MAX,
-                sequence: 0,
-                witness: vec![],
-            }],
+            inputs: vec![
+                TxInput {
+                    previous_txid: Hash256::from_bytes([0; 32]),
+                    previous_output_index: u32::MAX,
+                    sequence: 0,
+                    witness: vec![],
+                },
+                TxInput {
+                    previous_txid: Hash256::from_bytes([0x44; 32]),
+                    previous_output_index: 1,
+                    sequence: 0,
+                    witness: vec![],
+                },
+            ],
             outputs: vec![TxOutput {
                 value: Amount::from_base_units(1).unwrap(),
                 locking_program: vec![],
