@@ -86,6 +86,18 @@ pub(crate) fn accept_header_healthy(
     header: BlockHeader,
 ) -> Result<HeaderImportOutcome, ChainStateError> {
     let block_id = header.block_id();
+    if let Some(existing) = state.db.get_index(block_id)? {
+        if existing.validation == ValidationStatus::Invalid {
+            return Err(corrupt("known header is marked invalid"));
+        }
+        return Ok(HeaderImportOutcome {
+            block_id,
+            height: existing.height,
+            status: HeaderImportStatus::Known,
+            preferred_tip: state.header_tip.clone(),
+        });
+    }
+
     let index = validate_candidate_header(state, &header)?;
     let preferred_tip = HeaderTip {
         block_id,
