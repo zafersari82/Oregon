@@ -1,4 +1,4 @@
-use oregon_consensus::block_work;
+use oregon_consensus::{ConsensusError, block_work};
 use oregon_primitives::{BlockHeader, Hash256};
 use oregon_storage::ValidationStatus;
 
@@ -194,5 +194,32 @@ fn preferred_header_chain_reopens_without_advancing_active_state() {
     assert_eq!(
         reopened.storage().preferred_header_tip().unwrap(),
         Some((second_id, 2))
+    );
+}
+
+#[test]
+fn contextual_invalid_header_is_rejected_without_persistence_or_tip_mutation() {
+    let dir = TestDir::scoped("header-import", "invalid-mtp");
+    let config = standard_chain_config();
+    let anchor_id = config.anchor_header.block_id();
+    let mut header = candidate_header(&config, anchor_id, 1, 601);
+    header.timestamp = config.genesis_timestamp;
+    let header_id = header.block_id();
+    let mut state = ChainState::open(dir.path(), config).unwrap();
+    let active_before = state.tip().clone();
+    let preferred_before = state.preferred_header_tip().clone();
+    let utxos_before = state.utxos().clone();
+
+    assert!(matches!(
+        state.accept_header(header),
+        Err(ChainStateError::Consensus(ConsensusError::TimestampNotAfterMtp))
+    ));
+    assert_eq!(state.tip(), &active_before);
+    assert_eq!(state.preferred_header_tip(), &preferred_before);
+    assert_eq!(state.utxos(), &utxos_before);
+    assert_eq!(state.storage().get_index(header_id).unwrap(), None);
+    assert_eq!(
+        state.storage().preferred_header_tip().unwrap(),
+        Some((preferred_before.block_id, preferred_before.height))
     );
 }
