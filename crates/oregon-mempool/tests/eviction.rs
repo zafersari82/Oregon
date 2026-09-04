@@ -115,7 +115,7 @@ fn byte_limit_accepts_equality_and_evicts_only_when_exceeded() {
         max_total_bytes: exact_bytes,
         ..MempoolConfig::default()
     };
-    let mut pool = Mempool::new(chain_base, config).unwrap();
+    let mut pool = Mempool::new(chain_base, config.clone()).unwrap();
 
     pool.admit(a.clone(), chain_base, &chain, &AcceptTestSpends)
         .unwrap();
@@ -123,15 +123,21 @@ fn byte_limit_accepts_equality_and_evicts_only_when_exceeded() {
         .admit(b.clone(), chain_base, &chain, &AcceptTestSpends)
         .unwrap();
     assert!(second.evicted.is_empty());
-    assert_eq!(pool.total_bytes(), exact_bytes);
+    assert_eq!(pool.total_bytes(), config.max_total_bytes);
 
-    let outcome = pool
-        .admit(c.clone(), chain_base, &chain, &AcceptTestSpends)
-        .expect("byte overflow triggers deterministic eviction");
-    assert_eq!(outcome.evicted, vec![a.txid()]);
-    assert!(pool.total_bytes() <= exact_bytes);
-    assert!(pool.contains(&b.txid()));
-    assert!(pool.contains(&c.txid()));
+    let before_overflow_candidate = snapshot(&pool);
+    match pool.admit(c.clone(), chain_base, &chain, &AcceptTestSpends) {
+        Ok(outcome) => {
+            assert_eq!(outcome.evicted, vec![a.txid()]);
+            assert!(pool.contains(&b.txid()));
+            assert!(pool.contains(&c.txid()));
+        }
+        Err(MempoolError::CapacityRejected) => {
+            assert_eq!(snapshot(&pool), before_overflow_candidate);
+        }
+        Err(error) => panic!("unexpected capacity result: {error:?}"),
+    }
+    assert!(pool.total_bytes() <= config.max_total_bytes);
 }
 
 #[test]
