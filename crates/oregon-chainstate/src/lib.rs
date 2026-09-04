@@ -17,6 +17,8 @@ pub use prune::PruneReport;
 pub use state::{AcceptOutcome, ChainState, SessionHealth, Tip};
 
 #[cfg(test)]
+mod header_contract_tests;
+#[cfg(test)]
 mod recovery_acceptance_tests;
 #[cfg(test)]
 mod storage_fault_tests;
