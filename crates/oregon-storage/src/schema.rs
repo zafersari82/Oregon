@@ -12,7 +12,7 @@ pub struct SchemaVersion {
     pub minor: u16,
 }
 
-pub const SCHEMA_VERSION: SchemaVersion = SchemaVersion { major: 1, minor: 0 };
+pub(crate) const SCHEMA_VERSION: SchemaVersion = SchemaVersion { major: 1, minor: 0 };
 
 pub(crate) fn encode_schema_version(version: SchemaVersion) -> [u8; 4] {
     let major = version.major.to_be_bytes();
