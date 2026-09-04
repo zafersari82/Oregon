@@ -90,7 +90,12 @@ impl Mempool {
 
         debug_assert!(plan.remove.is_empty());
         for parent in &plan.candidate.entry.parents {
-            if !self.entries.contains_key(parent) {
+            if !plan.candidate.ancestors.contains(parent) || !self.entries.contains_key(parent) {
+                return Err(MempoolError::InvariantViolation);
+            }
+        }
+        for ancestor in &plan.candidate.ancestors {
+            if !self.entries.contains_key(ancestor) {
                 return Err(MempoolError::InvariantViolation);
             }
         }
@@ -219,12 +224,7 @@ impl Mempool {
                 &mut narrow_entries,
             );
         }
-        seed_chain_inputs(
-            &transaction,
-            chain_utxos,
-            &mut seeded,
-            &mut narrow_entries,
-        );
+        seed_chain_inputs(&transaction, chain_utxos, &mut seeded, &mut narrow_entries);
 
         let mut replay_txids = ancestors.clone();
         replay_txids.insert(txid);
