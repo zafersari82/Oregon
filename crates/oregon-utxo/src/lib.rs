@@ -228,16 +228,16 @@ mod tests {
     }
 
     #[test]
-    fn persisted_utxo_reconstruction_rejects_duplicate_outpoints() {
+    fn entry_construction_rejects_duplicate_outpoints() {
         let point = outpoint(0x61, 0);
-        let result = UtxoState::from_persisted_entries([(point, entry(100)), (point, entry(100))]);
-        assert_eq!(result, Err(UtxoError::DuplicatePersistedOutpoint(point)));
+        let result = UtxoState::try_from_entries([(point, entry(100)), (point, entry(100))]);
+        assert_eq!(result, Err(UtxoError::DuplicateOutpoint(point)));
     }
 
     #[test]
     fn restored_state_still_requires_spend_verifier() {
         let point = outpoint(0x62, 0);
-        let mut state = UtxoState::from_persisted_entries([(point, entry(100))]).unwrap();
+        let mut state = UtxoState::try_from_entries([(point, entry(100))]).unwrap();
         let tx = spend(vec![point], &[90]);
 
         assert_eq!(

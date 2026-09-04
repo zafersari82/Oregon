@@ -199,6 +199,25 @@ mod tests {
     }
 
     #[test]
+    fn outpoint_order_uses_txid_then_output_index() {
+        let lower_index = OutPoint {
+            txid: Hash256::from_bytes([0x11; 32]),
+            index: 1,
+        };
+        let higher_index = OutPoint {
+            txid: lower_index.txid,
+            index: 2,
+        };
+        let higher_txid = OutPoint {
+            txid: Hash256::from_bytes([0x12; 32]),
+            index: 0,
+        };
+
+        assert!(lower_index < higher_index);
+        assert!(higher_index < higher_txid);
+    }
+
+    #[test]
     fn input_count_limit_is_enforced_before_input_decoding() {
         let encoded = rich_transaction().encode();
         let limits = DecodeLimits {
