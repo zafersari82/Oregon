@@ -8,6 +8,7 @@ const STORAGE_RECORD_VERSION: u8 = 1;
 const BLOCK_HEADER_BYTES: usize = 114;
 const MAX_CHAINWORK_BYTES: usize = 40;
 
+#[cfg(test)]
 pub(crate) const SCHEMA_MIGRATION_KEY: &[u8] = b"schema/migration";
 pub(crate) const CONFIG_ANCHOR_ID_KEY: &[u8] = b"config/anchor_id";
 pub(crate) const CONFIG_GENESIS_TIMESTAMP_KEY: &[u8] = b"config/genesis_timestamp";
