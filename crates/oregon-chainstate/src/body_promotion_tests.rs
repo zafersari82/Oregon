@@ -74,6 +74,9 @@ fn retained_body_promotes_known_header_to_fully_validated_active_block() {
     assert!(after.body_retained);
     assert_eq!(state.storage().get_block(block_id).unwrap(), Some(block));
     assert!(state.storage().get_undo(block_id).unwrap().is_some());
-    assert_eq!(state.storage().active_id_at_height(1).unwrap(), Some(block_id));
+    assert_eq!(
+        state.storage().active_id_at_height(1).unwrap(),
+        Some(block_id)
+    );
     assert!(state.utxos().get(&founder_outpoint).is_some());
 }

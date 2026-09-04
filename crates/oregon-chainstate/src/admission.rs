@@ -26,7 +26,9 @@ pub(crate) fn accept_block_healthy<V: SpendVerifier>(
             }
             ValidationStatus::HeaderValidated => {
                 if existing.header != block.header {
-                    return Err(corrupt("known candidate header does not match stored index"));
+                    return Err(corrupt(
+                        "known candidate header does not match stored index",
+                    ));
                 }
 
                 let parent_id = existing.parent;
