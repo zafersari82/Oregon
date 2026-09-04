@@ -7,9 +7,7 @@ use oregon_consensus::{
 };
 use oregon_pow::{LightEngine, derive_randomx_key, key_block_height};
 use oregon_primitives::{Block, Hash256, OutPoint};
-use oregon_storage::{
-    BlockIndexRecord, NodeHealth, OregonDb, StorageBatch, ValidationStatus, encode_outpoint_key,
-};
+use oregon_storage::{BlockIndexRecord, NodeHealth, OregonDb, StorageBatch, ValidationStatus};
 use oregon_utxo::{BlockUndo, SpendVerifier, UtxoEntry, UtxoState};
 
 use crate::branch::BranchView;
@@ -18,7 +16,7 @@ use crate::{ChainConfig, ChainStateError};
 
 pub const REORG_WINDOW: u64 = 8_064;
 
-type UtxoDelta = BTreeMap<[u8; 36], (OutPoint, Option<UtxoEntry>)>;
+type UtxoDelta = BTreeMap<OutPoint, Option<UtxoEntry>>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tip {
@@ -340,27 +338,24 @@ impl ChainState {
 fn build_utxo_delta(staged: &UtxoState, undo: &BlockUndo) -> Result<UtxoDelta, ChainStateError> {
     let mut delta = BTreeMap::new();
     for (outpoint, _) in &undo.spent {
-        delta.insert(encode_outpoint_key(outpoint), (*outpoint, None));
+        delta.insert(*outpoint, None);
     }
     for outpoint in &undo.created {
         let entry = staged
             .get(outpoint)
             .cloned()
             .ok_or_else(|| corrupt("created outpoint missing from staged UTXO state"))?;
-        delta.insert(encode_outpoint_key(outpoint), (*outpoint, Some(entry)));
+        delta.insert(*outpoint, Some(entry));
     }
     Ok(delta)
 }
 
 fn record_disconnect_delta(delta: &mut UtxoDelta, undo: &BlockUndo) {
     for outpoint in &undo.created {
-        delta.insert(encode_outpoint_key(outpoint), (*outpoint, None));
+        delta.insert(*outpoint, None);
     }
     for (outpoint, entry) in &undo.spent {
-        delta.insert(
-            encode_outpoint_key(outpoint),
-            (*outpoint, Some(entry.clone())),
-        );
+        delta.insert(*outpoint, Some(entry.clone()));
     }
 }
 
@@ -370,20 +365,20 @@ fn record_connect_delta(
     undo: &BlockUndo,
 ) -> Result<(), ChainStateError> {
     for (outpoint, _) in &undo.spent {
-        delta.insert(encode_outpoint_key(outpoint), (*outpoint, None));
+        delta.insert(*outpoint, None);
     }
     for outpoint in &undo.created {
         let entry = staged
             .get(outpoint)
             .cloned()
             .ok_or_else(|| corrupt("created outpoint missing from staged reorg UTXO state"))?;
-        delta.insert(encode_outpoint_key(outpoint), (*outpoint, Some(entry)));
+        delta.insert(*outpoint, Some(entry));
     }
     Ok(())
 }
 
 fn apply_utxo_delta(batch: &mut StorageBatch, delta: UtxoDelta) {
-    for (_, (outpoint, entry)) in delta {
+    for (outpoint, entry) in delta {
         match entry {
             Some(entry) => batch.put_utxo(outpoint, entry),
             None => batch.delete_utxo(outpoint),
@@ -566,7 +561,7 @@ fn reopen(
     }
 
     let cumulative_work = final_work.ok_or_else(|| corrupt("active chain has no anchor"))?;
-    let utxos = UtxoState::from_persisted_entries(db.iter_utxos()?)?;
+    let utxos = UtxoState::try_from_entries(db.iter_utxos()?)?;
 
     Ok(ChainState {
         db,
