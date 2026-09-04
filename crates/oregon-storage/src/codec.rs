@@ -62,14 +62,14 @@ fn corrupt(message: impl Into<String>) -> StorageError {
     StorageError::CorruptData(message.into())
 }
 
-pub fn encode_outpoint_key(outpoint: &OutPoint) -> [u8; 36] {
+pub(crate) fn encode_outpoint_key(outpoint: &OutPoint) -> [u8; 36] {
     let mut key = [0u8; 36];
     key[..32].copy_from_slice(outpoint.txid.as_bytes());
     key[32..].copy_from_slice(&outpoint.index.to_le_bytes());
     key
 }
 
-pub fn decode_outpoint_key(bytes: &[u8]) -> Result<OutPoint, StorageError> {
+pub(crate) fn decode_outpoint_key(bytes: &[u8]) -> Result<OutPoint, StorageError> {
     if bytes.len() != 36 {
         return Err(corrupt(format!(
             "outpoint key must be exactly 36 bytes, got {}",
@@ -87,7 +87,7 @@ pub fn decode_outpoint_key(bytes: &[u8]) -> Result<OutPoint, StorageError> {
     Ok(OutPoint { txid, index })
 }
 
-pub fn encode_utxo_entry(entry: &UtxoEntry) -> Result<Vec<u8>, StorageError> {
+pub(crate) fn encode_utxo_entry(entry: &UtxoEntry) -> Result<Vec<u8>, StorageError> {
     let locking_program = &entry.output.locking_program;
     if locking_program.len() > MAX_LOCKING_PROGRAM_BYTES {
         return Err(corrupt(format!(
@@ -107,7 +107,7 @@ pub fn encode_utxo_entry(entry: &UtxoEntry) -> Result<Vec<u8>, StorageError> {
     Ok(bytes)
 }
 
-pub fn decode_utxo_entry(bytes: &[u8]) -> Result<UtxoEntry, StorageError> {
+pub(crate) fn decode_utxo_entry(bytes: &[u8]) -> Result<UtxoEntry, StorageError> {
     if bytes.len() > MAX_UTXO_RECORD_BYTES {
         return Err(corrupt(format!(
             "utxo record length {} exceeds {}",
@@ -148,22 +148,17 @@ pub fn decode_utxo_entry(bytes: &[u8]) -> Result<UtxoEntry, StorageError> {
     })
 }
 
-pub fn encode_block_undo(undo: &BlockUndo) -> Result<Vec<u8>, StorageError> {
+pub(crate) fn encode_block_undo(undo: &BlockUndo) -> Result<Vec<u8>, StorageError> {
     if undo.spent.len() > MAX_UNDO_ENTRIES || undo.created.len() > MAX_UNDO_ENTRIES {
         return Err(corrupt("undo entry count exceeds storage bound"));
     }
 
-    let spent_keys: Vec<[u8; 36]> = undo
-        .spent
-        .iter()
-        .map(|(outpoint, _)| encode_outpoint_key(outpoint))
-        .collect();
-    let created_keys: Vec<[u8; 36]> = undo.created.iter().map(encode_outpoint_key).collect();
-    require_strictly_sorted(&spent_keys, "spent undo outpoints")?;
-    require_strictly_sorted(&created_keys, "created undo outpoints")?;
+    let spent_outpoints: Vec<OutPoint> = undo.spent.iter().map(|(outpoint, _)| *outpoint).collect();
+    require_strictly_sorted_outpoints(&spent_outpoints, "spent undo outpoints")?;
+    require_strictly_sorted_outpoints(&undo.created, "created undo outpoints")?;
 
-    let spent_set: BTreeSet<[u8; 36]> = spent_keys.iter().copied().collect();
-    if created_keys.iter().any(|key| spent_set.contains(key)) {
+    let spent_set: BTreeSet<OutPoint> = spent_outpoints.iter().copied().collect();
+    if undo.created.iter().any(|outpoint| spent_set.contains(outpoint)) {
         return Err(corrupt(
             "undo outpoint appears in both spent and created sets",
         ));
@@ -172,21 +167,21 @@ pub fn encode_block_undo(undo: &BlockUndo) -> Result<Vec<u8>, StorageError> {
     let mut bytes = Vec::new();
     bytes.push(STORAGE_RECORD_VERSION);
     write_varint(undo.spent.len() as u64, &mut bytes);
-    for ((_, entry), key) in undo.spent.iter().zip(&spent_keys) {
-        bytes.extend_from_slice(key);
+    for (outpoint, entry) in &undo.spent {
+        bytes.extend_from_slice(&encode_outpoint_key(outpoint));
         let encoded_entry = encode_utxo_entry(entry)?;
         write_varint(encoded_entry.len() as u64, &mut bytes);
         bytes.extend_from_slice(&encoded_entry);
     }
 
     write_varint(undo.created.len() as u64, &mut bytes);
-    for key in created_keys {
-        bytes.extend_from_slice(&key);
+    for outpoint in &undo.created {
+        bytes.extend_from_slice(&encode_outpoint_key(outpoint));
     }
     Ok(bytes)
 }
 
-pub fn decode_block_undo(bytes: &[u8]) -> Result<BlockUndo, StorageError> {
+pub(crate) fn decode_block_undo(bytes: &[u8]) -> Result<BlockUndo, StorageError> {
     let mut cursor = StorageCursor::new(bytes);
     let version = cursor.read_u8("undo record version")?;
     if version != STORAGE_RECORD_VERSION {
@@ -197,17 +192,17 @@ pub fn decode_block_undo(bytes: &[u8]) -> Result<BlockUndo, StorageError> {
 
     let spent_count = cursor.read_len(MAX_UNDO_ENTRIES, "undo spent count")?;
     let mut spent = Vec::with_capacity(spent_count);
-    let mut spent_keys = BTreeSet::new();
+    let mut spent_outpoints = BTreeSet::new();
     let mut previous_spent = None;
     for _ in 0..spent_count {
         let key = read_outpoint_key(&mut cursor, "undo spent outpoint")?;
-        require_next_key(previous_spent, key, "spent undo outpoints")?;
-        previous_spent = Some(key);
-        spent_keys.insert(key);
+        let outpoint = decode_outpoint_key(&key)?;
+        require_next_outpoint(previous_spent, outpoint, "spent undo outpoints")?;
+        previous_spent = Some(outpoint);
+        spent_outpoints.insert(outpoint);
 
         let entry_len = cursor.read_len(MAX_UTXO_RECORD_BYTES, "undo utxo record length")?;
         let entry_bytes = cursor.read_exact(entry_len, "undo utxo record")?;
-        let outpoint = decode_outpoint_key(&key)?;
         let entry = decode_utxo_entry(entry_bytes)?;
         spent.push((outpoint, entry));
     }
@@ -217,14 +212,15 @@ pub fn decode_block_undo(bytes: &[u8]) -> Result<BlockUndo, StorageError> {
     let mut previous_created = None;
     for _ in 0..created_count {
         let key = read_outpoint_key(&mut cursor, "undo created outpoint")?;
-        require_next_key(previous_created, key, "created undo outpoints")?;
-        previous_created = Some(key);
-        if spent_keys.contains(&key) {
+        let outpoint = decode_outpoint_key(&key)?;
+        require_next_outpoint(previous_created, outpoint, "created undo outpoints")?;
+        previous_created = Some(outpoint);
+        if spent_outpoints.contains(&outpoint) {
             return Err(corrupt(
                 "undo outpoint appears in both spent and created sets",
             ));
         }
-        created.push(decode_outpoint_key(&key)?);
+        created.push(outpoint);
     }
 
     cursor.finish("undo trailing bytes")?;
@@ -241,16 +237,19 @@ fn read_outpoint_key(
         .map_err(|_| corrupt(format!("{context} must be 36 bytes")))
 }
 
-fn require_strictly_sorted(keys: &[[u8; 36]], context: &str) -> Result<(), StorageError> {
-    if keys.windows(2).any(|pair| pair[0] >= pair[1]) {
+fn require_strictly_sorted_outpoints(
+    outpoints: &[OutPoint],
+    context: &str,
+) -> Result<(), StorageError> {
+    if outpoints.windows(2).any(|pair| pair[0] >= pair[1]) {
         return Err(corrupt(format!("{context} are not strictly sorted")));
     }
     Ok(())
 }
 
-fn require_next_key(
-    previous: Option<[u8; 36]>,
-    current: [u8; 36],
+fn require_next_outpoint(
+    previous: Option<OutPoint>,
+    current: OutPoint,
     context: &str,
 ) -> Result<(), StorageError> {
     if previous.is_some_and(|value| value >= current) {
