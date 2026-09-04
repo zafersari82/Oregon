@@ -24,9 +24,11 @@ pub fn validate_normal_transaction_skeleton(
     }
 
     let null_txid = Hash256::from_bytes([0u8; 32]);
-    if transaction.inputs.iter().any(|input| {
-        input.previous_txid == null_txid && input.previous_output_index == u32::MAX
-    }) {
+    if transaction
+        .inputs
+        .iter()
+        .any(|input| input.previous_txid == null_txid && input.previous_output_index == u32::MAX)
+    {
         return Err(NormalTransactionError::NullOutpoint);
     }
 
