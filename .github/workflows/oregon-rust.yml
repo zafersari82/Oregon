@@ -31,6 +31,8 @@ jobs:
           key: oregon-rust-${{ runner.os }}-1.85.0-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             oregon-rust-${{ runner.os }}-1.85.0-
+      - name: Mutation kill test - conflict ownership
+        run: cargo +1.85.0 test --locked -p oregon-mempool conflicting_spend_rejection_is_atomic -- --nocapture
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Format
