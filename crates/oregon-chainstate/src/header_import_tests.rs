@@ -212,7 +212,9 @@ fn contextual_invalid_header_is_rejected_without_persistence_or_tip_mutation() {
 
     assert!(matches!(
         state.accept_header(header),
-        Err(ChainStateError::Consensus(ConsensusError::TimestampNotAfterMtp))
+        Err(ChainStateError::Consensus(
+            ConsensusError::TimestampNotAfterMtp
+        ))
     ));
     assert_eq!(state.tip(), &active_before);
     assert_eq!(state.preferred_header_tip(), &preferred_before);
