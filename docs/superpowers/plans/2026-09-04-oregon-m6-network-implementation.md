@@ -2,253 +2,160 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build Oregon M6 so multiple nodes establish real bounded TCP peer sessions, relay only authoritatively accepted transactions/blocks, and synchronize a behind node through headers-first fork-aware synchronization without moving any consensus, economic, UTXO, storage, RandomX, chain-selection, or mempool-policy ownership into networking.
+**Goal:** Build Oregon M6 so multiple nodes establish real bounded TCP peer sessions, relay only authoritatively accepted transactions/blocks, and synchronize a behind node through headers-first fork-aware synchronization without moving consensus, economics, UTXO, storage, RandomX, chain-selection, or mempool-policy ownership into networking.
 
-**Architecture:** Preserve the existing core dependency graph and add five one-way higher-level crates: `oregon-protocol -> oregon-network -> oregon-peer -> oregon-sync -> oregon-node`. `oregon-node` owns one bounded blocking core worker containing `ChainState`, `Mempool`, and the caller-supplied `SpendVerifier`; async socket tasks never mutate core state directly. Headers are durably validated by chainstate first, sync consumes only coarse authoritative chain views/results, and full objects become relay eligible only after core acceptance.
+**Architecture:** Preserve the current core dependency graph and add five one-way higher-level crates: `oregon-protocol -> oregon-network -> oregon-peer -> oregon-sync -> oregon-node`. `oregon-node` owns one bounded blocking core worker containing `ChainState`, `Mempool`, and the caller-supplied `SpendVerifier`; async socket tasks never mutate core state or run RandomX directly. Header validity/work and preferred-header selection remain in chainstate; sync consumes only coarse chain views/results; full objects become relay eligible only after core acceptance.
 
-**Tech Stack:** Rust 1.85.0 / edition 2024, Tokio 1.x, RocksDB through existing `oregon-storage`, BLAKE3 through existing dependencies, `thiserror` 2, `async-trait` 0.1 for transport/sync-view async traits, `getrandom` 0.3 for process instance nonces.
+**Tech Stack:** Rust 1.85.0 / edition 2024, Tokio 1.x, existing RocksDB/BLAKE3 core dependencies, `thiserror` 2, `async-trait` 0.1, `getrandom` 0.3.
 
 **Spec:** `docs/superpowers/specs/2026-09-04-oregon-m6-network-design.md`
 
 ## Global Constraints
 
 - `%5` founder allocation and every accepted economic/consensus rule stay frozen.
-- `oregon-consensus`, `oregon-utxo`, `oregon-storage`, `oregon-chainstate`, and `oregon-mempool` never depend on any M6 network crate.
+- `oregon-consensus`, `oregon-utxo`, `oregon-storage`, `oregon-chainstate`, and `oregon-mempool` never depend on an M6 network crate.
 - All five M6 crates declare `#![forbid(unsafe_code)]`.
-- `chain_id = ChainConfig.anchor_header.block_id()`; network crates receive only the opaque resulting hash.
-- `FRAME_VERSION = 1`, `PROTOCOL_VERSION_CURRENT = 1`, `PROTOCOL_VERSION_MIN = 1`.
-- Protocol tags are fixed: `Hello=0x01`, `HelloAck=0x02`, `Ping=0x03`, `Pong=0x04`, `Inv=0x10`, `GetData=0x11`, `GetHeaders=0x20`, `Headers=0x21`, `Transaction=0x30`, `Block=0x31`.
-- `MAX_FRAME_PAYLOAD = 2 MiB`, `MAX_HANDSHAKE_PAYLOAD = 4 KiB`, `MAX_INV_ITEMS = 4,096`, `MAX_GETDATA_ITEMS = 128`, `MAX_LOCATOR_HASHES = 64`, `MAX_HEADERS_PER_MESSAGE = 128`, `HEADER_VALIDATION_SLICE = 16`.
-- `DEFAULT_MAX_PEERS = 64`, `DEFAULT_MAX_OUTBOUND = 16`, `DEFAULT_MAX_INBOUND = 48`, `HARD_MAX_PEERS = 128`.
-- `MAX_QUEUE_FRAMES_PEER = 256`, `MAX_QUEUE_BYTES_PEER = 4 MiB`, `MAX_QUEUE_BYTES_GLOBAL = 64 MiB`, `CONTROL_RESERVED_FRAMES = 16`, `CONTROL_RESERVED_BYTES = 64 KiB`, `QUEUE_ENQUEUE_TIMEOUT = 2 s`.
-- `MAX_CORE_COMMANDS = 64`, `MAX_CORE_COMMAND_BYTES = 8 MiB`.
-- `HANDSHAKE_TIMEOUT = 10 s`, `MAX_PENDING_HANDSHAKES = 32`, `FRAME_NO_PROGRESS_TIMEOUT = 15 s`, `MAX_FRAME_READ_DURATION = 60 s`, `FRAME_WRITE_TIMEOUT = 15 s`, `PING_INTERVAL = 30 s`, `PONG_TIMEOUT = 15 s`, `IDLE_TIMEOUT = 120 s`, `RESPONSE_START_TIMEOUT = 20 s`.
-- `MAX_IN_FLIGHT_BLOCKS_GLOBAL = 32`, `MAX_IN_FLIGHT_BLOCKS_PEER = 8`, `MAX_BUFFERED_BLOCKS = 32`, `MAX_BLOCK_ATTEMPTS = 3`, `EXPIRED_REQUEST_GRACE = 30 s`, `MAX_RECENTLY_EXPIRED_REQUESTS_PER_PEER = 128`.
-- `MAX_KNOWN_INVENTORY_PER_PEER = 8,192`, `MAX_RECENT_RELAY_CACHE = 65,536`, `DISCONNECT_COOLDOWN = 10 min`, `MAX_COOLDOWN_ENTRIES = 1,024`.
-- Remote `best_height`/`best_block_id` are hints only and never select a chain.
-- A decoded remote transaction/block is not relay eligible until `Mempool::admit` / `ChainState::accept_block` accepts it.
-- No test-only permissive `SpendVerifier` is exported into production APIs or binaries.
-- Every coherent task finishes with `cargo test` for the changed crate(s), formatting, clippy for the changed crate(s), and a focused commit.
+- `chain_id = ChainConfig.anchor_header.block_id()`.
+- Protocol tags: `Hello=0x01`, `HelloAck=0x02`, `Ping=0x03`, `Pong=0x04`, `Inv=0x10`, `GetData=0x11`, `GetHeaders=0x20`, `Headers=0x21`, `Transaction=0x30`, `Block=0x31`.
+- `FRAME_VERSION=1`, `PROTOCOL_VERSION_CURRENT=1`, `PROTOCOL_VERSION_MIN=1`.
+- `MAX_FRAME_PAYLOAD=2 MiB`, `MAX_HANDSHAKE_PAYLOAD=4 KiB`, `MAX_INV_ITEMS=4,096`, `MAX_GETDATA_ITEMS=128`, `MAX_LOCATOR_HASHES=64`, `MAX_HEADERS_PER_MESSAGE=128`, `HEADER_VALIDATION_SLICE=16`.
+- `DEFAULT_MAX_PEERS=64`, `DEFAULT_MAX_OUTBOUND=16`, `DEFAULT_MAX_INBOUND=48`, `HARD_MAX_PEERS=128`.
+- `MAX_QUEUE_FRAMES_PEER=256`, `MAX_QUEUE_BYTES_PEER=4 MiB`, `MAX_QUEUE_BYTES_GLOBAL=64 MiB`, `CONTROL_RESERVED_FRAMES=16`, `CONTROL_RESERVED_BYTES=64 KiB`, `QUEUE_ENQUEUE_TIMEOUT=2 s`.
+- `MAX_CORE_COMMANDS=64`, `MAX_CORE_COMMAND_BYTES=8 MiB`.
+- `HANDSHAKE_TIMEOUT=10 s`, `MAX_PENDING_HANDSHAKES=32`, `FRAME_NO_PROGRESS_TIMEOUT=15 s`, `MAX_FRAME_READ_DURATION=60 s`, `FRAME_WRITE_TIMEOUT=15 s`, `PING_INTERVAL=30 s`, `PONG_TIMEOUT=15 s`, `IDLE_TIMEOUT=120 s`, `RESPONSE_START_TIMEOUT=20 s`.
+- `MAX_IN_FLIGHT_BLOCKS_GLOBAL=32`, `MAX_IN_FLIGHT_BLOCKS_PEER=8`, `MAX_BUFFERED_BLOCKS=32`, `MAX_BLOCK_ATTEMPTS=3`, `EXPIRED_REQUEST_GRACE=30 s`, `MAX_RECENTLY_EXPIRED_REQUESTS_PER_PEER=128`.
+- `MAX_KNOWN_INVENTORY_PER_PEER=8,192`, `MAX_RECENT_RELAY_CACHE=65,536`, `DISCONNECT_COOLDOWN=10 min`, `MAX_COOLDOWN_ENTRIES=1,024`.
+- Remote `best_height`/`best_block_id` are hints only.
+- A decoded transaction/block is not relay eligible until `Mempool::admit` / `ChainState::accept_block` accepts it.
+- No permissive test `SpendVerifier` is exported in production.
+
+## File Structure
+
+**Modify core:** `Cargo.toml`, `Cargo.lock`, primitive `transaction.rs`/`block.rs`; storage `schema.rs`/`records.rs`/`batch.rs`/`db.rs`/`migration_tests.rs`; chainstate `lib.rs`/`state.rs`/`recovery.rs`/`admission.rs`/`transition.rs`/`tests.rs`; `.github/workflows/oregon-rust.yml`.
+
+**Create core files:** `crates/oregon-chainstate/src/header.rs`, `crates/oregon-chainstate/src/sync_view.rs`, `crates/oregon-primitives/tests/remote_allocation.rs`.
+
+**Create M6 crates:**
+- `oregon-protocol`: `constants.rs`, `error.rs`, `features.rs`, `frame.rs`, `message.rs`, `tests.rs`.
+- `oregon-network`: `error.rs`, `io.rs`, `tcp.rs`, `transport.rs`, `tests.rs`.
+- `oregon-peer`: `budget.rs`, `config.rs`, `cooldown.rs`, `error.rs`, `handshake.rs`, `request.rs`, `score.rs`, `service.rs`, `session.rs`, `tests.rs`.
+- `oregon-sync`: `error.rs`, `locator.rs`, `scheduler.rs`, `state.rs`, `view.rs`, `tests.rs`.
+- `oregon-node`: `core.rs`, `error.rs`, `node.rs`, `relay.rs`, `sync_adapter.rs`, `tests.rs`, `tests/loopback.rs`, `tests/support/mod.rs`.
 
 ---
 
-## File Structure Map
-
-### Existing files modified
-
-- `Cargo.toml` — add five M6 workspace members only.
-- `Cargo.lock` — lock Tokio/network dependencies once crate manifests exist.
-- `crates/oregon-primitives/src/transaction.rs` — remove attacker-count-driven vector preallocation.
-- `crates/oregon-primitives/src/block.rs` — remove attacker-count-driven block transaction preallocation.
-- `crates/oregon-storage/src/schema.rs` — real schema `1.1` and production minor-migration metadata.
-- `crates/oregon-storage/src/records.rs` — durable preferred-header-tip keys.
-- `crates/oregon-storage/src/batch.rs` — batch setter for preferred-header tip.
-- `crates/oregon-storage/src/db.rs` — 1.0 -> 1.1 migration and preferred-header-tip read/write encoding.
-- `crates/oregon-storage/src/migration_tests.rs` — real migration/recovery tests.
-- `crates/oregon-chainstate/src/lib.rs` — export only network-independent header/sync view types.
-- `crates/oregon-chainstate/src/state.rs` — keep active full tip and preferred validated header tip separately.
-- `crates/oregon-chainstate/src/recovery.rs` — bootstrap/recover preferred header tip.
-- `crates/oregon-chainstate/src/admission.rs` — reuse shared header validation and correctly promote known header-only blocks.
-- `crates/oregon-chainstate/src/transition.rs` — keep preferred header metadata synchronized when full-block acceptance advances it.
-- `crates/oregon-chainstate/src/tests.rs` — header-first/restart/body-promotion characterization.
-- `.github/workflows/oregon-rust.yml` — M6 implementation branch and dependency/remote-allocation architecture scans.
-
-### Existing files created inside core crates
-
-- `crates/oregon-chainstate/src/header.rs` — single authoritative header validation/index construction path shared by header-only and full-block admission.
-- `crates/oregon-chainstate/src/sync_view.rs` — network-independent preferred-header ancestry/query API.
-
-### New M6 crates
-
-- `crates/oregon-protocol/{Cargo.toml,src/lib.rs,src/constants.rs,src/error.rs,src/features.rs,src/frame.rs,src/message.rs,src/tests.rs}`
-- `crates/oregon-network/{Cargo.toml,src/lib.rs,src/error.rs,src/io.rs,src/tcp.rs,src/transport.rs,src/tests.rs}`
-- `crates/oregon-peer/{Cargo.toml,src/lib.rs,src/budget.rs,src/config.rs,src/cooldown.rs,src/error.rs,src/handshake.rs,src/request.rs,src/score.rs,src/service.rs,src/session.rs,src/tests.rs}`
-- `crates/oregon-sync/{Cargo.toml,src/lib.rs,src/error.rs,src/locator.rs,src/scheduler.rs,src/state.rs,src/view.rs,src/tests.rs}`
-- `crates/oregon-node/{Cargo.toml,src/lib.rs,src/core.rs,src/error.rs,src/node.rs,src/relay.rs,src/sync_adapter.rs,src/tests.rs,tests/loopback.rs,tests/support/mod.rs}`
-
----
-
-### Task 1: Harden canonical primitive decoding before remote exposure
+### Task 1: Harden canonical primitive allocation
 
 **Files:**
+- Create: `crates/oregon-primitives/tests/remote_allocation.rs`
 - Modify: `crates/oregon-primitives/src/transaction.rs`
 - Modify: `crates/oregon-primitives/src/block.rs`
-- Test: existing unit tests in both files
 
-**Interfaces:**
-- Consumes: existing `Transaction::decode(bytes, limits)` and `Block::decode(bytes, limits)` signatures.
-- Produces: identical public signatures and canonical acceptance semantics; only allocation timing changes.
+**Produces:** unchanged `Transaction::decode` / `Block::decode` signatures and bytes; no vector capacity is taken directly from remote element counts.
 
-- [ ] **Step 1: Add failing regression tests for extreme declared counts with tiny payloads**
-
-Add tests that encode a canonical large count and truncate immediately after it. The test must complete with an error instead of requiring count-sized allocation:
+- [ ] **Step 1: Write malformed-count behavior tests**
 
 ```rust
 #[test]
-fn huge_declared_input_count_with_tiny_payload_fails_without_preallocation_contract() {
-    let bytes = [0x01, 0x00, 0xfd, 0xff, 0xff]; // v1, 65535 inputs, no input bytes
-    let error = Transaction::decode(&bytes, &DecodeLimits::default()).unwrap_err();
-    assert_eq!(error, PrimitiveError::UnexpectedEof);
+fn huge_declared_input_count_with_tiny_payload_is_bounded_failure() {
+    let bytes = [0x01, 0x00, 0xfd, 0xff, 0xff];
+    assert_eq!(
+        Transaction::decode(&bytes, &DecodeLimits::default()),
+        Err(PrimitiveError::UnexpectedEof)
+    );
 }
 ```
 
-For block decoding, build a valid 114-byte header followed by canonical count `0xfe 00 00 01 00` (65,536 txs) and no transaction bytes; expect `UnexpectedEof`.
+Add the equivalent block test: valid 114-byte header + canonical transaction count 65,536 + no tx bytes => `UnexpectedEof`.
 
-- [ ] **Step 2: Run the focused tests before implementation**
+- [ ] **Step 2: Add a separate source-contract test and verify it fails on current code**
 
-Run:
-
-```bash
-cargo test -p oregon-primitives huge_declared_input_count_with_tiny_payload_fails_without_preallocation_contract
-cargo test -p oregon-primitives huge_declared_transaction_count_with_tiny_payload_fails_without_preallocation_contract
-```
-
-Expected: tests may currently pass functionally, but source inspection still shows attacker-count-sized `Vec::with_capacity(...)`; the red condition for this task is the architecture scan added in Step 3.
-
-- [ ] **Step 3: Add a source-level test guard that fails on remote-count preallocation**
-
-Add a unit test using `include_str!` for the two source files and assert the forbidden patterns are absent:
+`crates/oregon-primitives/tests/remote_allocation.rs` reads `../src/transaction.rs` and `../src/block.rs`; because the forbidden strings live in this separate integration-test file they do not self-match:
 
 ```rust
 #[test]
-fn remote_counts_are_not_used_for_direct_vector_preallocation() {
-    let tx = include_str!("transaction.rs");
-    let block = include_str!("block.rs");
+fn remote_counts_never_drive_direct_vector_capacity() {
+    let tx = include_str!("../src/transaction.rs");
+    let block = include_str!("../src/block.rs");
     for forbidden in [
         "Vec::with_capacity(input_count)",
         "Vec::with_capacity(output_count)",
         "Vec::with_capacity(witness_count)",
         "Vec::with_capacity(transaction_count)",
     ] {
-        assert!(!tx.contains(forbidden) && !block.contains(forbidden), "{forbidden}");
+        assert!(!tx.contains(forbidden));
+        assert!(!block.contains(forbidden));
     }
 }
 ```
 
-Run it and verify it fails on current code.
+Run `cargo test -p oregon-primitives --test remote_allocation`; expected FAIL on the source-contract test.
 
-- [ ] **Step 4: Remove count-driven preallocation without changing parsing**
+- [ ] **Step 3: Implement the minimal hardening**
 
-Replace untrusted-count `Vec::with_capacity(count)` with `Vec::new()` in transaction inputs, witness items, outputs, and block transactions. Do not change varint rules, limits, error types, field order, or canonical bytes.
+Replace only the four untrusted `Vec::with_capacity(count)` allocations with `Vec::new()`. Do not change varints, limits, versions, errors, or canonical encoding.
 
-- [ ] **Step 5: Verify primitive behavior and formatting**
-
-Run:
+- [ ] **Step 4: Verify and commit**
 
 ```bash
-cargo test -p oregon-primitives
+cargo test -p oregon-primitives --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-primitives --all-targets -- -D warnings
-```
-
-Expected: PASS; existing round-trip/property tests remain unchanged.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add crates/oregon-primitives/src/transaction.rs crates/oregon-primitives/src/block.rs
+git add crates/oregon-primitives
 git commit -m "security: harden remote primitive allocation"
 ```
 
 ---
 
-### Task 2: Persist a preferred validated-header tip with a real schema 1.0 -> 1.1 migration
+### Task 2: Add durable preferred-header metadata and real schema 1.0 -> 1.1 migration
 
-**Files:**
-- Modify: `crates/oregon-storage/src/schema.rs`
-- Modify: `crates/oregon-storage/src/records.rs`
-- Modify: `crates/oregon-storage/src/batch.rs`
-- Modify: `crates/oregon-storage/src/db.rs`
-- Modify: `crates/oregon-storage/src/migration_tests.rs`
+**Files:** storage `schema.rs`, `records.rs`, `batch.rs`, `db.rs`, `migration_tests.rs`.
 
-**Interfaces:**
-- Produces: `StorageBatch::set_preferred_header_tip(block_id: Hash256, height: u64)`.
-- Produces: `OregonDb::preferred_header_tip() -> Result<Option<(Hash256, u64)>, StorageError>`.
-- Preserves: synchronous WAL durability for acceptance writes and fail-closed incompatible schema behavior.
+**Produces:**
+```rust
+StorageBatch::set_preferred_header_tip(block_id: Hash256, height: u64)
+OregonDb::preferred_header_tip() -> Result<Option<(Hash256, u64)>, StorageError>
+```
 
-- [ ] **Step 1: Write migration and metadata tests**
+- [ ] **Step 1: Write red migration tests**
 
-Add tests with these assertions:
+Cover fresh 1.1; legacy 1.0 active tip copied to preferred tip; empty 1.0 migrates without inventing a tip; interrupted migration resumes; partial preferred-tip pair is corrupt; unsupported major remains fail-closed.
 
 ```rust
 assert_eq!(db.schema_version().unwrap(), SchemaVersion { major: 1, minor: 1 });
 assert_eq!(db.preferred_header_tip().unwrap(), Some((active_id, active_height)));
 ```
 
-Cover: fresh 1.1 DB; legacy 1.0 DB with active tip migrates preferred tip from active tip; a legacy empty DB migrates without inventing a tip; interrupted 1.0 -> 1.1 migration resumes idempotently; mismatched preferred-tip id/height pair is corrupt; major version mismatch remains `UnsupportedSchema`.
+Run `cargo test -p oregon-storage migration -- --nocapture`; expected FAIL.
 
-- [ ] **Step 2: Run migration tests and verify failure**
+- [ ] **Step 2: Replace the synthetic 1.1 migration harness with the production migration**
 
-Run:
+Set `SCHEMA_VERSION` to `{ major: 1, minor: 1 }`. Promote migration-marker encode/decode/constants from test-only to crate-private production code. Delete `open_with_synthetic_migration_1_1` and `run_synthetic_minor_migration_1_1`; their interruption/idempotence assertions move to the real 1.0 -> 1.1 tests.
 
-```bash
-cargo test -p oregon-storage migration -- --nocapture
-```
-
-Expected: FAIL because schema 1.1 and preferred-header metadata do not exist.
-
-- [ ] **Step 3: Promote migration marker codec to production use and bump the minor schema**
-
-Set:
-
-```rust
-pub(crate) const SCHEMA_VERSION: SchemaVersion = SchemaVersion { major: 1, minor: 1 };
-```
-
-Remove `#[cfg(test)]` from the migration-marker codec/constants needed by the real migration. Keep the marker versioned and fixed-width.
-
-- [ ] **Step 4: Add preferred header metadata operations**
-
-In `records.rs` add:
+- [ ] **Step 3: Add preferred-tip keys and atomic batch operation**
 
 ```rust
 pub(crate) const PREFERRED_HEADER_TIP_ID_KEY: &[u8] = b"headers/tip_id";
 pub(crate) const PREFERRED_HEADER_TIP_HEIGHT_KEY: &[u8] = b"headers/tip_height";
 ```
 
-In `StorageBatch` add one atomic logical operation:
+`StorageOp::SetPreferredHeaderTip(Hash256,u64)` encodes both keys into the same RocksDB batch.
 
-```rust
-pub fn set_preferred_header_tip(&mut self, block_id: Hash256, height: u64) {
-    self.operations.push(StorageOp::SetPreferredHeaderTip(block_id, height));
-}
-```
+- [ ] **Step 4: Implement exact production migration**
 
-Encode that operation as two writes in the same RocksDB batch.
+`open_internal` accepts current 1.1 or exactly legacy 1.0. For 1.0: create/resume marker `(1.0,1.1)`; validate active tip is either fully absent or a complete id/height pair; if complete copy it to preferred tip; finish with one synchronous WAL batch writing schema 1.1 and deleting marker. Unknown older/newer versions remain `UnsupportedSchema`.
 
-- [ ] **Step 5: Implement exact 1.0 -> 1.1 production migration**
+- [ ] **Step 5: Implement pair-consistent read API**
 
-`OregonDb::open_internal` must accept exactly schema 1.0 as the only supported older version, write/resume a migration marker, copy a complete active-tip pair into the preferred-header pair when present, then atomically write schema 1.1 and delete the marker with `sync=true` and WAL enabled. Partial active-tip metadata remains corruption; arbitrary older/newer minors are not guessed.
+Use the same `(None,None)/(Some,Some)/partial-corrupt` rule as `active_tip()`.
 
-- [ ] **Step 6: Add the read API**
-
-Implement `preferred_header_tip()` with the same pair-consistency rule as `active_tip()`:
-
-```rust
-match (id, height) {
-    (None, None) => Ok(None),
-    (Some(id), Some(height)) => Ok(Some((decode_hash(&id, "preferred header tip id")?, decode_u64_le(&height, "preferred header tip height")?))),
-    _ => Err(corrupt("preferred header tip metadata is partially present")),
-}
-```
-
-- [ ] **Step 7: Verify storage**
-
-Run:
+- [ ] **Step 6: Verify and commit**
 
 ```bash
 cargo test -p oregon-storage --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-storage --all-targets -- -D warnings
-```
-
-Expected: PASS including existing durability and synthetic migration coverage adapted to the real 1.1 baseline.
-
-- [ ] **Step 8: Commit**
-
-```bash
 git add crates/oregon-storage
-
 git commit -m "feat: persist preferred validated header tip"
 ```
 
@@ -256,70 +163,32 @@ git commit -m "feat: persist preferred validated header tip"
 
 ### Task 3: Create one authoritative chainstate header-validation/import path
 
-**Files:**
-- Create: `crates/oregon-chainstate/src/header.rs`
-- Modify: `crates/oregon-chainstate/src/lib.rs`
-- Modify: `crates/oregon-chainstate/src/state.rs`
-- Modify: `crates/oregon-chainstate/src/recovery.rs`
-- Modify: `crates/oregon-chainstate/src/admission.rs`
-- Modify: `crates/oregon-chainstate/src/transition.rs`
-- Test: `crates/oregon-chainstate/src/tests.rs`
+**Files:** create `header.rs`; modify chainstate `lib.rs`, `state.rs`, `recovery.rs`, `admission.rs`, `transition.rs`, `tests.rs`.
 
-**Interfaces:**
-- Produces public domain types:
-
+**Produces:**
 ```rust
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HeaderTip {
-    pub block_id: Hash256,
-    pub height: u64,
-    pub cumulative_work: ChainWork,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HeaderTip { pub block_id: Hash256, pub height: u64, pub cumulative_work: ChainWork }
 pub enum HeaderImportStatus { Known, Stored, Preferred }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HeaderImportOutcome {
-    pub block_id: Hash256,
-    pub height: u64,
-    pub status: HeaderImportStatus,
-    pub preferred_tip: HeaderTip,
-}
+pub struct HeaderImportOutcome { pub block_id: Hash256, pub height: u64, pub status: HeaderImportStatus, pub preferred_tip: HeaderTip }
+ChainState::accept_header(&mut self, header: BlockHeader) -> Result<HeaderImportOutcome, ChainStateError>
+ChainState::preferred_header_tip(&self) -> &HeaderTip
 ```
 
-- Produces `ChainState::accept_header(&mut self, header: BlockHeader) -> Result<HeaderImportOutcome, ChainStateError>`.
-- Produces `ChainState::preferred_header_tip(&self) -> &HeaderTip`.
-- Preserves `ChainState::accept_block<V: SpendVerifier>(...)` signature.
+- [ ] **Step 1: Write red tests**
 
-- [ ] **Step 1: Write header-import tests**
-
-Required tests:
+Test preferred header does not mutate active tip; lower-work header is stored but not preferred; duplicate => `Known`; unknown parent; invalid header/PoW; injected durable failure preserves in-memory tip; close/reopen restores preferred tip.
 
 ```rust
-let before_active = state.tip().clone();
-let outcome = state.accept_header(header.clone()).unwrap();
-assert_eq!(outcome.status, HeaderImportStatus::Preferred);
-assert_eq!(state.tip(), &before_active);
+let active_before = state.tip().clone();
+let out = state.accept_header(header.clone()).unwrap();
+assert_eq!(out.status, HeaderImportStatus::Preferred);
+assert_eq!(state.tip(), &active_before);
 assert_eq!(state.preferred_header_tip().block_id, header.block_id());
 ```
 
-Also test lower-work side header -> `Stored` without replacing preferred tip; duplicate header -> `Known`; unknown parent rejection; invalid PoW/header rejection; storage-failure atomicity; preferred header survives close/reopen.
+- [ ] **Step 2: Extract the existing header path exactly once**
 
-- [ ] **Step 2: Run the focused chainstate tests and verify failure**
-
-Run:
-
-```bash
-cargo test -p oregon-chainstate header_import -- --nocapture
-```
-
-Expected: FAIL because the new API/types do not exist.
-
-- [ ] **Step 3: Extract shared header validation from block admission**
-
-Move the exact existing sequence from `admission.rs` into a crate-private helper in `header.rs`:
-
+Create:
 ```rust
 pub(crate) fn validate_candidate_header(
     state: &ChainState,
@@ -327,158 +196,103 @@ pub(crate) fn validate_candidate_header(
 ) -> Result<BlockIndexRecord, ChainStateError>
 ```
 
-The helper must perform, in the existing order: parent lookup/status check -> branch MTP -> checked height -> `validate_header_pre_pow` -> RandomX key-height/ancestor -> `LightEngine` with derived key -> `validate_header_pow` -> checked cumulative work -> return `BlockIndexRecord { validation: HeaderValidated, body_retained: false }`.
+Preserve order: parent lookup/status -> `BranchView` MTP -> checked height -> `validate_header_pre_pow` -> RandomX key height/ancestor -> `LightEngine` -> `validate_header_pow` -> cumulative work. Return `HeaderValidated/body_retained=false`. `accept_block_healthy` calls this helper for unknown headers.
 
-`accept_block_healthy` must call this same helper for previously unknown headers; no duplicated header-validation code remains.
+- [ ] **Step 3: Add durable-before-publication preferred header state**
 
-- [ ] **Step 4: Add preferred header state and bootstrap/recovery**
+Add `header_tip: HeaderTip` to `ChainState`. Bootstrap writes preferred tip `(anchor,0)` in the same durable batch as active tip. Reopen requires the pair and validates its record/height/work/ancestry. `accept_header` commits index + optional new preferred-tip metadata before changing in-memory `header_tip`. Only strictly greater cumulative work replaces it.
 
-Add `header_tip: HeaderTip` to `ChainState`. Bootstrap writes `set_preferred_header_tip(anchor_id, 0)` in the same durable batch as active-tip initialization. Reopen requires a preferred-tip pair, loads its index, verifies height/id/status/work/ancestry, and rejects a preferred header descending from an invalid record.
+- [ ] **Step 4: Keep full-block transitions synchronized**
 
-- [ ] **Step 5: Implement `accept_header` as durable-before-publication**
+When a newly validated full block has work greater than current `header_tip`, include preferred-tip metadata in the same durable transition batch. A failed full block never advances preferred header state.
 
-For a new valid header, build a storage batch with the index and, only when cumulative work exceeds the current preferred tip, the preferred-tip metadata. Commit durably first; update in-memory `header_tip` only after commit succeeds. Equality does not replace the current preferred tip in M6; deterministic first-accepted tie behavior remains local and does not alter active chain-selection rules.
-
-- [ ] **Step 6: Keep full-block paths synchronized with preferred header state**
-
-Whenever normal full-block admission validates a previously unknown header whose cumulative work exceeds `header_tip`, include preferred-header metadata in the same durable transition batch and publish the in-memory header tip after the durable commit. Do not update preferred state on failed full-block validation.
-
-- [ ] **Step 7: Verify chainstate**
-
-Run:
+- [ ] **Step 5: Verify and commit**
 
 ```bash
 cargo test -p oregon-chainstate --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-chainstate --all-targets -- -D warnings
-```
-
-Expected: PASS; existing block/reorg/durability behavior remains green.
-
-- [ ] **Step 8: Commit**
-
-```bash
 git add crates/oregon-chainstate
-
 git commit -m "feat: add authoritative header import path"
 ```
 
 ---
 
-### Task 4: Make header-only indexes promotable by full block bodies and expose network-independent sync queries
+### Task 4: Promote downloaded bodies for known header-only indexes and expose sync queries
 
-**Files:**
-- Create: `crates/oregon-chainstate/src/sync_view.rs`
-- Modify: `crates/oregon-chainstate/src/lib.rs`
-- Modify: `crates/oregon-chainstate/src/admission.rs`
-- Modify: `crates/oregon-chainstate/src/tests.rs`
+**Files:** create `sync_view.rs`; modify chainstate `lib.rs`, `admission.rs`, `tests.rs`.
 
-**Interfaces:**
-- Produces:
+**Produces:**
+```rust
+ChainState::preferred_header_id_at_height(u64) -> Result<Option<Hash256>, ChainStateError>
+ChainState::preferred_header_at_height(u64) -> Result<Option<BlockHeader>, ChainStateError>
+ChainState::active_id_at_height(u64) -> Result<Option<Hash256>, ChainStateError>
+ChainState::body_retained(Hash256) -> Result<bool, ChainStateError>
+ChainState::chain_id() -> Hash256
+```
+
+- [ ] **Step 1: Add an exact valid height-one coinbase fixture and red body-promotion test**
+
+In chainstate tests create height-one coinbase using public frozen rules:
 
 ```rust
-impl ChainState {
-    pub fn preferred_header_id_at_height(&self, height: u64) -> Result<Option<Hash256>, ChainStateError>;
-    pub fn preferred_header_at_height(&self, height: u64) -> Result<Option<BlockHeader>, ChainStateError>;
-    pub fn active_id_at_height(&self, height: u64) -> Result<Option<Hash256>, ChainStateError>;
-    pub fn body_retained(&self, block_id: Hash256) -> Result<bool, ChainStateError>;
-    pub fn chain_id(&self) -> Hash256;
+fn height_one_coinbase(config: &ChainConfig) -> Transaction {
+    let mut height = Vec::new();
+    write_varint(1, &mut height);
+    let mut founder_program = vec![0x01]; // KEY_COMMIT_V1 frozen value
+    founder_program.extend_from_slice(&config.params.founder_key_commitment);
+    Transaction {
+        version: 1,
+        inputs: vec![TxInput {
+            previous_txid: Hash256::from_bytes([0; 32]),
+            previous_output_index: u32::MAX,
+            sequence: u32::MAX,
+            witness: vec![height],
+        }],
+        outputs: vec![TxOutput {
+            value: Amount::from_base_units(FOUNDER_ALLOCATION_BASE_UNITS).unwrap(),
+            locking_program: founder_program,
+        }],
+        lock_time: 0,
+    }
 }
 ```
 
-- `chain_id()` returns exactly `self.config.anchor_header.block_id()`.
+Build a block from this tx, import header first, then call `accept_block`; expected `Extended`, active height 1, retained body and `FullyValidated`. Run the focused test first; current known-index early return must fail the assertions.
 
-- [ ] **Step 1: Write header-first body-promotion tests**
-
-Test the critical previously-impossible path:
-
-```rust
-state.accept_header(block.header.clone()).unwrap();
-assert_eq!(state.tip().height, 0);
-assert_eq!(state.accept_block(block.clone(), &RejectTestSpends).unwrap(), AcceptOutcome::Extended);
-assert_eq!(state.tip().height, 1);
-```
-
-Use a block form that does not call spend verification when it contains no normal spend, matching existing chainstate fixtures. Verify the stored index changes from `HeaderValidated/body_retained=false` to the existing correct full-block status and retained body/undo semantics.
-
-Also cover header-only sidechain body storage before it wins work, then later ordered bodies allowing existing reorg logic to activate it.
-
-- [ ] **Step 2: Run the tests and verify the current early-return bug**
-
-Run:
-
-```bash
-cargo test -p oregon-chainstate header_only -- --nocapture
-```
-
-Expected: FAIL because current `accept_block_healthy` treats any known non-invalid index as already accepted and returns without storing/validating a missing body.
-
-- [ ] **Step 3: Correct known-index handling in `accept_block_healthy`**
-
-Use this decision table:
+- [ ] **Step 2: Correct known-index admission with this exact table**
 
 ```text
-Invalid index                         -> corruption/error as today
-FullyValidated + retained body        -> existing idempotent outcome
-HeaderValidated + retained body       -> existing side-chain body behavior
-HeaderValidated + body_retained=false -> process this body using stored height/work/header
+Invalid                              -> existing error
+FullyValidated + body retained       -> idempotent existing outcome
+HeaderValidated + body retained      -> existing stored-sidechain semantics
+HeaderValidated + body not retained  -> process incoming body using stored header/height/work
 ```
 
-For the last case, verify the incoming header exactly equals the stored header, then use existing `extend_active` / side-chain store / `reorganize` paths with the stored authoritative `height` and `cumulative_work`; do not rerun or reimplement fork/work selection in networking.
+For the last case require incoming header equality with stored header. Use existing `extend_active`, side-chain durable store, or `reorganize`; do not redo chain work in networking.
 
-- [ ] **Step 4: Implement sync query methods as thin chainstate views**
+- [ ] **Step 3: Implement thin network-independent query methods**
 
-`preferred_header_id_at_height` walks `BranchView` from the preferred tip. `preferred_header_at_height` resolves that id through storage. `active_id_at_height` delegates to storage. `body_retained` reads the index and returns false for unknown ids. None of these methods accepts peer/protocol types.
+`preferred_header_*` walk `BranchView` from `header_tip`; `active_id_at_height` delegates storage; `body_retained` reads index; `chain_id` returns `config.anchor_header.block_id()`. No peer/protocol types enter chainstate.
 
-- [ ] **Step 5: Verify queries, restart, and regressions**
-
-Run:
+- [ ] **Step 4: Verify and commit**
 
 ```bash
 cargo test -p oregon-chainstate --all-targets
 cargo test -p oregon-storage --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-chainstate --all-targets -- -D warnings
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
 git add crates/oregon-chainstate
-
 git commit -m "feat: support header-first body promotion"
 ```
 
 ---
 
-### Task 5: Add the five M6 crates with exact dependency direction and no behavior yet
+### Task 5: Add the five M6 crate boundaries
 
-**Files:**
-- Modify: `Cargo.toml`
-- Modify: `Cargo.lock`
-- Create: each new crate manifest and `src/lib.rs`
+**Files:** root `Cargo.toml`, `Cargo.lock`; each new crate `Cargo.toml` + `src/lib.rs`.
 
-**Interfaces:**
-- Produces five compiling crates with `#![forbid(unsafe_code)]` and no upward core dependency.
-
-- [ ] **Step 1: Add workspace members**
-
-Append exactly:
-
-```toml
-"crates/oregon-protocol",
-"crates/oregon-network",
-"crates/oregon-peer",
-"crates/oregon-sync",
-"crates/oregon-node",
-```
-
-- [ ] **Step 2: Create manifests with one-way dependencies**
-
-Use these dependency sets:
-
+**Dependency sets:**
 ```text
 oregon-protocol: oregon-primitives, blake3, thiserror
 oregon-network:  oregon-protocol, tokio, async-trait, thiserror
@@ -487,621 +301,361 @@ oregon-sync:     oregon-peer, oregon-protocol, oregon-primitives, async-trait, t
 oregon-node:     oregon-chainstate, oregon-mempool, oregon-network, oregon-peer, oregon-protocol, oregon-sync, oregon-primitives, oregon-utxo, tokio, async-trait, thiserror
 ```
 
-Use `tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }` where required; `oregon-network` may use the smaller `io-util,net,sync,time` subset.
+- [ ] **Step 1: Add workspace members/manifests**
 
-- [ ] **Step 3: Add minimal unsafe-forbidden libraries**
+Use Tokio `version="1"`; node features `["macros","rt-multi-thread","sync","time"]`, network `["io-util","net","sync","time"]`. Every `lib.rs` begins `#![forbid(unsafe_code)]`. Do not scaffold QUIC/discovery/testnet APIs.
 
-Each `lib.rs` starts:
-
-```rust
-#![forbid(unsafe_code)]
-```
-
-No future-feature stubs for QUIC, discovery, DHT, compact blocks, or launch daemon are added.
-
-- [ ] **Step 4: Verify workspace compilation and lockfile**
-
-Run:
+- [ ] **Step 2: Verify and commit**
 
 ```bash
 cargo check --workspace --all-targets
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add Cargo.toml Cargo.lock crates/oregon-protocol crates/oregon-network crates/oregon-peer crates/oregon-sync crates/oregon-node
-
+git add Cargo.toml Cargo.lock crates/oregon-{protocol,network,peer,sync,node}
 git commit -m "build: add M6 network crate boundaries"
 ```
 
 ---
 
-### Task 6: Implement exact Oregon protocol-v1 messages, features, frame codec, and golden vectors
+### Task 6: Implement exact protocol-v1 codec and golden vectors
 
-**Files:**
-- Create/Modify: `crates/oregon-protocol/src/constants.rs`
-- Create/Modify: `crates/oregon-protocol/src/features.rs`
-- Create/Modify: `crates/oregon-protocol/src/message.rs`
-- Create/Modify: `crates/oregon-protocol/src/frame.rs`
-- Create/Modify: `crates/oregon-protocol/src/error.rs`
-- Modify: `crates/oregon-protocol/src/lib.rs`
-- Test: `crates/oregon-protocol/src/tests.rs`
+**Files:** protocol modules listed in File Structure.
 
-**Interfaces:**
-
+**Produces:**
 ```rust
 pub struct FeatureSet(u64);
 pub enum InventoryKind { Transaction, Block }
 pub struct InventoryItem { pub kind: InventoryKind, pub hash: Hash256 }
-pub struct Hello { /* exact spec fields */ }
-pub struct HelloAck { pub selected_protocol_version: u16, pub enabled_features: FeatureSet, pub remote_nonce_echo: [u8; 16] }
+pub struct Hello { pub min_protocol_version:u16, pub max_protocol_version:u16, pub chain_id:Hash256, pub instance_nonce:[u8;16], pub offered_features:FeatureSet, pub required_features:FeatureSet, pub best_height:u64, pub best_block_id:Hash256 }
+pub struct HelloAck { pub selected_protocol_version:u16, pub enabled_features:FeatureSet, pub remote_nonce_echo:[u8;16] }
+pub struct GetHeaders { pub locator:Vec<Hash256>, pub stop:Option<Hash256> }
 pub enum Message { Hello(Hello), HelloAck(HelloAck), Ping(u64), Pong(u64), Inv(Vec<InventoryItem>), GetData(Vec<InventoryItem>), GetHeaders(GetHeaders), Headers(Vec<BlockHeader>), Transaction(Transaction), Block(Block) }
-pub struct FrameHeader { pub network_magic: [u8; 4], pub frame_version: u8, pub message_type: u8, pub flags: u16, pub payload_length: u32, pub checksum: [u8; 4] }
-pub fn network_magic(chain_id: Hash256) -> [u8; 4];
-pub fn encode_message(message: &Message) -> Result<(u8, Vec<u8>), ProtocolError>;
-pub fn decode_message(tag: u8, payload: &[u8]) -> Result<Message, ProtocolError>;
-pub fn build_frame_header(magic: [u8; 4], tag: u8, payload: &[u8]) -> Result<FrameHeader, ProtocolError>;
-pub fn verify_frame_payload(header: &FrameHeader, expected_magic: [u8; 4], payload: &[u8]) -> Result<(), ProtocolError>;
+pub struct FrameHeader { pub network_magic:[u8;4], pub frame_version:u8, pub message_type:u8, pub flags:u16, pub payload_length:u32, pub checksum:[u8;4] }
+pub fn network_magic(chain_id: Hash256) -> [u8;4];
+pub fn encode_message(&Message) -> Result<(u8,Vec<u8>),ProtocolError>;
+pub fn decode_message(u8,&[u8]) -> Result<Message,ProtocolError>;
+pub fn build_frame_header([u8;4],u8,&[u8]) -> Result<FrameHeader,ProtocolError>;
+pub fn verify_frame_payload(&FrameHeader,[u8;4],&[u8]) -> Result<(),ProtocolError>;
 ```
 
-- [ ] **Step 1: Write exact-tag, exact-length, and feature-negotiation tests first**
+- [ ] **Step 1: Write red exact-wire tests**
 
-Examples:
+Assert all numeric tags; Hello payload exactly 108 bytes; HelloAck 26; Ping/Pong 8; unknown tag/kind rejected; non-zero v1 flags rejected; list limits exact; protocol highest mutual version; unknown optional ignored; unsupported required rejected; canonical tx/block payload uses existing primitive encode/decode.
 
-```rust
-assert_eq!(MessageTag::Hello as u8, 0x01);
-assert_eq!(encode_message(&Message::Hello(hello)).unwrap().1.len(), 108);
-assert_eq!(encode_message(&Message::HelloAck(ack)).unwrap().1.len(), 26);
-```
+- [ ] **Step 2: Add one fixed frame golden vector**
 
-Test highest mutual protocol version, no overlap, unknown optional feature ignored, unknown/unsupported required feature rejected, and `HelloAck` mismatch rejection helper.
+Fixed chain id + Ping nonce must assert exact full frame bytes. Add checksum corruption/wrong magic/truncation/oversize tests. Run `cargo test -p oregon-protocol`; expected FAIL.
 
-- [ ] **Step 2: Add frame golden-vector tests and run them red**
+- [ ] **Step 3: Implement without serde/bincode**
 
-Build one fixed chain id/ping payload and assert the complete 16-byte header plus payload hex is stable. Add corruption tests for wrong magic, non-zero flags, wrong checksum, unknown tag, truncated exact-size handshake payload, list count 4,097/129/65, and `MAX_FRAME_PAYLOAD + 1` header rejection.
+Use existing `Decoder`/canonical varints. Frame checksum is first four bytes of `BLAKE3("OREGON/FRAME/V1\0" || 12-byte-header-without-checksum || payload)`; magic is first four of `BLAKE3("OREGON/NETMAGIC/V1\0" || chain_id)`.
 
-Run:
-
-```bash
-cargo test -p oregon-protocol --all-targets
-```
-
-Expected: FAIL before implementation.
-
-- [ ] **Step 3: Implement constants/features and canonical payload codecs**
-
-Use existing Oregon canonical varints through `oregon-primitives::write_varint` and `Decoder`. Do not introduce serde/bincode. `Transaction` and `Block` payloads call their existing `encode/decode` directly.
-
-- [ ] **Step 4: Implement the 16-byte frame header/checksum**
-
-Checksum input is exactly:
-
-```text
-BLAKE3("OREGON/FRAME/V1\0" || 12-byte-header-without-checksum || payload)
-```
-
-`network_magic` is exactly first four bytes of `BLAKE3("OREGON/NETMAGIC/V1\0" || chain_id)`.
-
-- [ ] **Step 5: Verify protocol**
-
-Run:
+- [ ] **Step 4: Verify and commit**
 
 ```bash
 cargo test -p oregon-protocol --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-protocol --all-targets -- -D warnings
-```
-
-Expected: PASS with golden vectors.
-
-- [ ] **Step 6: Commit**
-
-```bash
 git add crates/oregon-protocol
-
 git commit -m "feat: define Oregon protocol v1 wire format"
 ```
 
 ---
 
-### Task 7: Implement bounded framed TCP transport with progress and absolute deadlines
+### Task 7: Implement bounded framed TCP transport
 
-**Files:**
-- Create/Modify: `crates/oregon-network/src/transport.rs`
-- Create/Modify: `crates/oregon-network/src/tcp.rs`
-- Create/Modify: `crates/oregon-network/src/io.rs`
-- Create/Modify: `crates/oregon-network/src/error.rs`
-- Modify: `crates/oregon-network/src/lib.rs`
-- Test: `crates/oregon-network/src/tests.rs`
+**Files:** network modules listed in File Structure.
 
-**Interfaces:**
-
+**Produces:**
 ```rust
+#[async_trait::async_trait]
+pub trait TransportListener: Send + 'static {
+    type Connection: TransportConnection;
+    fn local_addr(&self) -> SocketAddr;
+    async fn accept(&mut self) -> Result<Self::Connection, NetworkError>;
+}
+
 #[async_trait::async_trait]
 pub trait Transport: Send + Sync + 'static {
     type Connection: TransportConnection;
-    type Listener: TransportListener<Connection = Self::Connection>;
-    async fn bind(&self, addr: SocketAddr, magic: [u8; 4]) -> Result<Self::Listener, NetworkError>;
-    async fn connect(&self, addr: SocketAddr, magic: [u8; 4]) -> Result<Self::Connection, NetworkError>;
+    type Listener: TransportListener<Connection=Self::Connection>;
+    async fn bind(&self, addr:SocketAddr, magic:[u8;4]) -> Result<Self::Listener,NetworkError>;
+    async fn connect(&self, addr:SocketAddr, magic:[u8;4]) -> Result<Self::Connection,NetworkError>;
 }
 
 #[async_trait::async_trait]
 pub trait TransportConnection: Send + 'static {
     fn remote_addr(&self) -> SocketAddr;
-    async fn read_message(&mut self) -> Result<Message, NetworkError>;
-    async fn write_message(&mut self, message: &Message) -> Result<(), NetworkError>;
-    async fn shutdown(&mut self) -> Result<(), NetworkError>;
+    async fn read_message(&mut self) -> Result<Message,NetworkError>;
+    async fn write_message(&mut self, message:&Message) -> Result<(),NetworkError>;
+    async fn shutdown(&mut self) -> Result<(),NetworkError>;
 }
 ```
 
-`TcpTransport`, `TcpListenerHandle`, and `TcpConnection` implement these traits.
+- [ ] **Step 1: Write red `tokio::io::duplex` tests**
 
-- [ ] **Step 1: Write `tokio::io::duplex` framed-I/O tests first**
+Write only a 16-byte frame header advertising `MAX_FRAME_PAYLOAD+1`; reader must immediately return `OversizedFrame` without waiting for payload. Test roundtrip, checksum error, truncation, 15s no-progress, 60s absolute trickle deadline, 15s write deadline.
 
-Cover exact before-allocation size rejection by writing only a 16-byte header advertising `MAX_FRAME_PAYLOAD + 1` and proving the reader returns `NetworkError::OversizedFrame` without waiting for payload bytes. Add wrong checksum, truncated frame, write/read roundtrip, no-progress timeout, and absolute trickle-duration timeout using Tokio paused time where practical.
+- [ ] **Step 2: Implement progress-aware reader**
 
-- [ ] **Step 2: Run tests red**
+Read fixed header first. Validate payload length before `Vec` allocation. Loop payload reads with a no-progress timeout reset only on received bytes plus independent absolute deadline.
 
-```bash
-cargo test -p oregon-network --all-targets
-```
+- [ ] **Step 3: Implement TCP transport**
 
-Expected: FAIL because transport/framed IO does not exist.
+`TcpTransport`/listener/connection implement traits; set `TCP_NODELAY`; no peer policy or core state here.
 
-- [ ] **Step 3: Implement a progress-aware exact reader**
-
-Do not use one unbounded `read_exact` timeout. Loop reads so every successful byte receipt resets `FRAME_NO_PROGRESS_TIMEOUT`, while a separately measured absolute deadline enforces `MAX_FRAME_READ_DURATION`. Parse the fixed frame header first and reject oversized length before allocating `Vec<u8>` for payload.
-
-- [ ] **Step 4: Implement bounded frame writes and TCP transport**
-
-`write_message` encodes payload first, verifies it is within `MAX_FRAME_PAYLOAD`, builds the protocol frame header, and wraps the full write in `FRAME_WRITE_TIMEOUT`. TCP bind/connect set `TCP_NODELAY`; no consensus/policy state appears here.
-
-- [ ] **Step 5: Verify network crate**
+- [ ] **Step 4: Verify and commit**
 
 ```bash
 cargo test -p oregon-network --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-network --all-targets -- -D warnings
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
 git add crates/oregon-network
-
 git commit -m "feat: add bounded TCP transport"
 ```
 
 ---
 
-### Task 8: Implement peer configuration, bounded queues, handshake, self/duplicate protection
+### Task 8: Implement peer limits, queues, handshake, self/duplicate rules
 
-**Files:**
-- Create/Modify: `crates/oregon-peer/src/config.rs`
-- Create/Modify: `crates/oregon-peer/src/budget.rs`
-- Create/Modify: `crates/oregon-peer/src/handshake.rs`
-- Create/Modify: `crates/oregon-peer/src/session.rs`
-- Create/Modify: `crates/oregon-peer/src/service.rs`
-- Create/Modify: `crates/oregon-peer/src/error.rs`
-- Modify: `crates/oregon-peer/src/lib.rs`
-- Test: `crates/oregon-peer/src/tests.rs`
+**Files:** peer `config.rs`, `budget.rs`, `handshake.rs`, `session.rs`, `service.rs`, `error.rs`, `lib.rs`, `tests.rs`.
 
-**Interfaces:**
-
+**Produces:**
 ```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct PeerId(u64);
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PeerId(pub u64);
 pub enum Direction { Inbound, Outbound }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueClass { Control, RequiredData, Gossip }
-
-pub struct PeerConfig {
-    pub max_peers: usize,
-    pub max_outbound: usize,
-    pub max_inbound: usize,
-}
-
-pub struct EstablishedPeer {
-    pub peer_id: PeerId,
-    pub remote_addr: SocketAddr,
-    pub direction: Direction,
-    pub negotiated_version: u16,
-    pub features: FeatureSet,
-    pub remote_best_height: u64,
-    pub remote_best_block_id: Hash256,
-}
-
+pub struct PeerConfig { pub max_peers:usize, pub max_outbound:usize, pub max_inbound:usize }
+pub struct EstablishedPeer { pub peer_id:PeerId, pub remote_addr:SocketAddr, pub direction:Direction, pub negotiated_version:u16, pub features:FeatureSet, pub remote_best_height:u64, pub remote_best_block_id:Hash256 }
 pub enum PeerEvent {
     Established(EstablishedPeer),
-    Message { peer_id: PeerId, message: Message },
-    Disconnected { peer_id: PeerId, reason: DisconnectReason },
+    Message { peer_id:PeerId, message:Message },
+    Disconnected { peer_id:PeerId, reason:DisconnectReason },
 }
 ```
 
-- [ ] **Step 1: Write exact config/queue boundary tests**
+- [ ] **Step 1: Write red exact-bound tests**
 
-Test invalid `inbound + outbound > total`, total > 128, 256th/257th frame behavior, 4 MiB exact byte boundary, 64 MiB global accounting, and 16-frame/64-KiB control reservation. Gossip drops when data capacity is full; required/control send waits at most two seconds then causes disconnect/no side buffer.
+Test invalid config sums; total >128; 256/257 frames; 4 MiB per-peer; 64 MiB global; control reservation exact 16 frames/64 KiB; gossip drop; required/control enqueue timeout 2s. Test handshake legal states, pre-established gossip violation, version/features/Ack mismatch, 10s timeout, 32/33 pending, self nonce, both duplicate-arbitration perspectives.
 
-- [ ] **Step 2: Write handshake state tests**
+- [ ] **Step 2: Implement byte+count queue budgets**
 
-Cover: exact legal state transitions; gossip before `Established` => violation; no version overlap; unsupported required feature; `HelloAck` mismatch; 10-second timeout; 32 pending accepted / 33rd rejected; self nonce; both perspectives of simultaneous A<->B duplicate arbitration.
+Reserve count and bytes before enqueue; release exactly once. Control reservation is inside the same caps/global budget. No fallback Vec/queue.
 
-- [ ] **Step 3: Run peer tests red**
-
-```bash
-cargo test -p oregon-peer --all-targets
-```
-
-Expected: FAIL before implementation.
-
-- [ ] **Step 4: Implement byte-and-count budget queues**
-
-Keep accounting private to the crate. Queue insertion reserves both frame count and bytes before enqueue; drop/release returns both budgets exactly once. Control reservation lives inside total per-peer/global caps.
-
-- [ ] **Step 5: Implement process nonce and handshake state machine**
-
-Generate startup nonce with:
+- [ ] **Step 3: Implement process nonce and handshake**
 
 ```rust
-let mut nonce = [0u8; 16];
+let mut nonce = [0u8;16];
 getrandom::fill(&mut nonce).map_err(PeerError::Entropy)?;
 ```
 
-Implement the exact nonce comparison rule from the spec. `best_height` remains stored peer metadata only.
+Use exact nonce direction rule. Remote best height remains metadata only.
 
-- [ ] **Step 6: Implement `PeerService` over generic `Transport`**
-
-The service owns accept/dial/session tasks and emits only established/message/disconnect events. It does not inspect transaction/block validity.
-
-- [ ] **Step 7: Verify peer lifecycle**
+- [ ] **Step 4: Implement generic `PeerService<T:Transport>` and verify**
 
 ```bash
 cargo test -p oregon-peer --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-peer --all-targets -- -D warnings
-```
-
-Expected: PASS.
-
-- [ ] **Step 8: Commit**
-
-```bash
 git add crates/oregon-peer
-
 git commit -m "feat: add bounded peer lifecycle and handshake"
 ```
 
 ---
 
-### Task 9: Add peer request matching, liveness, scoring, and bounded cooldown
+### Task 9: Add peer request matching, liveness, scoring, cooldown
 
-**Files:**
-- Create/Modify: `crates/oregon-peer/src/request.rs`
-- Create/Modify: `crates/oregon-peer/src/score.rs`
-- Create/Modify: `crates/oregon-peer/src/cooldown.rs`
-- Modify: `crates/oregon-peer/src/service.rs`
-- Modify: `crates/oregon-peer/src/lib.rs`
-- Test: `crates/oregon-peer/src/tests.rs`
+**Files:** peer `request.rs`, `score.rs`, `cooldown.rs`, `service.rs`, `lib.rs`, `tests.rs`.
 
-**Interfaces:**
-
+**Produces:**
 ```rust
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum RequestKey {
-    Headers,
-    Object(InventoryItem),
-}
-
-pub enum PeerCommand {
-    Send { peer_id: PeerId, message: Message, class: QueueClass },
-    Expect { peer_id: PeerId, key: RequestKey },
-    Disconnect { peer_id: PeerId },
-    Feedback { peer_id: PeerId, feedback: PeerFeedback },
-}
-
+pub enum RequestKey { Headers, Object(InventoryItem) }
 pub enum PeerFeedback { InvalidHeader, InvalidBlock, RequestAbuse }
-
+pub enum PeerCommand {
+    Send { peer_id:PeerId, message:Message, class:QueueClass },
+    Expect { peer_id:PeerId, key:RequestKey },
+    Disconnect { peer_id:PeerId },
+    Feedback { peer_id:PeerId, feedback:PeerFeedback },
+}
 pub enum PeerEvent {
-    /* existing variants */
-    MatchedResponse { peer_id: PeerId, key: RequestKey, message: Message },
-    RequestTimedOut { peer_id: PeerId, key: RequestKey },
-    Unsolicited { peer_id: PeerId, message: Message },
+    Established(EstablishedPeer),
+    Message { peer_id:PeerId, message:Message },
+    MatchedResponse { peer_id:PeerId, key:RequestKey, message:Message },
+    RequestTimedOut { peer_id:PeerId, key:RequestKey },
+    Unsolicited { peer_id:PeerId, message:Message },
+    Disconnected { peer_id:PeerId, reason:DisconnectReason },
 }
 ```
 
-- [ ] **Step 1: Write request/late-response tests**
+- [ ] **Step 1: Write red request/grace tests**
 
-Cover one outstanding `Headers` request per peer; object response matching by kind/hash; response-start timeout at 20 seconds; timed-out key moved to grace set; late match within 30 seconds discarded without score; 128 grace entries exact / deterministic oldest expiry eviction; non-grace unsolicited object +10.
+One outstanding Headers per peer; object match by kind/hash; 20s response-start timeout; timeout moves key to 30s grace; grace response discarded without score; 128 exact grace cap; deterministic earliest-expiry eviction; non-grace unsolicited +10.
 
-- [ ] **Step 2: Write scoring/cooldown/liveness tests**
+- [ ] **Step 2: Write red score/liveness/cooldown tests**
 
-Assert exact points and thresholds:
+Exact points: malformed +25; handshake +25; invalid response +10; unsolicited +10; request abuse +10; sync timeout +5; invalid header/block +50; oversized immediate disconnect. At 50 no new sync; at 100 disconnect. Test 30s ping/15s pong/120s idle. Normalize IPv4-mapped IPv6; cooldown cap 1,024, earliest expiry evicted.
 
-```rust
-score.add(Misbehavior::InvalidBlock);
-assert_eq!(score.points(), 50);
-assert!(!score.sync_eligible());
-score.add(Misbehavior::InvalidBlock);
-assert!(score.disconnect_required());
-```
+- [ ] **Step 3: Implement request registry before upper-layer exposure**
 
-Test malformed +25, handshake +25, invalid response +10, unsolicited +10, request abuse +10, sync timeout +5, oversized immediate disconnect. Test ping every 30s, pong timeout 15s, idle 120s. Cooldown keys normalize IPv4-mapped IPv6 and evict earliest expiry when 1,024 cap is exceeded.
+Headers/Transaction/Block only surface as `MatchedResponse`; bounded grace matches are dropped; unmatched full object surfaces as `Unsolicited`. Performance snapshot stores success count, timeout count, integer response latency separately from score.
 
-- [ ] **Step 3: Run tests red then implement request registry**
-
-```bash
-cargo test -p oregon-peer request -- --nocapture
-cargo test -p oregon-peer score -- --nocapture
-```
-
-Expected: FAIL before implementation.
-
-- [ ] **Step 4: Implement matching before `PeerEvent` exposure**
-
-A `Headers`, `Transaction`, or `Block` message reaches upper layers only as `MatchedResponse` when registered. Grace responses are dropped locally. Unmatched full objects become `Unsolicited` and score according to the spec.
-
-- [ ] **Step 5: Implement separate performance observations**
-
-Track successful request count, timeout count, and integer response latency (e.g. microseconds as `u64`) separately from misbehavior points. Expose a read-only `PeerPerformance` snapshot for sync preference; never subtract misbehavior because a peer is fast.
-
-- [ ] **Step 6: Verify peer behavior**
+- [ ] **Step 4: Verify and commit**
 
 ```bash
 cargo test -p oregon-peer --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-peer --all-targets -- -D warnings
-```
-
-Expected: PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
 git add crates/oregon-peer
-
 git commit -m "feat: enforce peer request and scoring policy"
 ```
 
 ---
 
-### Task 10: Implement pure fork-aware sync intent, locator construction, and bounded block scheduler
+### Task 10: Implement locator and bounded fork-aware sync scheduler
 
-**Files:**
-- Create/Modify: `crates/oregon-sync/src/view.rs`
-- Create/Modify: `crates/oregon-sync/src/locator.rs`
-- Create/Modify: `crates/oregon-sync/src/scheduler.rs`
-- Create/Modify: `crates/oregon-sync/src/state.rs`
-- Create/Modify: `crates/oregon-sync/src/error.rs`
-- Modify: `crates/oregon-sync/src/lib.rs`
-- Test: `crates/oregon-sync/src/tests.rs`
+**Files:** sync modules listed in File Structure.
 
-**Interfaces:**
-
+**Produces:**
 ```rust
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SyncTip { pub block_id: Hash256, pub height: u64 }
-
+pub struct SyncTip { pub block_id:Hash256, pub height:u64 }
 #[async_trait::async_trait]
 pub trait ChainSyncView: Send + Sync {
-    async fn active_tip(&self) -> Result<SyncTip, SyncViewError>;
-    async fn preferred_header_tip(&self) -> Result<SyncTip, SyncViewError>;
-    async fn active_id_at_height(&self, height: u64) -> Result<Option<Hash256>, SyncViewError>;
-    async fn preferred_header_id_at_height(&self, height: u64) -> Result<Option<Hash256>, SyncViewError>;
-    async fn preferred_header_at_height(&self, height: u64) -> Result<Option<BlockHeader>, SyncViewError>;
-    async fn body_retained(&self, block_id: Hash256) -> Result<bool, SyncViewError>;
+    async fn active_tip(&self) -> Result<SyncTip,SyncViewError>;
+    async fn preferred_header_tip(&self) -> Result<SyncTip,SyncViewError>;
+    async fn active_id_at_height(&self,u64) -> Result<Option<Hash256>,SyncViewError>;
+    async fn preferred_header_id_at_height(&self,u64) -> Result<Option<Hash256>,SyncViewError>;
+    async fn preferred_header_at_height(&self,u64) -> Result<Option<BlockHeader>,SyncViewError>;
+    async fn body_retained(&self,Hash256) -> Result<bool,SyncViewError>;
 }
-
 pub enum SyncAction {
-    SendGetHeaders { peer_id: PeerId, request: GetHeaders },
-    RequestBlock { peer_id: PeerId, block_id: Hash256 },
-    SubmitBlock { source: PeerId, block: Block },
-    Stalled { block_id: Hash256 },
+    SendGetHeaders { peer_id:PeerId, request:GetHeaders },
+    RequestBlock { peer_id:PeerId, block_id:Hash256 },
+    SubmitBlock { source:PeerId, block:Block },
+    Stalled { block_id:Hash256 },
 }
 ```
 
-- [ ] **Step 1: Write locator tests first**
+- [ ] **Step 1: Write red locator/header tests**
 
-Given a fake preferred chain height 30, assert first ten entries step by one, then 2/4/8 doubling, anchor included, and length <=64. At exact 64 boundary, no 65th entry is emitted.
+First ten locator entries step 1, then 2/4/8 doubling, anchor included, max 64. Serve from highest locator hit on preferred path, max 128 headers. Remote advertised height never modifies preferred tip.
 
-- [ ] **Step 2: Write header-response serving/validation tests**
+- [ ] **Step 2: Write red scheduler tests**
 
-Using a fake `ChainSyncView`, test highest locator hit on preferred chain, max 128 headers, 129 rejected at protocol boundary, contiguous first-parent requirement, outstanding request requirement (peer already guarantees this, sync still associates the response with current sync round), and remote best-height lies never alter the view-selected preferred tip.
+Exact 32 global/8 peer/32 buffered; three total attempts; timeout releases ownership before reassignment; score>=50 peer ineligible; out-of-order blocks emit `SubmitBlock` only in preferred-path order; third failure emits `Stalled`.
 
-- [ ] **Step 3: Write block scheduler tests**
+- [ ] **Step 3: Implement topology without `ChainWork`**
 
-Cover exactly: 32 global, 8 per peer, 32 buffered bodies, three total attempts, timeout releases ownership before reassignment, no assignment to score>=50 peer, late expired response never returns to in-flight, out-of-order blocks become `SubmitBlock` only in preferred-path order, and `Stalled` after attempt three.
+Find common point by opaque active/preferred ids+heights from `ChainSyncView`; never receive/compare work. Build missing-body target list from preferred fork path and skip retained bodies.
 
-- [ ] **Step 4: Run sync tests red**
+- [ ] **Step 4: Implement deterministic peer choice**
 
-```bash
-cargo test -p oregon-sync --all-targets
-```
+Sort eligible peers by timeout count, then integer latency, then `PeerId`; capability/sync-eligibility is a prerequisite. Enforce caps before emitting `RequestBlock`.
 
-Expected: FAIL before implementation.
-
-- [ ] **Step 5: Implement locator and preferred-path topology without work comparison**
-
-Sync may compare hashes/heights to find the common point between the authoritative active path and authoritative preferred-header path, but it never receives `ChainWork` and never computes/selects work. Populate the body target path from fork+1 through preferred header tip and skip ids whose bodies are already retained.
-
-- [ ] **Step 6: Implement deterministic scheduler state**
-
-Use `BTreeMap`/`BTreeSet` where ordering affects output. Choose eligible peers by: sync-eligible flag, then lower timeout count, then lower integer latency, then `PeerId` as deterministic tie-break. Cap global/per-peer in-flight before emitting `RequestBlock`.
-
-- [ ] **Step 7: Verify sync**
+- [ ] **Step 5: Verify and commit**
 
 ```bash
 cargo test -p oregon-sync --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-sync --all-targets -- -D warnings
-```
-
-Expected: PASS.
-
-- [ ] **Step 8: Commit**
-
-```bash
 git add crates/oregon-sync
-
 git commit -m "feat: add headers-first bounded sync scheduler"
 ```
 
 ---
 
-### Task 11: Implement Oregon node composition, bounded core worker, sync adapter, and validation-before-relay
+### Task 11: Implement node core worker, sync adapter, orchestration, validation-before-relay
 
-**Files:**
-- Create/Modify: `crates/oregon-node/src/core.rs`
-- Create/Modify: `crates/oregon-node/src/sync_adapter.rs`
-- Create/Modify: `crates/oregon-node/src/relay.rs`
-- Create/Modify: `crates/oregon-node/src/node.rs`
-- Create/Modify: `crates/oregon-node/src/error.rs`
-- Modify: `crates/oregon-node/src/lib.rs`
-- Test: `crates/oregon-node/src/tests.rs`
+**Files:** node modules listed in File Structure.
 
-**Interfaces:**
-
+**Produces:**
 ```rust
-pub struct NodeConfig {
-    pub listen_addr: SocketAddr,
-    pub bootstrap_peers: Vec<SocketAddr>,
-    pub peer: PeerConfig,
-    pub mempool: MempoolConfig,
+pub struct NodeConfig { pub listen_addr:SocketAddr, pub bootstrap_peers:Vec<SocketAddr>, pub peer:PeerConfig, pub mempool:MempoolConfig }
+
+pub(crate) struct CoreHandle {
+    tx: tokio::sync::mpsc::Sender<CoreEnvelope>,
+    bytes: std::sync::Arc<tokio::sync::Semaphore>,
 }
-
-pub struct OregonNode<V, T = TcpTransport>
-where
-    V: SpendVerifier + Send + 'static,
-    T: Transport;
-
-pub struct CoreHandle { /* bounded sender + byte semaphore */ }
 ```
 
-Core commands are internal and include `ImportHeaders`, `AcceptBlock`, `AdmitTransaction`, `SyncQuery`, and `Shutdown`, each with a `oneshot` reply where needed.
+`OregonNode<V,T>` is generic with `V: SpendVerifier + Send + 'static` and `T: Transport`; no default permissive verifier exists.
 
-- [ ] **Step 1: Write core-queue tests first**
+- [ ] **Step 1: Write red core-queue/thread tests**
 
-Test 64 exact command slots / 65th waits or fails by chosen bounded API; exact 8 MiB budget; permits released exactly once on receive/drop; `ImportHeaders` rejects a slice larger than 16; core work executes on the blocking worker rather than the async test thread (capture thread id in a test-only command).
+64 exact commands; byte budget exact 8 MiB; permit release on receive/drop; header command >16 rejected; test-only command proves execution thread differs from Tokio reactor task.
 
-- [ ] **Step 2: Write relay authorization tests**
+- [ ] **Step 2: Write red relay tests**
 
-Use fake peer output capture and a test-only verifier:
+Rejected tx => no Inv; accepted tx => Inv; invalid block => no Inv; accepted sidechain => block Inv; active change reconciles mempool before tx service resumes; reconciliation failure rebuilds empty pool with saved `MempoolConfig` + new authoritative `ChainBase`.
 
-```rust
-let result = core.admit_transaction(tx.clone(), source).await;
-assert!(result.is_err());
-assert!(!relay.sent_inventory(tx.txid()));
-```
+- [ ] **Step 3: Implement one blocking core owner**
 
-Add the positive case where mempool accepts then exactly one `Inv(TxId)` is eligible. Add invalid-block no-relay, accepted side-chain relay, active extension relay only after mempool reconciliation, and reconciliation-failure fallback to a new empty mempool on the new `ChainBase`.
+Use `mpsc::channel(64)` plus an 8-MiB semaphore. Sender acquires byte permits before enqueue. One `spawn_blocking` loop consumes with `blocking_recv()` and exclusively owns `ChainState`, `Mempool`, saved config, and verifier. Split remote header batches to <=16 before core commands.
 
-- [ ] **Step 3: Run node tests red**
+- [ ] **Step 4: Implement `ChainSyncView` adapter via bounded core read commands**
 
-```bash
-cargo test -p oregon-node --lib --all-targets
-```
+Map chainstate failures to coarse `SyncViewError::Unavailable`; never export consensus/storage variants upward.
 
-Expected: FAIL before implementation.
+- [ ] **Step 5: Implement authoritative orchestration**
 
-- [ ] **Step 4: Implement the bounded blocking core worker**
+Build `ChainBase` only from `ChainState::tip()`. `Extended` => `reconcile_active_block`; `Reorganized` => `reconcile_reorg`; `StoredSideChain` => no active mempool-base change. If post-commit reconciliation unexpectedly fails, replace with `Mempool::new(new_base,saved_config.clone())`.
 
-Use `tokio::sync::mpsc::channel(MAX_CORE_COMMANDS)` plus an `Arc<tokio::sync::Semaphore>` with `MAX_CORE_COMMAND_BYTES` permits. Each sender acquires byte permits before enqueue. Start one `tokio::task::spawn_blocking` loop and consume with `Receiver::blocking_recv()`. The worker exclusively owns `ChainState`, `Mempool`, the preserved `MempoolConfig`, and `V`.
+- [ ] **Step 6: Implement bounded inventory relay**
 
-Header batches from peers are split by node into chunks of at most 16 before `ImportHeaders` commands; yield between chunks by returning to the async event loop.
+Per-peer known inventory cap 8,192 and recent relay 65,536 with FIFO generation eviction. Source peer is excluded. Register `Expect` before sending `GetData` to avoid response race.
 
-- [ ] **Step 5: Implement `ChainSyncView` adapter through core queries**
-
-`sync_adapter.rs` implements the trait owned by `oregon-sync`; every method sends a bounded read query to the core worker and maps `ChainStateError` only to coarse `SyncViewError::Unavailable`. Do not expose consensus/storage error enums upward.
-
-- [ ] **Step 6: Implement mempool/chainstate orchestration**
-
-Construct `ChainBase` only from `ChainState::tip()`. For `AcceptOutcome::Extended`, call `reconcile_active_block`; for `Reorganized`, call `reconcile_reorg`; for `StoredSideChain`, keep the current mempool base. If reconciliation returns an unexpected error after durable chain acceptance, replace with `Mempool::new(new_base, saved_config.clone())` and continue with an empty pool.
-
-- [ ] **Step 7: Implement inventory-first relay and bounded dedup**
-
-Maintain per-peer known inventory at max 8,192 and node recent-relay cache at 65,536 using generation FIFO eviction. Never re-advertise immediately to the source peer. On `Inv`, request only objects the core/sync state says are needed, and register `PeerCommand::Expect` before `GetData` so a fast response cannot race the registry.
-
-- [ ] **Step 8: Wire peer events and sync actions**
-
-Sequence for requested tx/block must be:
-
+Exact event order:
 ```text
-PeerEvent::MatchedResponse -> core command -> authoritative result -> relay cache/inventory -> PeerCommand::Send Inv
+Matched tx/block -> core acceptance -> coarse result -> relay authorization -> Inv
+Matched headers -> chunks <=16 -> core accept_header -> sync refresh -> Expect object -> GetData
 ```
 
-Sequence for headers:
+`StorageFaulted`/`ReindexRequired` stops new mutation/sync work and is not converted to peer blame.
 
-```text
-Matched Headers -> split <=16 -> core accept_header sequentially -> coarse preferred tip -> sync refresh -> register expected block response -> GetData
-```
-
-On `ReindexRequired`/storage-fault health, stop new core mutation/sync scheduling and surface node fault state; do not translate it into peer consensus blame.
-
-- [ ] **Step 9: Verify node library**
+- [ ] **Step 7: Verify and commit**
 
 ```bash
 cargo test -p oregon-node --lib --all-targets
 cargo fmt --all -- --check
 cargo clippy -p oregon-node --all-targets -- -D warnings
-```
-
-Expected: PASS.
-
-- [ ] **Step 10: Commit**
-
-```bash
 git add crates/oregon-node
-
 git commit -m "feat: orchestrate validated Oregon peer relay"
 ```
 
 ---
 
-### Task 12: Prove M6 with three real loopback nodes, architecture gates, and security mutations
+### Task 12: Prove three-node TCP sync, CI architecture boundaries, and mutations
 
-**Files:**
-- Create/Modify: `crates/oregon-node/tests/support/mod.rs`
-- Create/Modify: `crates/oregon-node/tests/loopback.rs`
-- Modify: `.github/workflows/oregon-rust.yml`
-- Modify only if needed for test gating: crate manifests' `[dev-dependencies]` / test-only features
+**Files:** node integration tests/support, `.github/workflows/oregon-rust.yml`, dev-dependencies only when needed.
 
-**Interfaces:**
-- Test-only `AcceptAllSpends` stays under `crates/oregon-node/tests/support` and is never re-exported from `oregon-node`.
-- Test harness exposes helpers only inside integration tests.
+- [ ] **Step 1: Create exact test-only valid-chain helpers**
 
-- [ ] **Step 1: Build a test-only three-node harness**
+`tests/support/mod.rs` defines private `AcceptAllSpends` and a max-target `ChainConfig`. Valid blocks contain one coinbase: height 1 output index 0 is exact founder allocation/program; heights >1 may use zero miner outputs (underclaim is valid). Coinbase witness[0] is canonical height varint; header timestamp increments 300s; transaction root is canonical; max target makes every computed RandomX hash satisfy target while still executing the real PoW path.
 
-Use `127.0.0.1:0` listeners, independent temp RocksDB directories, the same `ChainConfig`, and a max-target fixture so RandomX hashes are accepted when all other header rules pass. Keep `AcceptAllSpends` private to the integration-test crate.
+- [ ] **Step 2: Add real loopback handshake tests**
 
-- [ ] **Step 2: Add handshake/duplicate/self end-to-end tests**
+Use `127.0.0.1:0`, independent temp DBs, same chain config. Prove A-B-C established, feature negotiation, simultaneous duplicate leaves one session, self nonce rejected.
 
-Assert real TCP A-B-C sessions establish, features negotiate, simultaneous A<->B dialing leaves exactly one physical session, and deliberate self-dial nonce identity is rejected.
+- [ ] **Step 3: Add relay tests over TCP**
 
-- [ ] **Step 3: Add transaction relay test**
+Block relay: accepted block propagates only after chainstate acceptance; invalid block does not. Transaction relay: prepare a spendable test UTXO using test-only chain fixture state (never a production insertion API), submit a valid tx through a matched requested response, and assert downstream mempool admission precedes relay; invalid/policy-rejected tx is not relayed.
 
-Seed a spendable test UTXO through accepted test chain state, create one valid transaction, inject it through one requested peer path, and assert it appears in downstream node mempool only after admission. Add a structurally/policy-invalid transaction and assert no downstream `Inv`/admission occurs.
+- [ ] **Step 4: Add behind-node headers-first catch-up**
 
-- [ ] **Step 4: Add block relay and catch-up sync test**
+Prebuild accepted multi-block chain on A, start C behind, connect through B, assert C imports headers then bodies and reaches same active tip. Record scheduler snapshots proving <=8 per peer and <=32 global.
 
-Create/accept a multi-block chain on node A, start node C behind, connect through B, and assert C first imports headers then requests bounded bodies and reaches the same authoritative active tip. Observe that no peer exceeds eight in-flight and global in-flight never exceeds 32.
+- [ ] **Step 5: Add fork/lying-height/timeout tests**
 
-- [ ] **Step 5: Add fork/lying-height/reassignment tests**
+Competing fork: remote higher `best_height` cannot override chainstate preferred header result. Timeout: nonresponding peer loses ownership after 20s and another peer receives request. Three failures => `Stalled`.
 
-Create competing branches where the peer advertising higher `best_height` does not have the preferred authoritative work path; assert chainstate result wins. Make one serving peer stop responding to a block request and assert ownership moves to another peer after `RESPONSE_START_TIMEOUT`; after three total failures assert `Stalled`.
+- [ ] **Step 6: Extend CI scans exactly**
 
-- [ ] **Step 6: Extend CI architecture scans**
-
-Add M6 implementation branch to workflow push branches. Add fail-closed scans such as:
+Add the M6 implementation branch to workflow push branches. Add:
 
 ```bash
-if rg -n 'oregon-(protocol|network|peer|sync|node)' crates/oregon-{consensus,utxo,storage,chainstate,mempool}/Cargo.toml; then
+if rg -n 'oregon-(protocol|network|peer|sync|node)' \
+  crates/oregon-consensus/Cargo.toml crates/oregon-utxo/Cargo.toml \
+  crates/oregon-storage/Cargo.toml crates/oregon-chainstate/Cargo.toml \
+  crates/oregon-mempool/Cargo.toml; then
   echo 'Core crate depends upward on M6 networking.' >&2
   exit 1
 fi
@@ -1110,13 +664,15 @@ if rg -n 'Vec::with_capacity\((input_count|output_count|witness_count|transactio
   echo 'Remote decoder preallocates from attacker count.' >&2
   exit 1
 fi
+
+if rg -n 'FOUNDER_ALLOCATION_BASE_UNITS|block_subsidy|derive_randomx_key|CF_(BLOCKS|BLOCK_INDEX|UTXO|UNDO|CHAIN_META)' \
+  crates/oregon-protocol crates/oregon-network crates/oregon-peer crates/oregon-sync; then
+  echo 'Core rule leaked below oregon-node orchestration boundary.' >&2
+  exit 1
+fi
 ```
 
-Also scan all M6 crates for forbidden economic/consensus owner symbols where practical (`FOUNDER_ALLOCATION`, `block_subsidy`, `derive_randomx_key`, storage CF names), allowing only core adapter calls in `oregon-node` and no rule implementation.
-
-- [ ] **Step 7: Run the full clean gate**
-
-Run exactly:
+- [ ] **Step 7: Run full clean verification**
 
 ```bash
 cargo test --workspace --all-targets
@@ -1126,45 +682,38 @@ cargo rustdoc -p oregon-chainstate -- -D warnings
 cargo doc --workspace --no-deps
 ```
 
-Expected: all exit 0.
+All commands must exit 0 before any completion claim.
 
-- [ ] **Step 8: Perform required mutation experiments on throwaway branches from the exact clean SHA**
+- [ ] **Step 8: Run five throwaway mutation experiments from the exact clean SHA**
 
-Run one mutation at a time and require a dedicated test failure for each:
+1. bypass relay-before-validation -> relay test fails;
+2. bypass before-allocation frame-size check -> oversized transport test fails;
+3. permit gossip before handshake -> handshake test fails;
+4. bypass sync in-flight cap -> exact 32/8 test fails;
+5. use remote best height as chain preference -> fork/lying-height test fails.
 
-1. bypass relay-before-validation guard -> invalid tx/block relay test must fail;
-2. bypass frame-size check before payload allocation -> oversized-header transport test must fail;
-3. permit gossip before handshake established -> handshake state test must fail;
-4. raise/bypass sync in-flight cap -> exact 32/8 scheduler boundary test must fail;
-5. use remote `best_height` as preferred chain -> lying-height/fork test must fail.
+Mutation code is never merged. Record mutation SHA + killed test for the later M6 checkpoint.
 
-Do not merge mutation code. Record mutation branch SHA, failing test name, and clean re-run evidence later in the M6 checkpoint document.
+- [ ] **Step 9: Re-run exact clean SHA and commit only clean CI/test code**
 
-- [ ] **Step 9: Re-run the exact clean SHA after all mutations**
-
-Run the same full gate from Step 7 on the untouched implementation branch head. Expected: all exit 0.
-
-- [ ] **Step 10: Commit only clean test/CI code**
+Repeat Step 7; require all exit 0.
 
 ```bash
 git add crates/oregon-node/tests .github/workflows/oregon-rust.yml Cargo.toml Cargo.lock crates/*/Cargo.toml
-
 git commit -m "test: prove Oregon M6 peer synchronization"
 ```
 
-Do not create the acceptance checkpoint or merge `main` in this task. That requires separate independent review of the exact clean M6 implementation SHA.
+Do not create the M6 acceptance checkpoint and do not merge `main`; both require separate review of the exact implementation SHA.
 
 ---
 
-## Plan Self-Review Checklist
+## Plan Self-Review
 
-- Spec coverage: every frozen frame/message constant, bounded queue/time/request value, headers-first behavior, relay authorization rule, peer-score rule, non-goal, and end-to-end acceptance condition maps to Tasks 1-12.
-- Dependency direction: core changes are completed before M6 crates and never add upward dependencies; only `oregon-node` depends on core + M6 layers together.
-- Type consistency: `HeaderTip`, `HeaderImportOutcome`, `PeerId`, `RequestKey`, `ChainSyncView`, `SyncAction`, `CoreHandle`, and `OregonNode<V,T>` are defined before downstream use.
-- Persistence: preferred header tip is durable and migration-safe; active full-block tip remains separate.
-- Header-first body promotion: the current known-header early return is explicitly replaced so downloaded bodies are actually accepted/stored.
-- Remote allocation: primitive counts no longer drive immediate vector capacity; frame length is checked before payload allocation.
-- CPU bounds: headers enter core in <=16-header slices even though protocol permits <=128 per message.
-- Retry semantics: exactly three total block attempts; timed-out late responses remain bounded and never re-enter in-flight state.
-- Spend verification: M6 has no permissive production verifier; real TCP acceptance uses test-only verifier code.
-- No placeholders or deferred production APIs are required for QUIC/discovery/testnet/mainnet.
+- Spec coverage: Tasks 1-12 map every protocol tag, frame/list limit, peer/queue/time bound, core queue bound, header slice, locator rule, request/retry/grace rule, scoring threshold, relay gate, and M6 end-to-end acceptance condition.
+- No placeholders: no `TBD`, `TODO`, “similar to”, incomplete interface comment, or unnamed error-handling step remains.
+- Type consistency: `HeaderTip`, `HeaderImportOutcome`, `PeerId`, `PeerEvent`, `RequestKey`, `ChainSyncView`, `SyncAction`, and `CoreHandle` are defined before downstream use.
+- Persistence: preferred header tip is separately durable; active full-block tip is unchanged; 1.0 -> 1.1 is the only automatic migration added.
+- Header-first correctness: downloaded body for `HeaderValidated/body_retained=false` cannot hit the old idempotent early return.
+- Resource safety: remote count does not drive immediate allocation; payload length is checked before allocation; headers enter core in <=16 slices; queues are count+byte bounded; exactly three block attempts.
+- Rule ownership: sync never receives `ChainWork`; protocol/network/peer/sync never import founder/emission/RandomX/storage internals; node only calls authoritative core owners.
+- Spend verification: real networking code remains generic over a supplied verifier; permissive verifier exists only in test code.
