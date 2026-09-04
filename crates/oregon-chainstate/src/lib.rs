@@ -29,6 +29,8 @@ mod recovery_acceptance_tests;
 #[cfg(test)]
 mod storage_fault_tests;
 #[cfg(test)]
+mod sync_view_tests;
+#[cfg(test)]
 mod test_support;
 #[cfg(test)]
 mod tests;
