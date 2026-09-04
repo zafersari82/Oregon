@@ -33,6 +33,8 @@ jobs:
             oregon-rust-${{ runner.os }}-1.85.0-
       - name: Inject missing-parent bypass mutation
         run: python .github/mutations/m5_missing_parent_bypass.py
+      - name: Mutation kill test - missing dependency
+        run: cargo +1.85.0 test --locked -p oregon-mempool missing_dependency_rejection_is_atomic -- --nocapture
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Format
