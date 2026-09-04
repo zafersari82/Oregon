@@ -640,7 +640,7 @@ mod deep_reorg_tests {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "oregon-task8-deep-reorg-{}-{n}",
+            "oregon-deep-reorg-{}-{n}",
             std::process::id()
         ))
     }

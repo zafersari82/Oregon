@@ -15,6 +15,6 @@ pub use state::{AcceptOutcome, ChainState, SessionHealth, Tip};
 #[cfg(test)]
 mod recovery_acceptance_tests;
 #[cfg(test)]
-mod task7_storage_fault_tests;
+mod storage_fault_tests;
 #[cfg(test)]
 mod tests;

@@ -144,7 +144,7 @@ mod tests {
     fn test_path() -> PathBuf {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir().join(format!("oregon-task9-prune-{}-{n}", std::process::id()))
+        std::env::temp_dir().join(format!("oregon-prune-{}-{n}", std::process::id()))
     }
 
     fn stored_block(parent: Hash256, height: u64) -> Block {

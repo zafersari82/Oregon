@@ -2,7 +2,7 @@ name: Oregon RandomX Architecture Vector
 
 on:
   push:
-    branches: [oregon-v1-m2-randomx-pow-exec]
+    branches: [oregon-v1-m2-randomx-pow-exec, oregon-v1-architecture-unification-2026-09-04]
     paths:
       - 'crates/oregon-pow/**'
       - 'crates/oregon-primitives/**'
