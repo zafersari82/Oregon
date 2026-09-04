@@ -20,10 +20,7 @@ pub(crate) fn ancestor_closure(
     }
 
     let order = topological_order(entries)?;
-    let emitted = order
-        .iter()
-        .filter(|txid| closure.contains(txid))
-        .count();
+    let emitted = order.iter().filter(|txid| closure.contains(txid)).count();
     if emitted != closure.len() {
         return Err(MempoolError::DependencyCycle);
     }
@@ -61,7 +58,9 @@ pub(crate) fn topological_order(
 
     for (txid, entry) in entries {
         for parent in &entry.parents {
-            let parent_entry = entries.get(parent).ok_or(MempoolError::InvariantViolation)?;
+            let parent_entry = entries
+                .get(parent)
+                .ok_or(MempoolError::InvariantViolation)?;
             if !parent_entry.children.contains(txid) {
                 return Err(MempoolError::InvariantViolation);
             }
