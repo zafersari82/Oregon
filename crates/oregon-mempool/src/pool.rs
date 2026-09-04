@@ -288,10 +288,10 @@ fn seed_chain_inputs(
 ) {
     for input in &transaction.inputs {
         let outpoint = input.outpoint();
-        if let Some(entry) = chain_utxos.get(&outpoint)
-            && seeded.insert(outpoint)
-        {
-            narrow_entries.push((outpoint, entry.clone()));
+        if let Some(entry) = chain_utxos.get(&outpoint) {
+            if seeded.insert(outpoint) {
+                narrow_entries.push((outpoint, entry.clone()));
+            }
         }
     }
 }
