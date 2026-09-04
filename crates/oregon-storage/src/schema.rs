@@ -1,9 +1,7 @@
 use crate::error::StorageError;
 
 pub(crate) const SCHEMA_KEY: &[u8] = b"schema/version";
-#[cfg(test)]
 const MIGRATION_MARKER_VERSION: u8 = 1;
-#[cfg(test)]
 const MIGRATION_MARKER_BYTES: usize = 9;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,7 +10,8 @@ pub struct SchemaVersion {
     pub minor: u16,
 }
 
-pub(crate) const SCHEMA_VERSION: SchemaVersion = SchemaVersion { major: 1, minor: 0 };
+pub(crate) const LEGACY_SCHEMA_VERSION_1_0: SchemaVersion = SchemaVersion { major: 1, minor: 0 };
+pub(crate) const SCHEMA_VERSION: SchemaVersion = SchemaVersion { major: 1, minor: 1 };
 
 pub(crate) fn encode_schema_version(version: SchemaVersion) -> [u8; 4] {
     let major = version.major.to_be_bytes();
@@ -33,7 +32,6 @@ pub(crate) fn decode_schema_version(bytes: &[u8]) -> Result<SchemaVersion, Stora
     })
 }
 
-#[cfg(test)]
 pub(crate) fn encode_migration_marker(
     from: SchemaVersion,
     to: SchemaVersion,
@@ -53,7 +51,6 @@ pub(crate) fn encode_migration_marker(
     ]
 }
 
-#[cfg(test)]
 pub(crate) fn decode_migration_marker(
     bytes: &[u8],
 ) -> Result<(SchemaVersion, SchemaVersion), StorageError> {
