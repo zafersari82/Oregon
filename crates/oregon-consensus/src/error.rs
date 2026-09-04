@@ -1,5 +1,19 @@
 use thiserror::Error;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum NormalTransactionError {
+    #[error("transaction exceeds canonical byte limit")]
+    TooLarge,
+    #[error("normal transaction has no inputs")]
+    EmptyInputs,
+    #[error("normal transaction has no outputs")]
+    EmptyOutputs,
+    #[error("coinbase form is not a normal transaction")]
+    CoinbaseForm,
+    #[error("normal transaction uses null outpoint")]
+    NullOutpoint,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum ConsensusError {
     #[error("target must be non-zero")]

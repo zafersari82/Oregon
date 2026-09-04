@@ -11,14 +11,17 @@ pub mod time;
 pub mod work;
 
 pub use asert::required_target;
-pub use block::{validate_non_genesis_block_skeleton, validate_non_genesis_block_structure};
+pub use block::{
+    validate_non_genesis_block_skeleton, validate_non_genesis_block_structure,
+    validate_normal_transaction_skeleton,
+};
 pub use coinbase::{is_coinbase_form, validate_coinbase};
 pub use emission::{
     SCHEDULED_MINING_ISSUANCE_BASE_UNITS, SCHEDULED_TOTAL_WITH_FOUNDER_BASE_UNITS, block_subsidy,
 };
-pub use error::ConsensusError;
+pub use error::{ConsensusError, NormalTransactionError};
 pub use header::{HeaderContext, PrePowHeaderFacts, validate_header_pre_pow};
-pub use params::ConsensusParams;
+pub use params::{ConsensusParams, MAX_TRANSACTION_BYTES};
 pub use pow::{PowKeyBlockSource, validate_header_pow};
 pub use target::Target;
 pub use time::median_time_past;

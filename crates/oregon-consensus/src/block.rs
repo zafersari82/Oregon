@@ -1,10 +1,37 @@
-use oregon_primitives::{Amount, Block, Hash256, transaction_root};
+use oregon_primitives::{Amount, Block, Hash256, Transaction, transaction_root};
 
 use crate::{
     ConsensusError, ConsensusParams,
     coinbase::{is_coinbase_form, validate_coinbase},
+    error::NormalTransactionError,
     params::{MAX_BLOCK_BYTES, MAX_TRANSACTION_BYTES},
 };
+
+pub fn validate_normal_transaction_skeleton(
+    transaction: &Transaction,
+) -> Result<(), NormalTransactionError> {
+    if transaction.encode().len() > MAX_TRANSACTION_BYTES {
+        return Err(NormalTransactionError::TooLarge);
+    }
+    if transaction.inputs.is_empty() {
+        return Err(NormalTransactionError::EmptyInputs);
+    }
+    if transaction.outputs.is_empty() {
+        return Err(NormalTransactionError::EmptyOutputs);
+    }
+    if is_coinbase_form(transaction) {
+        return Err(NormalTransactionError::CoinbaseForm);
+    }
+
+    let null_txid = Hash256::from_bytes([0u8; 32]);
+    if transaction.inputs.iter().any(|input| {
+        input.previous_txid == null_txid && input.previous_output_index == u32::MAX
+    }) {
+        return Err(NormalTransactionError::NullOutpoint);
+    }
+
+    Ok(())
+}
 
 pub fn validate_non_genesis_block_skeleton(
     block: &Block,
@@ -21,7 +48,17 @@ pub fn validate_non_genesis_block_skeleton(
     }
 
     for (index, transaction) in block.transactions.iter().enumerate() {
-        if transaction.encode().len() > MAX_TRANSACTION_BYTES {
+        if index == 0 {
+            if transaction.encode().len() > MAX_TRANSACTION_BYTES {
+                return Err(ConsensusError::TransactionTooLarge(index));
+            }
+            continue;
+        }
+
+        if matches!(
+            validate_normal_transaction_skeleton(transaction),
+            Err(NormalTransactionError::TooLarge)
+        ) {
             return Err(ConsensusError::TransactionTooLarge(index));
         }
     }
@@ -36,21 +73,24 @@ pub fn validate_non_genesis_block_skeleton(
         return Err(ConsensusError::InvalidCoinbase);
     }
 
-    let null_txid = Hash256::from_bytes([0u8; 32]);
     for (index, transaction) in block.transactions.iter().enumerate().skip(1) {
-        if transaction.inputs.is_empty() {
-            return Err(ConsensusError::EmptyNormalTransactionInputs(index));
-        }
-        if transaction.outputs.is_empty() {
-            return Err(ConsensusError::EmptyNormalTransactionOutputs(index));
-        }
-        if is_coinbase_form(transaction) {
-            return Err(ConsensusError::MultipleCoinbase);
-        }
-        if transaction.inputs.iter().any(|input| {
-            input.previous_txid == null_txid && input.previous_output_index == u32::MAX
-        }) {
-            return Err(ConsensusError::NullOutpointInNormalTransaction);
+        match validate_normal_transaction_skeleton(transaction) {
+            Ok(()) => {}
+            Err(NormalTransactionError::TooLarge) => {
+                return Err(ConsensusError::TransactionTooLarge(index));
+            }
+            Err(NormalTransactionError::EmptyInputs) => {
+                return Err(ConsensusError::EmptyNormalTransactionInputs(index));
+            }
+            Err(NormalTransactionError::EmptyOutputs) => {
+                return Err(ConsensusError::EmptyNormalTransactionOutputs(index));
+            }
+            Err(NormalTransactionError::CoinbaseForm) => {
+                return Err(ConsensusError::MultipleCoinbase);
+            }
+            Err(NormalTransactionError::NullOutpoint) => {
+                return Err(ConsensusError::NullOutpointInNormalTransaction);
+            }
         }
     }
 
@@ -76,7 +116,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::{ConsensusError, ConsensusParams, Target};
+    use crate::{ConsensusError, ConsensusParams, NormalTransactionError, Target};
 
     fn params() -> ConsensusParams {
         ConsensusParams::new(
@@ -140,7 +180,10 @@ mod tests {
 
     #[test]
     fn normal_helper_accepts_valid_normal_transaction() {
-        assert_eq!(validate_normal_transaction_skeleton(&normal_transaction(0)), Ok(()));
+        assert_eq!(
+            validate_normal_transaction_skeleton(&normal_transaction(0)),
+            Ok(())
+        );
     }
 
     #[test]
@@ -259,6 +302,56 @@ mod tests {
                 &params(),
             ),
             Err(ConsensusError::MultipleCoinbase)
+        );
+    }
+
+    #[test]
+    fn normal_transaction_empty_inputs_fails() {
+        let normal = Transaction {
+            version: 1,
+            inputs: vec![],
+            outputs: vec![TxOutput {
+                value: Amount::from_base_units(1).unwrap(),
+                locking_program: vec![],
+            }],
+            lock_time: 0,
+        };
+        let block = block(vec![coinbase(2), normal]);
+
+        assert_eq!(
+            validate_non_genesis_block_structure(
+                &block,
+                2,
+                Amount::from_base_units(0).unwrap(),
+                &params(),
+            ),
+            Err(ConsensusError::EmptyNormalTransactionInputs(1))
+        );
+    }
+
+    #[test]
+    fn normal_transaction_empty_outputs_fails() {
+        let normal = Transaction {
+            version: 1,
+            inputs: vec![TxInput {
+                previous_txid: Hash256::from_bytes([0x44; 32]),
+                previous_output_index: 1,
+                sequence: 0,
+                witness: vec![],
+            }],
+            outputs: vec![],
+            lock_time: 0,
+        };
+        let block = block(vec![coinbase(2), normal]);
+
+        assert_eq!(
+            validate_non_genesis_block_structure(
+                &block,
+                2,
+                Amount::from_base_units(0).unwrap(),
+                &params(),
+            ),
+            Err(ConsensusError::EmptyNormalTransactionOutputs(1))
         );
     }
 
