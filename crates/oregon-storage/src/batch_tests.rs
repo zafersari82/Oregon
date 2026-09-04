@@ -8,10 +8,10 @@ use oregon_primitives::{
 use oregon_utxo::{BlockUndo, UtxoEntry};
 use rocksdb::{ColumnFamilyDescriptor, DB, Options};
 
-use crate::{
-    BlockIndexRecord, CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, DurabilityMode,
-    NodeHealth, OregonDb, StorageBatch, StorageError, ValidationStatus, encode_block_index,
-};
+use crate::batch::{DurabilityMode, StorageBatch};
+use crate::db::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb};
+use crate::error::StorageError;
+use crate::records::{BlockIndexRecord, NodeHealth, ValidationStatus, encode_block_index};
 
 struct TestDir(PathBuf);
 
