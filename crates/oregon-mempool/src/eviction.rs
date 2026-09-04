@@ -1,3 +1,17 @@
+use std::cmp::Ordering;
+
+use crate::MempoolEntry;
+
+pub(crate) fn eviction_cmp(left: &MempoolEntry, right: &MempoolEntry) -> Ordering {
+    let left_cross = u128::from(left.fee()) * right.encoded_bytes() as u128;
+    let right_cross = u128::from(right.fee()) * left.encoded_bytes() as u128;
+
+    left_cross
+        .cmp(&right_cross)
+        .then_with(|| left.fee().cmp(&right.fee()))
+        .then_with(|| left.txid().cmp(&right.txid()))
+}
+
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
