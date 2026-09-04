@@ -1,42 +1,8 @@
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-
-use rocksdb::{ColumnFamilyDescriptor, DB, Options};
-
-use crate::db::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb};
+use crate::db::{CF_CHAIN_META, OregonDb};
 use crate::error::StorageError;
 use crate::records::SCHEMA_MIGRATION_KEY;
 use crate::schema::SchemaVersion;
-
-struct TestDir(PathBuf);
-
-impl TestDir {
-    fn new(label: &str) -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!("oregon-{label}-{}-{n}", std::process::id()));
-        std::fs::create_dir_all(&path).unwrap();
-        Self(path)
-    }
-
-    fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for TestDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
-fn open_raw_existing(path: &Path) -> DB {
-    let options = Options::default();
-    let descriptors = [CF_BLOCKS, CF_BLOCK_INDEX, CF_UTXO, CF_UNDO, CF_CHAIN_META]
-        .into_iter()
-        .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
-    DB::open_cf_descriptors(&options, path, descriptors).unwrap()
-}
+use crate::test_support::{TestDir, open_raw_existing};
 
 #[test]
 fn synthetic_minor_migration_resumes_after_reopen_and_clears_marker() {
