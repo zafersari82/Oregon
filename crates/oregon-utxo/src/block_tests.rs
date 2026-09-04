@@ -1,11 +1,7 @@
 use oregon_consensus::{ConsensusError, block_subsidy};
-use oregon_primitives::{
-    Amount, Hash256, OutPoint, Transaction, TxInput, TxOutput, write_varint,
-};
+use oregon_primitives::{Hash256, OutPoint, Transaction, TxInput, TxOutput, write_varint};
 
-use crate::test_support::{
-    AcceptAllSpends, block, consensus_params, output, seed_entry, spend,
-};
+use crate::test_support::{AcceptAllSpends, block, consensus_params, output, seed_entry, spend};
 use crate::{BlockUndo, UtxoError, UtxoState};
 
 fn coinbase(height: u64, outputs: Vec<TxOutput>) -> Transaction {
