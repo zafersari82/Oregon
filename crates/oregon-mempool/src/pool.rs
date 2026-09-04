@@ -414,7 +414,7 @@ impl Mempool {
             }
         }
 
-        let mut validation_state = UtxoState::from_persisted_entries(narrow_entries)?;
+        let mut validation_state = UtxoState::try_from_entries(narrow_entries)?;
         for ancestor in &replay_order {
             let entry = self
                 .entries
