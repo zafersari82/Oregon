@@ -3,7 +3,7 @@ name: Oregon Rust CI
 # Oregon protocol development branches are CI-gated during test-first development.
 on:
   push:
-    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool]
+    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, mutation-m5-missing-parent-bypass-2026-09-04]
   pull_request:
     branches: [main]
 
@@ -31,6 +31,36 @@ jobs:
           key: oregon-rust-${{ runner.os }}-1.85.0-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             oregon-rust-${{ runner.os }}-1.85.0-
+      - name: Inject missing-parent bypass mutation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('crates/oregon-mempool/src/pool.rs')
+          source = path.read_text()
+          old_parent = '''            let Some(parent) = self.entries.get(&outpoint.txid) else {
+              return Err(MempoolError::MissingDependency(*outpoint));
+            };'''.replace('              ', '                ')
+          new_parent = '''            let Some(parent) = self.entries.get(&outpoint.txid) else {
+                bypass_missing_dependency = true;
+                continue;
+            };'''
+          old_direct = '        let mut direct_parents = BTreeSet::new();'
+          new_direct = '        let mut bypass_missing_dependency = false;\n        let mut direct_parents = BTreeSet::new();'
+          old_fee = '''        let fee =
+            validation_state.apply_normal_transaction(&transaction, spend_height, verifier)?;'''
+          new_fee = '''        let fee = if bypass_missing_dependency {
+            0
+        } else {
+            validation_state.apply_normal_transaction(&transaction, spend_height, verifier)?
+        };'''
+          assert old_parent in source
+          assert old_direct in source
+          assert old_fee in source
+          source = source.replace(old_direct, new_direct, 1)
+          source = source.replace(old_parent, new_parent, 1)
+          source = source.replace(old_fee, new_fee, 1)
+          path.write_text(source)
+          PY
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Format
