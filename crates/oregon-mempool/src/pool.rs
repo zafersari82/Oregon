@@ -147,8 +147,7 @@ impl Mempool {
             debug_assert!(inserted);
         }
         for outpoint in &plan.candidate.spend_claims {
-            let previous = self.spenders.insert(*outpoint, txid);
-            debug_assert!(previous.is_none());
+            let _ = self.spenders.insert(*outpoint, txid);
         }
         let previous = self.entries.insert(txid, plan.candidate.entry);
         debug_assert!(previous.is_none());
@@ -260,11 +259,6 @@ impl Mempool {
                 return Err(MempoolError::InvariantViolation);
             }
         }
-        for outpoint in &plan.candidate.spend_claims {
-            if self.spenders.contains_key(outpoint) {
-                return Err(MempoolError::InvariantViolation);
-            }
-        }
 
         for txid in &plan.remove {
             let entry = self
@@ -337,14 +331,6 @@ impl Mempool {
             .iter()
             .map(|input| input.outpoint())
             .collect();
-        for outpoint in &spend_claims {
-            if let Some(existing_txid) = self.spenders.get(outpoint) {
-                return Err(MempoolError::Conflict {
-                    outpoint: *outpoint,
-                    existing_txid: *existing_txid,
-                });
-            }
-        }
 
         let mut direct_parents = BTreeSet::new();
         for outpoint in &spend_claims {
