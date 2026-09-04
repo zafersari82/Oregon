@@ -4,6 +4,7 @@ use oregon_consensus::validate_normal_transaction_skeleton;
 use oregon_primitives::{Hash256, OutPoint, Transaction};
 use oregon_utxo::{SpendVerifier, UtxoState};
 
+use crate::eviction::eviction_cmp;
 use crate::graph::{ancestor_closure, descendant_closure, topological_order};
 use crate::{AdmissionOutcome, MempoolConfig, MempoolEntry, MempoolError};
 
@@ -85,32 +86,65 @@ impl Mempool {
         chain_utxos: &UtxoState,
         verifier: &V,
     ) -> Result<AdmissionOutcome, MempoolError> {
-        let (plan, new_total_bytes) =
+        let (mut plan, _) =
             self.prepare_admission(transaction, chain_base, chain_utxos, verifier)?;
-
-        debug_assert!(plan.remove.is_empty());
-        for parent in &plan.candidate.entry.parents {
-            if !plan.candidate.ancestors.contains(parent) || !self.entries.contains_key(parent) {
-                return Err(MempoolError::InvariantViolation);
-            }
-        }
-        for ancestor in &plan.candidate.ancestors {
-            if !self.entries.contains_key(ancestor) {
-                return Err(MempoolError::InvariantViolation);
-            }
-        }
+        let new_total_bytes = self.plan_capacity(&mut plan)?;
+        self.preflight_admission_plan(&plan, new_total_bytes)?;
 
         let txid = plan.candidate.entry.txid;
         let fee = plan.candidate.entry.fee;
         let encoded_bytes = plan.candidate.entry.encoded_bytes;
         let parents = plan.candidate.entry.parents.clone();
+        let evicted: Vec<_> = plan.remove.iter().copied().collect();
+
+        let removal_commit: Vec<_> = plan
+            .remove
+            .iter()
+            .map(|remove_txid| {
+                let entry = self
+                    .entries
+                    .get(remove_txid)
+                    .expect("removal entry was preflighted");
+                let spend_claims = entry
+                    .transaction
+                    .inputs
+                    .iter()
+                    .map(|input| input.outpoint())
+                    .collect::<Vec<_>>();
+                let surviving_parents = entry
+                    .parents
+                    .iter()
+                    .filter(|parent| !plan.remove.contains(parent))
+                    .copied()
+                    .collect::<Vec<_>>();
+                (*remove_txid, spend_claims, surviving_parents)
+            })
+            .collect();
+
+        for (remove_txid, spend_claims, surviving_parents) in removal_commit {
+            for parent in surviving_parents {
+                let parent_entry = self
+                    .entries
+                    .get_mut(&parent)
+                    .expect("surviving parent was preflighted");
+                let removed = parent_entry.children.remove(&remove_txid);
+                debug_assert!(removed);
+            }
+            for outpoint in spend_claims {
+                let removed = self.spenders.remove(&outpoint);
+                debug_assert_eq!(removed, Some(remove_txid));
+            }
+            let removed = self.entries.remove(&remove_txid);
+            debug_assert!(removed.is_some());
+        }
 
         for parent in &parents {
             let parent_entry = self
                 .entries
                 .get_mut(parent)
-                .expect("parent existence was preflighted");
-            parent_entry.children.insert(txid);
+                .expect("candidate parent was preflighted");
+            let inserted = parent_entry.children.insert(txid);
+            debug_assert!(inserted);
         }
         for outpoint in &plan.candidate.spend_claims {
             let previous = self.spenders.insert(*outpoint, txid);
@@ -124,8 +158,154 @@ impl Mempool {
             txid,
             fee,
             encoded_bytes,
-            evicted: Vec::new(),
+            evicted,
         })
+    }
+
+    fn plan_capacity(&self, plan: &mut AdmissionPlan) -> Result<usize, MempoolError> {
+        loop {
+            let removed_bytes = self.removed_bytes(&plan.remove)?;
+            let virtual_entries = self
+                .entries
+                .len()
+                .checked_add(1)
+                .and_then(|count| count.checked_sub(plan.remove.len()))
+                .ok_or(MempoolError::InvariantViolation)?;
+            let virtual_bytes = self
+                .total_bytes
+                .checked_add(plan.candidate.entry.encoded_bytes)
+                .and_then(|bytes| bytes.checked_sub(removed_bytes))
+                .ok_or(MempoolError::InvariantViolation)?;
+
+            if virtual_entries <= self.config.max_entries
+                && virtual_bytes <= self.config.max_total_bytes
+            {
+                return Ok(virtual_bytes);
+            }
+
+            let mut selected_txid = None;
+            let mut selected_entry = &plan.candidate.entry;
+            for (txid, entry) in &self.entries {
+                if plan.remove.contains(txid) {
+                    continue;
+                }
+                if eviction_cmp(entry, selected_entry).is_lt() {
+                    selected_txid = Some(*txid);
+                    selected_entry = entry;
+                }
+            }
+
+            let Some(root) = selected_txid else {
+                return Err(MempoolError::CapacityRejected);
+            };
+            if plan.candidate.ancestors.contains(&root) {
+                return Err(MempoolError::CapacityRejected);
+            }
+
+            let descendants = descendant_closure(&self.entries, root)?;
+            if descendants
+                .iter()
+                .any(|txid| plan.candidate.ancestors.contains(txid))
+            {
+                return Err(MempoolError::CapacityRejected);
+            }
+
+            let inserted = plan.remove.insert(root);
+            if !inserted {
+                return Err(MempoolError::InvariantViolation);
+            }
+            plan.remove.extend(descendants);
+        }
+    }
+
+    fn removed_bytes(&self, remove: &BTreeSet<Hash256>) -> Result<usize, MempoolError> {
+        let mut removed_bytes = 0usize;
+        for txid in remove {
+            let entry = self
+                .entries
+                .get(txid)
+                .ok_or(MempoolError::InvariantViolation)?;
+            removed_bytes = removed_bytes
+                .checked_add(entry.encoded_bytes)
+                .ok_or(MempoolError::InvariantViolation)?;
+        }
+        Ok(removed_bytes)
+    }
+
+    fn preflight_admission_plan(
+        &self,
+        plan: &AdmissionPlan,
+        new_total_bytes: usize,
+    ) -> Result<(), MempoolError> {
+        topological_order(&self.entries)?;
+
+        if plan
+            .remove
+            .iter()
+            .any(|txid| plan.candidate.ancestors.contains(txid))
+        {
+            return Err(MempoolError::InvariantViolation);
+        }
+
+        for parent in &plan.candidate.entry.parents {
+            if !plan.candidate.ancestors.contains(parent)
+                || plan.remove.contains(parent)
+                || !self.entries.contains_key(parent)
+            {
+                return Err(MempoolError::InvariantViolation);
+            }
+        }
+        for ancestor in &plan.candidate.ancestors {
+            if plan.remove.contains(ancestor) || !self.entries.contains_key(ancestor) {
+                return Err(MempoolError::InvariantViolation);
+            }
+        }
+        for outpoint in &plan.candidate.spend_claims {
+            if self.spenders.contains_key(outpoint) {
+                return Err(MempoolError::InvariantViolation);
+            }
+        }
+
+        for txid in &plan.remove {
+            let entry = self
+                .entries
+                .get(txid)
+                .ok_or(MempoolError::InvariantViolation)?;
+            for input in &entry.transaction.inputs {
+                if self.spenders.get(&input.outpoint()) != Some(txid) {
+                    return Err(MempoolError::InvariantViolation);
+                }
+            }
+            if entry
+                .children
+                .iter()
+                .any(|child| !plan.remove.contains(child))
+            {
+                return Err(MempoolError::InvariantViolation);
+            }
+        }
+
+        let removed_bytes = self.removed_bytes(&plan.remove)?;
+        let expected_bytes = self
+            .total_bytes
+            .checked_sub(removed_bytes)
+            .and_then(|bytes| bytes.checked_add(plan.candidate.entry.encoded_bytes))
+            .ok_or(MempoolError::InvariantViolation)?;
+        if expected_bytes != new_total_bytes || expected_bytes > self.config.max_total_bytes {
+            return Err(MempoolError::InvariantViolation);
+        }
+
+        let expected_entries = self
+            .entries
+            .len()
+            .checked_sub(plan.remove.len())
+            .and_then(|count| count.checked_add(1))
+            .ok_or(MempoolError::InvariantViolation)?;
+        if expected_entries > self.config.max_entries {
+            return Err(MempoolError::InvariantViolation);
+        }
+
+        Ok(())
     }
 
     fn prepare_admission<V: SpendVerifier>(
