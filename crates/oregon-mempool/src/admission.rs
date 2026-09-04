@@ -116,12 +116,7 @@ pub(crate) fn prepare_admission<V: SpendVerifier>(
             &mut narrow_entries,
         );
     }
-    seed_chain_inputs(
-        &transaction,
-        chain_utxos,
-        &mut seeded,
-        &mut narrow_entries,
-    );
+    seed_chain_inputs(&transaction, chain_utxos, &mut seeded, &mut narrow_entries);
 
     let mut replay_txids = ancestors.clone();
     replay_txids.insert(txid);
