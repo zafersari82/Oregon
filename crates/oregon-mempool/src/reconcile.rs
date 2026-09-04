@@ -58,6 +58,36 @@ impl Mempool {
         Ok(ReconcileReport { removed, retained })
     }
 
+    pub fn reconcile_reorg<V: SpendVerifier>(
+        &mut self,
+        new_base: ChainBase,
+        chain_utxos: &UtxoState,
+        verifier: &V,
+    ) -> Result<ReconcileReport, MempoolError> {
+        let order = topological_order(&self.entries)?;
+        let mut source = Vec::with_capacity(order.len());
+        for txid in order {
+            let entry = self
+                .entries
+                .get(&txid)
+                .ok_or(MempoolError::InvariantViolation)?;
+            source.push((txid, entry.transaction.clone()));
+        }
+
+        let rebuilt = self.rebuild_against_chain(&source, new_base, chain_utxos, verifier)?;
+        let mut removed: Vec<_> = self
+            .entries
+            .keys()
+            .filter(|txid| !rebuilt.entries.contains_key(txid))
+            .copied()
+            .collect();
+        removed.sort();
+        let retained = rebuilt.entries.len();
+
+        *self = rebuilt;
+        Ok(ReconcileReport { removed, retained })
+    }
+
     pub(crate) fn rebuild_against_chain<V: SpendVerifier>(
         &self,
         ordered_source: &[(Hash256, Transaction)],
