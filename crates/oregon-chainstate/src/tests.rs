@@ -1,5 +1,4 @@
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 
 use oregon_consensus::{
     ChainWork, ConsensusError, ConsensusParams, HeaderContext, PowKeyBlockSource, Target,
@@ -11,32 +10,8 @@ use oregon_storage::{BlockIndexRecord, OregonDb, StorageBatch, ValidationStatus}
 use oregon_utxo::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError};
 
 use crate::branch::BranchView;
+use crate::test_support::TestDir;
 use crate::{AcceptOutcome, ChainConfig, ChainState, SessionHealth};
-
-struct TestDir(PathBuf);
-
-impl TestDir {
-    fn new(label: &str) -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "oregon-chainstate-{label}-{}-{n}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&path).unwrap();
-        Self(path)
-    }
-
-    fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for TestDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
 
 struct RejectTestSpends;
 
@@ -173,7 +148,7 @@ fn seed_header_branch(
 
 #[test]
 fn bootstrap_new_database_persists_zero_work_anchor_and_reopens_identically() {
-    let dir = TestDir::new("bootstrap");
+    let dir = TestDir::scoped("chainstate", "bootstrap");
     let config = test_config(1_800_000_000, 7);
     let anchor_id = config.anchor_header.block_id();
 
@@ -195,7 +170,7 @@ fn bootstrap_new_database_persists_zero_work_anchor_and_reopens_identically() {
 
 #[test]
 fn reopen_fails_closed_if_anchor_or_genesis_timestamp_changes() {
-    let dir = TestDir::new("config-binding");
+    let dir = TestDir::scoped("chainstate", "config-binding");
     let original = test_config(1_800_000_000, 7);
     drop(ChainState::open(dir.path(), original.clone()).unwrap());
 
@@ -209,7 +184,7 @@ fn reopen_fails_closed_if_anchor_or_genesis_timestamp_changes() {
 
 #[test]
 fn reopen_rejects_prune_cursor_that_hides_required_rollback_data() {
-    let dir = TestDir::new("prune-cursor-retention");
+    let dir = TestDir::scoped("chainstate", "prune-cursor-retention");
     let config = test_config(1_800_000_000, 7);
     seed_height_one(dir.path(), &config, false, 1);
 
@@ -218,7 +193,7 @@ fn reopen_rejects_prune_cursor_that_hides_required_rollback_data() {
 
 #[test]
 fn reopen_accepts_intact_retained_height_one_state() {
-    let dir = TestDir::new("retained-height-one");
+    let dir = TestDir::scoped("chainstate", "retained-height-one");
     let config = test_config(1_800_000_000, 7);
     let block_id = seed_height_one(dir.path(), &config, true, 0);
 
@@ -233,7 +208,7 @@ fn reopen_accepts_intact_retained_height_one_state() {
 
 #[test]
 fn reopen_rejects_tampered_cumulative_chainwork() {
-    let dir = TestDir::new("tampered-chainwork");
+    let dir = TestDir::scoped("chainstate", "tampered-chainwork");
     let config = test_config(1_800_000_000, 7);
     let block_id = seed_height_one(dir.path(), &config, true, 0);
 
@@ -250,7 +225,7 @@ fn reopen_rejects_tampered_cumulative_chainwork() {
 
 #[test]
 fn reopen_rejects_missing_active_mapping() {
-    let dir = TestDir::new("missing-active-mapping");
+    let dir = TestDir::scoped("chainstate", "missing-active-mapping");
     let config = test_config(1_800_000_000, 7);
     seed_height_one(dir.path(), &config, true, 0);
 
@@ -265,7 +240,7 @@ fn reopen_rejects_missing_active_mapping() {
 
 #[test]
 fn reopen_rejects_missing_retained_undo() {
-    let dir = TestDir::new("missing-retained-undo");
+    let dir = TestDir::scoped("chainstate", "missing-retained-undo");
     let config = test_config(1_800_000_000, 7);
     let block_id = seed_height_one(dir.path(), &config, true, 0);
 
@@ -280,7 +255,7 @@ fn reopen_rejects_missing_retained_undo() {
 
 #[test]
 fn reopen_rejects_missing_retained_block_body() {
-    let dir = TestDir::new("missing-retained-body");
+    let dir = TestDir::scoped("chainstate", "missing-retained-body");
     let config = test_config(1_800_000_000, 7);
     let block_id = seed_height_one(dir.path(), &config, true, 0);
 
@@ -295,7 +270,7 @@ fn reopen_rejects_missing_retained_block_body() {
 
 #[test]
 fn reopen_rejects_corrupt_persisted_utxo_bytes() {
-    let dir = TestDir::new("corrupt-utxo");
+    let dir = TestDir::scoped("chainstate", "corrupt-utxo");
     let config = test_config(1_800_000_000, 7);
     drop(ChainState::open(dir.path(), config.clone()).unwrap());
 
@@ -312,7 +287,7 @@ fn reopen_rejects_corrupt_persisted_utxo_bytes() {
 
 #[test]
 fn branch_view_follows_exact_candidate_ancestry_and_caps_mtp_at_eleven() {
-    let dir = TestDir::new("branch-ancestry");
+    let dir = TestDir::scoped("chainstate", "branch-ancestry");
     let config = test_config(1_800_000_000, 7);
     let ids = seed_header_branch(dir.path(), &config, 13, 10_000);
     let db = OregonDb::open(dir.path()).unwrap();
@@ -332,7 +307,7 @@ fn branch_view_follows_exact_candidate_ancestry_and_caps_mtp_at_eleven() {
 
 #[test]
 fn branch_view_supplies_randomx_key_block_from_candidate_ancestry() {
-    let dir = TestDir::new("branch-randomx-key");
+    let dir = TestDir::scoped("chainstate", "branch-randomx-key");
     let config = test_config(1_800_000_000, 7);
     let ids = seed_header_branch(dir.path(), &config, 887, 20_000);
     let db = OregonDb::open(dir.path()).unwrap();
@@ -377,7 +352,7 @@ fn branch_view_supplies_randomx_key_block_from_candidate_ancestry() {
 
 #[test]
 fn side_chain_header_is_durably_stored_without_mutating_active_state() {
-    let dir = TestDir::new("side-chain-admission");
+    let dir = TestDir::scoped("chainstate", "side-chain-admission");
     let config = test_config(1_800_000_000, 7);
     let active_id = seed_height_one(dir.path(), &config, true, 0);
     let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
