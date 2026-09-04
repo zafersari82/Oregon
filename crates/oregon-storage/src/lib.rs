@@ -8,9 +8,9 @@ mod records;
 mod schema;
 
 pub use batch::{DurabilityMode, StorageBatch};
+pub use db::OregonDb;
 #[cfg(any(test, feature = "test-hooks"))]
 pub use db::TestHooks;
-pub use db::OregonDb;
 pub use error::StorageError;
 pub use records::{BlockIndexRecord, NodeHealth, ValidationStatus};
 pub use schema::SchemaVersion;
