@@ -4,6 +4,9 @@ use common::{AcceptTestSpends, RejectTestSpends, base, entry, outpoint, spend, s
 use oregon_mempool::{Mempool, MempoolConfig, MempoolError};
 use oregon_primitives::{Block, BlockHeader, Hash256, OutPoint, Transaction};
 
+type ObservableEntry = (Hash256, u64, usize, Vec<Hash256>);
+type Observable = (Vec<Hash256>, usize, Vec<ObservableEntry>);
+
 fn tx_outpoint(transaction: &Transaction, index: u32) -> OutPoint {
     OutPoint {
         txid: transaction.txid(),
@@ -25,13 +28,7 @@ fn active_block(transactions: Vec<Transaction>, tag: u8) -> Block {
     }
 }
 
-fn observable(
-    pool: &Mempool,
-) -> (
-    Vec<Hash256>,
-    usize,
-    Vec<(Hash256, u64, usize, Vec<Hash256>)>,
-) {
+fn observable(pool: &Mempool) -> Observable {
     let order = pool.deterministic_order().unwrap();
     let entries = order
         .iter()
