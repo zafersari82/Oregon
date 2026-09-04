@@ -1,0 +1,18 @@
+name: M6 Primitives TDD
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  primitives:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install Rust 1.85.0
+        run: rustup toolchain install 1.85.0 --profile minimal --component rustfmt,clippy
+      - name: Run Task 1 regression test
+        run: cargo +1.85.0 test --locked -p oregon-primitives --test remote_allocation
