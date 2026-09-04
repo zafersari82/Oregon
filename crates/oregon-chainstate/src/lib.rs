@@ -1,11 +1,15 @@
 #![forbid(unsafe_code)]
 
+mod admission;
 mod branch;
 mod config;
 mod error;
 mod prune;
+mod recovery;
 mod reorg;
 mod state;
+mod transition;
+mod utxo_delta;
 
 pub use config::ChainConfig;
 pub use error::ChainStateError;
