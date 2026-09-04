@@ -52,12 +52,12 @@ fn sample_index() -> BlockIndexRecord {
 }
 
 #[test]
-fn new_database_opens_with_schema_1_0_and_required_column_families() {
+fn new_database_opens_with_schema_1_1_and_required_column_families() {
     let dir = TestDir::new("schema-open");
     let db = OregonDb::open(dir.path()).unwrap();
     assert_eq!(
         db.schema_version().unwrap(),
-        SchemaVersion { major: 1, minor: 0 }
+        SchemaVersion { major: 1, minor: 1 }
     );
     for name in [CF_BLOCKS, CF_BLOCK_INDEX, CF_UTXO, CF_UNDO, CF_CHAIN_META] {
         assert!(db.has_column_family(name));
@@ -67,7 +67,7 @@ fn new_database_opens_with_schema_1_0_and_required_column_families() {
     let reopened = OregonDb::open(dir.path()).unwrap();
     assert_eq!(
         reopened.schema_version().unwrap(),
-        SchemaVersion { major: 1, minor: 0 }
+        SchemaVersion { major: 1, minor: 1 }
     );
 }
 
@@ -79,7 +79,7 @@ fn schema_less_empty_database_can_finish_initialization() {
     let db = OregonDb::open(dir.path()).unwrap();
     assert_eq!(
         db.schema_version().unwrap(),
-        SchemaVersion { major: 1, minor: 0 }
+        SchemaVersion { major: 1, minor: 1 }
     );
 }
 
