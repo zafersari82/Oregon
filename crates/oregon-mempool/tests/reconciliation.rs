@@ -1,8 +1,6 @@
 mod common;
 
-use common::{
-    AcceptTestSpends, RejectTestSpends, base, entry, outpoint, spend, state_with,
-};
+use common::{AcceptTestSpends, RejectTestSpends, base, entry, outpoint, spend, state_with};
 use oregon_mempool::{Mempool, MempoolConfig, MempoolError};
 use oregon_primitives::{Block, BlockHeader, Hash256, OutPoint, Transaction};
 
@@ -27,7 +25,13 @@ fn active_block(transactions: Vec<Transaction>, tag: u8) -> Block {
     }
 }
 
-fn observable(pool: &Mempool) -> (Vec<Hash256>, usize, Vec<(Hash256, u64, usize, Vec<Hash256>)>) {
+fn observable(
+    pool: &Mempool,
+) -> (
+    Vec<Hash256>,
+    usize,
+    Vec<(Hash256, u64, usize, Vec<Hash256>)>,
+) {
     let order = pool.deterministic_order().unwrap();
     let entries = order
         .iter()
@@ -167,10 +171,20 @@ fn reorg_removes_promoted_child_when_confirmed_parent_output_disappears() {
     let mut pool = Mempool::new(initial_base, MempoolConfig::default()).unwrap();
     let parent = spend(vec![root], &[90], 1);
     let child = spend(vec![tx_outpoint(&parent, 0)], &[80], 2);
-    pool.admit(parent.clone(), initial_base, &initial_chain, &AcceptTestSpends)
-        .unwrap();
-    pool.admit(child.clone(), initial_base, &initial_chain, &AcceptTestSpends)
-        .unwrap();
+    pool.admit(
+        parent.clone(),
+        initial_base,
+        &initial_chain,
+        &AcceptTestSpends,
+    )
+    .unwrap();
+    pool.admit(
+        child.clone(),
+        initial_base,
+        &initial_chain,
+        &AcceptTestSpends,
+    )
+    .unwrap();
 
     let promoted_chain = state_with(vec![(tx_outpoint(&parent, 0), entry(90, 21, false))]);
     let promoted_base = base(0x53, 21);
@@ -259,15 +273,27 @@ fn reorg_rebuild_is_insertion_order_independent() {
     let b = spend(vec![b_root], &[80], 2);
 
     let mut first = Mempool::new(old_base, MempoolConfig::default()).unwrap();
-    first.admit(a.clone(), old_base, &chain, &AcceptTestSpends).unwrap();
-    first.admit(b.clone(), old_base, &chain, &AcceptTestSpends).unwrap();
+    first
+        .admit(a.clone(), old_base, &chain, &AcceptTestSpends)
+        .unwrap();
+    first
+        .admit(b.clone(), old_base, &chain, &AcceptTestSpends)
+        .unwrap();
 
     let mut second = Mempool::new(old_base, MempoolConfig::default()).unwrap();
-    second.admit(b, old_base, &chain, &AcceptTestSpends).unwrap();
-    second.admit(a, old_base, &chain, &AcceptTestSpends).unwrap();
+    second
+        .admit(b, old_base, &chain, &AcceptTestSpends)
+        .unwrap();
+    second
+        .admit(a, old_base, &chain, &AcceptTestSpends)
+        .unwrap();
 
-    let first_report = first.reconcile_reorg(new_base, &chain, &AcceptTestSpends).unwrap();
-    let second_report = second.reconcile_reorg(new_base, &chain, &AcceptTestSpends).unwrap();
+    let first_report = first
+        .reconcile_reorg(new_base, &chain, &AcceptTestSpends)
+        .unwrap();
+    let second_report = second
+        .reconcile_reorg(new_base, &chain, &AcceptTestSpends)
+        .unwrap();
     assert_eq!(first_report, second_report);
     assert_eq!(observable(&first), observable(&second));
 }
@@ -279,7 +305,8 @@ fn reorg_height_overflow_is_atomic_and_rejecting_verifier_filters_tx() {
     let old_base = base(0x92, 20);
     let mut pool = Mempool::new(old_base, MempoolConfig::default()).unwrap();
     let tx = spend(vec![root], &[90], 1);
-    pool.admit(tx.clone(), old_base, &chain, &AcceptTestSpends).unwrap();
+    pool.admit(tx.clone(), old_base, &chain, &AcceptTestSpends)
+        .unwrap();
     let before = observable(&pool);
 
     assert_eq!(
