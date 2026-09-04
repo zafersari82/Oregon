@@ -6,13 +6,17 @@ use oregon_primitives::{Amount, BlockHeader, Hash256, OutPoint, TxOutput};
 use oregon_utxo::{BlockUndo, UtxoEntry};
 use rocksdb::{ColumnFamilyDescriptor, DB, Options};
 
-use crate::{
-    BlockIndexRecord, CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, NodeHealth,
-    OregonDb, SchemaVersion, StorageError, ValidationStatus, active_height_key, decode_block_index,
-    decode_block_undo, decode_node_health, decode_outpoint_key, decode_utxo_entry,
-    encode_block_index, encode_block_undo, encode_node_health, encode_outpoint_key,
-    encode_utxo_entry,
+use crate::codec::{
+    decode_block_undo, decode_outpoint_key, decode_utxo_entry, encode_block_undo,
+    encode_outpoint_key, encode_utxo_entry,
 };
+use crate::db::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb};
+use crate::error::StorageError;
+use crate::records::{
+    BlockIndexRecord, NodeHealth, ValidationStatus, active_height_key, decode_block_index,
+    decode_node_health, encode_block_index, encode_node_health,
+};
+use crate::schema::SchemaVersion;
 
 struct TestDir(PathBuf);
 
