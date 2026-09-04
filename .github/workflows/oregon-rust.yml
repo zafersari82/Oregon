@@ -31,10 +31,31 @@ jobs:
           key: oregon-rust-${{ runner.os }}-1.85.0-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             oregon-rust-${{ runner.os }}-1.85.0-
+      - name: Architecture scan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if rg -n 'DeferredTransition|from_persisted_entries|DuplicatePersistedOutpoint|oregon-task[0-9]|mod task[0-9]' crates README.md; then
+            echo 'Forbidden legacy architecture symbol or task-numbered production/test path remains.' >&2
+            exit 1
+          fi
+
+          if rg -n 'encode_(outpoint|utxo|block_undo)|decode_(outpoint|utxo|block_undo)|CF_(BLOCKS|BLOCK_INDEX|UTXO|UNDO|CHAIN_META)' crates --glob '!crates/oregon-storage/**'; then
+            echo 'Storage representation leaked outside oregon-storage.' >&2
+            exit 1
+          fi
+
+          if rg -n 'unsafe[[:space:]]*(fn|impl|trait|extern|\{|\()' crates --glob '!crates/oregon-pow/**'; then
+            echo 'Unsafe Rust escaped the oregon-pow boundary.' >&2
+            exit 1
+          fi
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Chainstate Rustdoc
         run: cargo +1.85.0 rustdoc --locked -p oregon-chainstate -- -D warnings
+      - name: Workspace Docs
+        run: cargo +1.85.0 doc --locked --workspace --no-deps
       - name: Format
         run: cargo +1.85.0 fmt --all -- --check
       - name: Clippy
