@@ -8,8 +8,8 @@ pub enum UtxoError {
     MissingUtxo(OutPoint),
     #[error("duplicate input: {0:?}")]
     DuplicateInput(OutPoint),
-    #[error("duplicate persisted UTXO outpoint: {0:?}")]
-    DuplicatePersistedOutpoint(OutPoint),
+    #[error("duplicate UTXO outpoint: {0:?}")]
+    DuplicateOutpoint(OutPoint),
     #[error("coinbase output is immature")]
     ImmatureCoinbase,
     #[error("transaction outputs exceed inputs")]
