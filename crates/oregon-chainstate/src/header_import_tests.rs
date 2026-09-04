@@ -157,3 +157,42 @@ fn unknown_parent_header_is_rejected_without_persistence_or_tip_mutation() {
         Some((preferred_before.block_id, preferred_before.height))
     );
 }
+
+#[test]
+fn preferred_header_chain_reopens_without_advancing_active_state() {
+    let dir = TestDir::scoped("header-import", "reopen-preferred");
+    let config = standard_chain_config();
+    let anchor_id = config.anchor_header.block_id();
+    let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
+    let active_before = state.tip().clone();
+    let utxos_before = state.utxos().clone();
+
+    let first = candidate_header(&config, anchor_id, 1, 501);
+    let first_id = first.block_id();
+    assert_eq!(
+        state.accept_header(first).unwrap().status,
+        HeaderImportStatus::Preferred
+    );
+    let second = candidate_header(&config, first_id, 2, 502);
+    let second_id = second.block_id();
+    assert_eq!(
+        state.accept_header(second).unwrap().status,
+        HeaderImportStatus::Preferred
+    );
+
+    let preferred_before = state.preferred_header_tip().clone();
+    assert_eq!(preferred_before.block_id, second_id);
+    assert_eq!(preferred_before.height, 2);
+    assert_eq!(state.tip(), &active_before);
+    assert_eq!(state.utxos(), &utxos_before);
+    drop(state);
+
+    let reopened = ChainState::open(dir.path(), config).unwrap();
+    assert_eq!(reopened.preferred_header_tip(), &preferred_before);
+    assert_eq!(reopened.tip(), &active_before);
+    assert_eq!(reopened.utxos(), &utxos_before);
+    assert_eq!(
+        reopened.storage().preferred_header_tip().unwrap(),
+        Some((second_id, 2))
+    );
+}
