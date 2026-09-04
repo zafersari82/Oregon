@@ -22,10 +22,8 @@ impl TestDir {
         } else {
             format!("oregon-{scope}")
         };
-        let path = std::env::temp_dir().join(format!(
-            "{prefix}-{label}-{}-{n}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("{prefix}-{label}-{}-{n}", std::process::id()));
         std::fs::create_dir_all(&path).unwrap();
         Self(path)
     }
