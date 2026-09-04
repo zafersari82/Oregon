@@ -6,10 +6,10 @@ use oregon_primitives::Block;
 use oregon_storage::{BlockIndexRecord, StorageBatch, ValidationStatus};
 use oregon_utxo::SpendVerifier;
 
+use crate::ChainStateError;
 use crate::branch::BranchView;
 use crate::state::{AcceptOutcome, ChainState};
 use crate::transition::{extend_active, reorganize};
-use crate::ChainStateError;
 
 pub(crate) fn accept_block_healthy<V: SpendVerifier>(
     state: &mut ChainState,
