@@ -244,20 +244,8 @@ mod coinbase_tests {
     };
 
     use super::UtxoState;
-    use crate::{SpendVerifier, UtxoEntry, UtxoError};
-
-    struct AcceptAll;
-
-    impl SpendVerifier for AcceptAll {
-        fn verify_spend(
-            &self,
-            _transaction: &Transaction,
-            _input_index: usize,
-            _prevout: &UtxoEntry,
-        ) -> Result<(), UtxoError> {
-            Ok(())
-        }
-    }
+    use crate::test_support::{AcceptAllSpends, spend};
+    use crate::UtxoError;
 
     fn coinbase(outputs: Vec<TxOutput>) -> Transaction {
         Transaction {
@@ -269,23 +257,6 @@ mod coinbase_tests {
                 witness: vec![vec![1]],
             }],
             outputs,
-            lock_time: 0,
-        }
-    }
-
-    fn spend(previous: OutPoint, value: u64) -> Transaction {
-        Transaction {
-            version: 1,
-            inputs: vec![TxInput {
-                previous_txid: previous.txid,
-                previous_output_index: previous.index,
-                sequence: 0,
-                witness: vec![],
-            }],
-            outputs: vec![TxOutput {
-                value: Amount::from_base_units(value).unwrap(),
-                locking_program: vec![0x01],
-            }],
             lock_time: 0,
         }
     }
@@ -334,7 +305,7 @@ mod coinbase_tests {
         let spend = spend(previous, 90);
 
         assert_eq!(
-            state.apply_normal_transaction(&spend, 10, &AcceptAll),
+            state.apply_normal_transaction(&spend, 10, &AcceptAllSpends),
             Err(UtxoError::ImmatureCoinbase)
         );
     }
