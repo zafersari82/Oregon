@@ -99,23 +99,32 @@ pub(crate) fn accept_header_healthy(
     }
 
     let index = validate_candidate_header(state, &header)?;
-    let preferred_tip = HeaderTip {
+    let height = index.height;
+    let candidate_tip = HeaderTip {
         block_id,
-        height: index.height,
+        height,
         cumulative_work: index.cumulative_work.clone(),
     };
+    let becomes_preferred = candidate_tip.cumulative_work > state.header_tip.cumulative_work;
 
     let mut batch = StorageBatch::new();
     batch.put_index(index);
-    batch.set_preferred_header_tip(block_id, preferred_tip.height);
+    if becomes_preferred {
+        batch.set_preferred_header_tip(block_id, height);
+    }
     state.db.commit_durable(batch)?;
 
-    state.header_tip = preferred_tip.clone();
+    let status = if becomes_preferred {
+        state.header_tip = candidate_tip;
+        HeaderImportStatus::Preferred
+    } else {
+        HeaderImportStatus::Stored
+    };
     Ok(HeaderImportOutcome {
         block_id,
-        height: preferred_tip.height,
-        status: HeaderImportStatus::Preferred,
-        preferred_tip,
+        height,
+        status,
+        preferred_tip: state.header_tip.clone(),
     })
 }
 
