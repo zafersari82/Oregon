@@ -244,8 +244,8 @@ mod coinbase_tests {
     };
 
     use super::UtxoState;
-    use crate::test_support::{AcceptAllSpends, spend};
     use crate::UtxoError;
+    use crate::test_support::{AcceptAllSpends, spend};
 
     fn coinbase(outputs: Vec<TxOutput>) -> Transaction {
         Transaction {
