@@ -62,3 +62,30 @@ fn heavier_valid_header_becomes_preferred_without_mutating_active_state() {
         Some((block_id, 1))
     );
 }
+
+#[test]
+fn duplicate_header_returns_known_without_changing_chainstate() {
+    let dir = TestDir::scoped("header-import", "known");
+    let config = standard_chain_config();
+    let anchor_id = config.anchor_header.block_id();
+    let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
+    let header = candidate_header(&config, anchor_id, 1, 202);
+    let block_id = header.block_id();
+    assert_eq!(
+        state.accept_header(header.clone()).unwrap().status,
+        HeaderImportStatus::Preferred
+    );
+    let active_before = state.tip().clone();
+    let preferred_before = state.preferred_header_tip().clone();
+    let utxos_before = state.utxos().clone();
+
+    let out = state.accept_header(header).unwrap();
+
+    assert_eq!(out.block_id, block_id);
+    assert_eq!(out.height, 1);
+    assert_eq!(out.status, HeaderImportStatus::Known);
+    assert_eq!(out.preferred_tip, preferred_before);
+    assert_eq!(state.preferred_header_tip(), &preferred_before);
+    assert_eq!(state.tip(), &active_before);
+    assert_eq!(state.utxos(), &utxos_before);
+}
