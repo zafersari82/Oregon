@@ -33,6 +33,8 @@ jobs:
             oregon-rust-${{ runner.os }}-1.85.0-
       - name: Inject early-publication mutation
         run: python .github/mutations/m5_early_publication.py
+      - name: Mutation kill test - candidate self rollback
+        run: cargo +1.85.0 test --locked -p oregon-mempool candidate_self_eviction_rejects_without_any_public_mutation -- --nocapture
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Format
