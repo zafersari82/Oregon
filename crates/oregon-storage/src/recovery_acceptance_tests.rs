@@ -6,11 +6,13 @@ use oregon_primitives::{Amount, BlockHeader, Hash256, OutPoint, TxOutput};
 use oregon_utxo::{BlockUndo, UtxoEntry};
 use rocksdb::{ColumnFamilyDescriptor, DB, IteratorMode, Options};
 
-use crate::{
-    BlockIndexRecord, CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb,
-    SCHEMA_MIGRATION_KEY, SchemaVersion, StorageBatch, StorageError, ValidationStatus,
-    encode_block_index,
+use crate::batch::StorageBatch;
+use crate::db::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb};
+use crate::error::StorageError;
+use crate::records::{
+    BlockIndexRecord, SCHEMA_MIGRATION_KEY, ValidationStatus, encode_block_index,
 };
+use crate::schema::SchemaVersion;
 
 struct TestDir(PathBuf);
 
