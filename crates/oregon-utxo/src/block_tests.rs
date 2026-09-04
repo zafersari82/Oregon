@@ -1,65 +1,12 @@
-use oregon_consensus::{ConsensusError, ConsensusParams, Target, block_subsidy};
+use oregon_consensus::{ConsensusError, block_subsidy};
 use oregon_primitives::{
-    Amount, Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput,
-    transaction_root, write_varint,
+    Amount, Hash256, OutPoint, Transaction, TxInput, TxOutput, write_varint,
 };
 
-use crate::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError, UtxoState};
-
-struct AcceptAll;
-
-impl SpendVerifier for AcceptAll {
-    fn verify_spend(
-        &self,
-        _transaction: &Transaction,
-        _input_index: usize,
-        _prevout: &UtxoEntry,
-    ) -> Result<(), UtxoError> {
-        Ok(())
-    }
-}
-
-fn params() -> ConsensusParams {
-    ConsensusParams::new(
-        Target::from_le_bytes([0xff; 32]).unwrap(),
-        Target::from_le_bytes([0x7f; 32]).unwrap(),
-        [0x42; 32],
-    )
-    .unwrap()
-}
-
-fn output(value: u64) -> TxOutput {
-    TxOutput {
-        value: Amount::from_base_units(value).unwrap(),
-        locking_program: vec![0x01],
-    }
-}
-
-fn seed_entry(value: u64) -> UtxoEntry {
-    UtxoEntry {
-        output: output(value),
-        creation_height: 1,
-        is_coinbase: false,
-    }
-}
-
-fn input(previous: OutPoint) -> TxInput {
-    TxInput {
-        previous_txid: previous.txid,
-        previous_output_index: previous.index,
-        sequence: 0,
-        witness: vec![],
-    }
-}
-
-fn spend(previous: OutPoint, value: u64) -> Transaction {
-    Transaction {
-        version: 1,
-        inputs: vec![input(previous)],
-        outputs: vec![output(value)],
-        lock_time: 0,
-    }
-}
+use crate::test_support::{
+    AcceptAllSpends, block, consensus_params, output, seed_entry, spend,
+};
+use crate::{BlockUndo, UtxoError, UtxoState};
 
 fn coinbase(height: u64, outputs: Vec<TxOutput>) -> Transaction {
     let mut height_bytes = Vec::new();
@@ -74,21 +21,6 @@ fn coinbase(height: u64, outputs: Vec<TxOutput>) -> Transaction {
         }],
         outputs,
         lock_time: 0,
-    }
-}
-
-fn block(height: u64, transactions: Vec<Transaction>) -> Block {
-    let root = transaction_root(&transactions).unwrap();
-    Block {
-        header: BlockHeader {
-            version: 1,
-            previous_block: Hash256::from_bytes([0x11; 32]),
-            transaction_root: root,
-            timestamp: 1_800_000_000 + height,
-            difficulty_commitment: [0xff; 32],
-            nonce: 1,
-        },
-        transactions,
     }
 }
 
@@ -110,7 +42,7 @@ fn same_block_parent_then_child_spend_connects_atomically() {
     let candidate = block(200, vec![coinbase(200, vec![]), parent, child.clone()]);
 
     let undo: BlockUndo = state
-        .connect_block(&candidate, 200, &params(), &AcceptAll)
+        .connect_block(&candidate, 200, &consensus_params(), &AcceptAllSpends)
         .expect("topologically ordered block");
 
     assert!(state.get(&seed).is_none());
@@ -146,7 +78,7 @@ fn child_before_parent_is_rejected_and_live_state_is_unchanged() {
     let candidate = block(200, vec![coinbase(200, vec![]), child, parent]);
 
     assert_eq!(
-        state.connect_block(&candidate, 200, &params(), &AcceptAll),
+        state.connect_block(&candidate, 200, &consensus_params(), &AcceptAllSpends),
         Err(UtxoError::InvalidBlockOrder)
     );
     assert_eq!(state, before);
@@ -168,7 +100,7 @@ fn double_spend_across_transactions_rejects_entire_block() {
 
     assert!(
         state
-            .connect_block(&candidate, 200, &params(), &AcceptAll)
+            .connect_block(&candidate, 200, &consensus_params(), &AcceptAllSpends)
             .is_err()
     );
     assert_eq!(state, before);
@@ -188,7 +120,7 @@ fn coinbase_claim_is_bound_to_exact_accumulated_fees() {
     let candidate = block(200, vec![coinbase(200, vec![output(overclaim)]), normal]);
 
     assert_eq!(
-        state.connect_block(&candidate, 200, &params(), &AcceptAll),
+        state.connect_block(&candidate, 200, &consensus_params(), &AcceptAllSpends),
         Err(UtxoError::Consensus(ConsensusError::CoinbaseOverClaim))
     );
     assert_eq!(state, before);
@@ -214,7 +146,7 @@ fn final_invalid_transaction_rolls_back_all_earlier_overlay_changes() {
 
     assert!(
         state
-            .connect_block(&candidate, 200, &params(), &AcceptAll)
+            .connect_block(&candidate, 200, &consensus_params(), &AcceptAllSpends)
             .is_err()
     );
     assert_eq!(state, before);
