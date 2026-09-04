@@ -375,6 +375,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "oregon-mempool"
+version = "0.1.0"
+dependencies = [
+ "oregon-consensus",
+ "oregon-primitives",
+ "oregon-utxo",
+ "thiserror",
+]
+
+[[package]]
 name = "oregon-pow"
 version = "0.1.0"
 dependencies = [
