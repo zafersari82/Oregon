@@ -139,6 +139,87 @@ mod tests {
     }
 
     #[test]
+    fn normal_helper_accepts_valid_normal_transaction() {
+        assert_eq!(validate_normal_transaction_skeleton(&normal_transaction(0)), Ok(()));
+    }
+
+    #[test]
+    fn normal_helper_rejects_empty_inputs() {
+        let tx = Transaction {
+            version: 1,
+            inputs: vec![],
+            outputs: vec![TxOutput {
+                value: Amount::from_base_units(1).unwrap(),
+                locking_program: vec![],
+            }],
+            lock_time: 0,
+        };
+        assert_eq!(
+            validate_normal_transaction_skeleton(&tx),
+            Err(NormalTransactionError::EmptyInputs)
+        );
+    }
+
+    #[test]
+    fn normal_helper_rejects_empty_outputs() {
+        let tx = Transaction {
+            version: 1,
+            inputs: vec![TxInput {
+                previous_txid: Hash256::from_bytes([0x11; 32]),
+                previous_output_index: 0,
+                sequence: 0,
+                witness: vec![],
+            }],
+            outputs: vec![],
+            lock_time: 0,
+        };
+        assert_eq!(
+            validate_normal_transaction_skeleton(&tx),
+            Err(NormalTransactionError::EmptyOutputs)
+        );
+    }
+
+    #[test]
+    fn normal_helper_rejects_coinbase_form() {
+        assert_eq!(
+            validate_normal_transaction_skeleton(&coinbase(2)),
+            Err(NormalTransactionError::CoinbaseForm)
+        );
+    }
+
+    #[test]
+    fn normal_helper_rejects_null_outpoint() {
+        let tx = Transaction {
+            version: 1,
+            inputs: vec![TxInput {
+                previous_txid: Hash256::from_bytes([0; 32]),
+                previous_output_index: u32::MAX,
+                sequence: 0,
+                witness: vec![],
+            }],
+            outputs: vec![TxOutput {
+                value: Amount::from_base_units(1).unwrap(),
+                locking_program: vec![],
+            }],
+            lock_time: 0,
+        };
+        assert_eq!(
+            validate_normal_transaction_skeleton(&tx),
+            Err(NormalTransactionError::NullOutpoint)
+        );
+    }
+
+    #[test]
+    fn normal_helper_rejects_oversized_transaction() {
+        let tx = normal_transaction(102_400);
+        assert!(tx.encode().len() > MAX_TRANSACTION_BYTES);
+        assert_eq!(
+            validate_normal_transaction_skeleton(&tx),
+            Err(NormalTransactionError::TooLarge)
+        );
+    }
+
+    #[test]
     fn valid_small_block_passes() {
         let block = block(vec![coinbase(2), normal_transaction(0)]);
         assert_eq!(
