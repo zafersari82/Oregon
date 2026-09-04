@@ -185,8 +185,14 @@ fn topology_is_insertion_order_independent_and_parents_precede_children() {
     let first_order = first.deterministic_order().unwrap();
     let second_order = second.deterministic_order().unwrap();
     assert_eq!(first_order, second_order);
-    let parent_pos = first_order.iter().position(|txid| *txid == left.txid()).unwrap();
-    let child_pos = first_order.iter().position(|txid| *txid == child.txid()).unwrap();
+    let parent_pos = first_order
+        .iter()
+        .position(|txid| *txid == left.txid())
+        .unwrap();
+    let child_pos = first_order
+        .iter()
+        .position(|txid| *txid == child.txid())
+        .unwrap();
     assert!(parent_pos < child_pos);
 
     let mut independent = vec![left.txid(), right.txid()];
