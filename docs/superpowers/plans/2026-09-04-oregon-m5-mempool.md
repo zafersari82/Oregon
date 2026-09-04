@@ -2,79 +2,69 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a bounded, deterministic, in-memory Oregon mempool that reuses authoritative consensus/UTXO validation, supports parent-child unconfirmed chains, rejects conflicts/orphans, reconciles safely across active-chain changes, and cannot partially publish failed admission or rebuild state.
+**Goal:** Add a bounded, deterministic, in-memory Oregon mempool that reuses the accepted consensus/UTXO validation path, supports accepted-parent then child chains, rejects conflicts and missing dependencies, and rebuilds atomically across active-chain changes.
 
-**Architecture:** Introduce a focused `oregon-mempool` crate that depends only on primitives, consensus, and UTXO layers. It never owns RocksDB and never becomes part of consensus. Admission builds a narrow temporary `UtxoState`, replays accepted unconfirmed ancestors through the existing mandatory `SpendVerifier` path, validates the candidate through the same path, computes a complete mutation/eviction plan without mutating live state, and only then commits infallible bookkeeping changes. Full reconciliation constructs a brand-new staged mempool against the new active-chain UTXO snapshot and publishes it only after all invariants pass.
+**Architecture:** Add `oregon-mempool` as a policy-only crate depending on primitives, consensus, and UTXO. Admission validates against a narrow temporary `UtxoState`, replaying already accepted unconfirmed ancestors through the existing mandatory `SpendVerifier`; only a fully validated candidate receives a non-mutating capacity/removal plan, and live bookkeeping changes occur after every fallible check. Reconciliation constructs a fresh staged mempool from retained transaction objects against the new chain UTXO snapshot, then replaces the live pool in one final publication step.
 
-**Tech Stack:** Rust `1.85.0`, edition `2024`, existing `oregon-primitives`, `oregon-consensus`, `oregon-utxo`, `thiserror`, standard-library ordered collections, GitHub Actions with locked workspace test/fmt/clippy gates.
+**Tech Stack:** Rust `1.85.0`, edition `2024`, `oregon-primitives`, `oregon-consensus`, `oregon-utxo`, `thiserror`, standard-library `BTreeMap`/`BTreeSet`/lookup-only `HashMap`, GitHub Actions locked workspace gates.
 
 **Spec:** `docs/superpowers/specs/2026-09-04-oregon-m5-mempool-design.md`
 
 ## Global Constraints
 
-- Work on `oregon-v1-m5-mempool`, starting from accepted M4 checkpoint `6ff8168bb79b0f7e1aa015ce910cedaf108614ae`; do not merge or modify `main`.
-- New M5 crate must contain `#![forbid(unsafe_code)]`.
-- M5 is policy, not consensus. Do not add P2P, orphan storage, RBF, package relay, CPFP package scoring, persistence, wallet, miner RPC, testnet/mainnet launch behavior, or new lock-time/sequence semantics.
-- A child submitted before its parent is rejected and not retained.
-- No production `AcceptAll` or other permissive `SpendVerifier` is allowed.
-- Every normal spend, including ancestor replay and full revalidation, must pass the caller-supplied `SpendVerifier`.
-- Block validation and mempool admission must share one authoritative `validate_normal_transaction_skeleton()` implementation.
-- Canonical transaction byte length is exactly `Transaction::encode().len()`; txid is exactly `Transaction::txid()`.
-- Consensus transaction byte ceiling remains `MAX_TRANSACTION_BYTES = 102_400`.
-- Mempool default limits are exactly: `50_000` entries, `64 * 1024 * 1024` canonical transaction bytes, `25` unconfirmed ancestors, `25` unconfirmed descendants.
-- Ancestor/descendant counts exclude the transaction itself.
-- Mempool admission validates at next possible spend height `tip_height.checked_add(1)`.
-- One mempool spender per outpoint. No fee-based replacement in M5.
-- Admission and reconciliation are fail-atomic: no partial entry/index/graph/byte/base publication.
-- Externally observed order and eviction must never depend on `HashMap`/`HashSet` iteration order.
-- Deterministic ready-set/topological ties use ascending txid bytes.
-- Eviction selects the lowest individual fee-rate using exact integer cross multiplication; equal rate -> lower absolute fee -> lexicographically smaller txid first.
-- Evicting an entry evicts its current descendant subtree unless confirmation has explicitly promoted a child dependency to chain-backed state.
-- If capacity planning would evict the new candidate, reject admission and leave the original pool unchanged.
-- Active-chain state is authoritative during reconciliation.
-- Reorg reconciliation does not resurrect disconnected transactions not already in the pool.
-- TDD is mandatory: RED test -> observe intended failure -> minimal GREEN -> focused test -> full workspace gate -> commit.
-- Each task ends with fresh `cargo +1.85.0 test --locked --workspace --all-targets`, `cargo +1.85.0 fmt --all -- --check`, and `cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings`.
-- Required security mutations live only on throwaway branches and never enter the clean M5 branch.
+- Development branch is `oregon-v1-m5-mempool`, descended from accepted M4 checkpoint `6ff8168bb79b0f7e1aa015ce910cedaf108614ae`. Do not merge or modify `main`.
+- New crate starts with `#![forbid(unsafe_code)]`.
+- M5 does not add P2P, transaction relay, orphan storage, RBF, package relay, CPFP package scoring, persistence, wallet/address support, miner RPC, production Schnorr/KeyCommitV1 implementation, testnet/mainnet launch behavior, or new lock-time/sequence semantics.
+- Child-before-parent submission is rejected and not retained.
+- Block validation and mempool admission use one `validate_normal_transaction_skeleton()` implementation.
+- Every candidate input, ancestor replay input, and full-revalidation input goes through the caller-supplied `SpendVerifier`. No production permissive verifier exists.
+- Canonical transaction size is `Transaction::encode().len()`; txid is `Transaction::txid()`; consensus transaction ceiling remains exactly `102_400` bytes.
+- Default policy limits are exactly `50_000` entries, `64 * 1024 * 1024` canonical bytes, `25` unconfirmed ancestors, and `25` unconfirmed descendants. Ancestor/descendant counts exclude self.
+- Validation spend height is `tip_height.checked_add(1)`.
+- At most one mempool transaction claims an outpoint. M5 never replaces a conflict by fee.
+- Admission/reconciliation are fail-atomic: entry map, spend index, graph, byte counter, and chain base never partially publish.
+- Observable ordering never depends on `HashMap`/`HashSet` iteration.
+- Topological ready-set ties use ascending txid. Eviction chooses lowest individual fee-rate by exact integer cross multiplication, then lower fee, then ascending txid.
+- Eviction of an unconfirmed parent removes its descendant subtree. If capacity would remove the new candidate directly or through one of its ancestors, admission returns `CapacityRejected` and live state is unchanged.
+- Active chain is authoritative during reconciliation. Reorg reconciliation never synthesizes/resurrects disconnected transactions not already present.
+- TDD sequence for every production task: write RED -> observe intended failure -> minimal GREEN -> focused tests -> full workspace test/fmt/clippy -> commit.
+- Security mutants exist only on throwaway branches.
 
 ---
 
-## File Structure
+## File Map
 
-### Existing files modified
+**Modify**
+- `Cargo.toml` — add `crates/oregon-mempool`.
+- `Cargo.lock` — Cargo-generated workspace lock update.
+- `.github/workflows/oregon-rust.yml` — add M5 development branch trigger without altering pins or permissions.
+- `crates/oregon-consensus/src/block.rs` — use shared normal-transaction validator while preserving block error precedence.
+- `crates/oregon-consensus/src/error.rs` — add `NormalTransactionError`.
+- `crates/oregon-consensus/src/lib.rs` — export validator/error and `MAX_TRANSACTION_BYTES`.
 
-- `Cargo.toml` — add `crates/oregon-mempool` workspace member.
-- `Cargo.lock` — Cargo-generated local package/dependency lock update.
-- `.github/workflows/oregon-rust.yml` — add `oregon-v1-m5-mempool` push trigger while preserving read-only permissions and all existing pins.
-- `crates/oregon-consensus/src/block.rs` — move normal-transaction shape checks behind the shared helper while preserving current block error precedence.
-- `crates/oregon-consensus/src/error.rs` — add focused `NormalTransactionError`.
-- `crates/oregon-consensus/src/lib.rs` — export shared normal-transaction validator/error and `MAX_TRANSACTION_BYTES` for policy consumers.
+**Create**
+- `crates/oregon-mempool/Cargo.toml`
+- `crates/oregon-mempool/src/lib.rs`
+- `crates/oregon-mempool/src/config.rs`
+- `crates/oregon-mempool/src/error.rs`
+- `crates/oregon-mempool/src/entry.rs`
+- `crates/oregon-mempool/src/graph.rs`
+- `crates/oregon-mempool/src/eviction.rs`
+- `crates/oregon-mempool/src/pool.rs`
+- `crates/oregon-mempool/src/reconcile.rs`
+- `crates/oregon-mempool/tests/common/mod.rs`
+- `crates/oregon-mempool/tests/admission.rs`
+- `crates/oregon-mempool/tests/dependencies.rs`
+- `crates/oregon-mempool/tests/eviction.rs`
+- `crates/oregon-mempool/tests/reconciliation.rs`
 
-### New `oregon-mempool` files
-
-- `crates/oregon-mempool/Cargo.toml` — Oregon dependencies and `thiserror` only; no persistence/network dependency.
-- `crates/oregon-mempool/src/lib.rs` — `#![forbid(unsafe_code)]`, module wiring, public exports.
-- `crates/oregon-mempool/src/config.rs` — `MempoolConfig`, defaults and validation.
-- `crates/oregon-mempool/src/error.rs` — typed policy/invariant errors.
-- `crates/oregon-mempool/src/entry.rs` — `ChainBase`, `MempoolEntry`, `AdmissionOutcome`, `ReconcileReport`.
-- `crates/oregon-mempool/src/graph.rs` — ancestor/descendant closure, deterministic topological ordering, cycle detection.
-- `crates/oregon-mempool/src/eviction.rs` — exact fee-rate comparison and non-mutating capacity removal planning.
-- `crates/oregon-mempool/src/pool.rs` — pool ownership, admission preflight, narrow UTXO replay, atomic bookkeeping commit/removal.
-- `crates/oregon-mempool/src/reconcile.rs` — active-block and reorg staged rebuild paths.
-
-### New integration tests
-
-- `crates/oregon-mempool/tests/common/mod.rs` — test-only transaction/UTXO/verifier fixtures.
-- `crates/oregon-mempool/tests/admission.rs` — chain-backed admission, structural parity, conflict, maturity, stale-base and failure atomicity.
-- `crates/oregon-mempool/tests/dependencies.rs` — parent-child, orphan rejection, ancestor/descendant limits, deterministic graph ordering.
-- `crates/oregon-mempool/tests/eviction.rs` — hard bounds, exact fee-rate/tie ordering, subtree eviction, candidate-self-eviction rollback.
-- `crates/oregon-mempool/tests/reconciliation.rs` — confirmation, active-chain conflicts, tip changes, reorg full rebuild, non-resurrection and atomic failure.
-
-## Public Interface Contract
-
-Later tasks must use these exact names unless a compiler-required mechanical adjustment is documented in the commit.
+## Frozen Public Types and Signatures
 
 ```rust
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use oregon_primitives::{Block, Hash256, OutPoint, Transaction};
+use oregon_utxo::{SpendVerifier, UtxoState};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChainBase {
     pub tip_id: Hash256,
@@ -100,15 +90,14 @@ impl Default for MempoolConfig {
     }
 }
 
-pub struct MempoolEntry { /* private fields */ }
-
-impl MempoolEntry {
-    pub fn transaction(&self) -> &Transaction;
-    pub fn txid(&self) -> Hash256;
-    pub fn fee(&self) -> u64;
-    pub fn encoded_bytes(&self) -> usize;
-    pub fn parents(&self) -> &BTreeSet<Hash256>;
-    pub fn children(&self) -> &BTreeSet<Hash256>;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MempoolEntry {
+    transaction: Transaction,
+    txid: Hash256,
+    fee: u64,
+    encoded_bytes: usize,
+    parents: BTreeSet<Hash256>,
+    children: BTreeSet<Hash256>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,7 +114,22 @@ pub struct ReconcileReport {
     pub retained: usize,
 }
 
-pub struct Mempool { /* private state */ }
+pub struct Mempool {
+    config: MempoolConfig,
+    base: ChainBase,
+    entries: BTreeMap<Hash256, MempoolEntry>,
+    spenders: HashMap<OutPoint, Hash256>,
+    total_bytes: usize,
+}
+
+impl MempoolEntry {
+    pub fn transaction(&self) -> &Transaction;
+    pub fn txid(&self) -> Hash256;
+    pub fn fee(&self) -> u64;
+    pub fn encoded_bytes(&self) -> usize;
+    pub fn parents(&self) -> &BTreeSet<Hash256>;
+    pub fn children(&self) -> &BTreeSet<Hash256>;
+}
 
 impl Mempool {
     pub fn new(base: ChainBase, config: MempoolConfig) -> Result<Self, MempoolError>;
@@ -162,15 +166,14 @@ impl Mempool {
 }
 ```
 
-`removed` and `evicted` vectors are externally observable and must be deterministic. `ReconcileReport.removed` is sorted ascending by txid bytes. `AdmissionOutcome.evicted` records capacity-removal roots/subtree members in deterministic commit order; tests must freeze that ordering.
+Both `AdmissionOutcome.evicted` and `ReconcileReport.removed` are sorted ascending by txid bytes before return. This freezes an insertion-order-independent external representation.
 
-## Test Fixture Contract
+## Test Fixtures
 
-All permissive verifiers stay in integration-test code only:
+`tests/common/mod.rs` defines only test-side permissive/rejecting verifiers:
 
 ```rust
 pub struct AcceptTestSpends;
-
 impl SpendVerifier for AcceptTestSpends {
     fn verify_spend(
         &self,
@@ -183,7 +186,6 @@ impl SpendVerifier for AcceptTestSpends {
 }
 
 pub struct RejectTestSpends;
-
 impl SpendVerifier for RejectTestSpends {
     fn verify_spend(
         &self,
@@ -194,36 +196,50 @@ impl SpendVerifier for RejectTestSpends {
         Err(UtxoError::SpendAuthorizationFailed)
     }
 }
-```
 
-Chain UTXO fixtures use the production checked restoration API rather than adding a new insertion bypass:
-
-```rust
 pub fn state_with(entries: Vec<(OutPoint, UtxoEntry)>) -> UtxoState {
     UtxoState::from_persisted_entries(entries).unwrap()
 }
 ```
 
+No new UTXO insertion bypass is introduced.
+
 ---
 
-### Task 1: One Authoritative Normal-Transaction Skeleton Validator
+### Task 1: Shared Normal-Transaction Structural Validator
 
 **Files:**
-- Modify: `crates/oregon-consensus/src/error.rs`
-- Modify: `crates/oregon-consensus/src/block.rs`
-- Modify: `crates/oregon-consensus/src/lib.rs`
+- Modify `crates/oregon-consensus/src/error.rs`
+- Modify `crates/oregon-consensus/src/block.rs`
+- Modify `crates/oregon-consensus/src/lib.rs`
 
-**Interfaces:**
-- Produces: `NormalTransactionError::{TooLarge, EmptyInputs, EmptyOutputs, CoinbaseForm, NullOutpoint}`.
-- Produces: `validate_normal_transaction_skeleton(transaction: &Transaction) -> Result<(), NormalTransactionError>`.
-- Produces: public `MAX_TRANSACTION_BYTES` re-export.
-- Preserves: every existing `validate_non_genesis_block_skeleton()` externally observed `ConsensusError` and block-level ordering.
+**Produces**
 
-- [ ] **Step 1: Write RED focused helper tests** in `block.rs`.
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum NormalTransactionError {
+    #[error("transaction exceeds canonical byte limit")]
+    TooLarge,
+    #[error("normal transaction has no inputs")]
+    EmptyInputs,
+    #[error("normal transaction has no outputs")]
+    EmptyOutputs,
+    #[error("coinbase form is not a normal transaction")]
+    CoinbaseForm,
+    #[error("normal transaction uses null outpoint")]
+    NullOutpoint,
+}
+
+pub fn validate_normal_transaction_skeleton(
+    transaction: &Transaction,
+) -> Result<(), NormalTransactionError>;
+```
+
+- [ ] **Step 1 — RED helper tests.** Add direct tests for valid normal tx and each five error variants. Example:
 
 ```rust
 #[test]
-fn normal_transaction_helper_rejects_empty_inputs() {
+fn normal_helper_rejects_empty_inputs() {
     let tx = Transaction {
         version: 1,
         inputs: vec![],
@@ -238,86 +254,45 @@ fn normal_transaction_helper_rejects_empty_inputs() {
         Err(NormalTransactionError::EmptyInputs)
     );
 }
-
-#[test]
-fn normal_transaction_helper_rejects_coinbase_form() {
-    assert_eq!(
-        validate_normal_transaction_skeleton(&coinbase(2)),
-        Err(NormalTransactionError::CoinbaseForm)
-    );
-}
 ```
 
-Add equivalent direct tests for `EmptyOutputs`, `NullOutpoint`, valid normal transaction, and encoded size > `MAX_TRANSACTION_BYTES` -> `TooLarge`.
-
-- [ ] **Step 2: Run RED**.
+- [ ] **Step 2 — Observe RED.**
 
 ```bash
-cargo +1.85.0 test --locked -p oregon-consensus normal_transaction_helper -- --nocapture
+cargo +1.85.0 test --locked -p oregon-consensus normal_helper -- --nocapture
 ```
 
-Expected: compilation failure because helper/error do not exist. A workflow/toolchain failure does not count as RED.
+Expected: helper/type missing.
 
-- [ ] **Step 3: Implement focused error and helper**.
-
-Helper rejection order is exactly:
+- [ ] **Step 3 — Implement helper with exact rejection order.**
 
 ```rust
-pub fn validate_normal_transaction_skeleton(
-    transaction: &Transaction,
-) -> Result<(), NormalTransactionError> {
-    if transaction.encode().len() > MAX_TRANSACTION_BYTES {
-        return Err(NormalTransactionError::TooLarge);
-    }
-    if transaction.inputs.is_empty() {
-        return Err(NormalTransactionError::EmptyInputs);
-    }
-    if transaction.outputs.is_empty() {
-        return Err(NormalTransactionError::EmptyOutputs);
-    }
-    if is_coinbase_form(transaction) {
-        return Err(NormalTransactionError::CoinbaseForm);
-    }
-    let null_txid = Hash256::from_bytes([0u8; 32]);
-    if transaction.inputs.iter().any(|input| {
-        input.previous_txid == null_txid && input.previous_output_index == u32::MAX
-    }) {
-        return Err(NormalTransactionError::NullOutpoint);
-    }
-    Ok(())
+if transaction.encode().len() > MAX_TRANSACTION_BYTES {
+    return Err(NormalTransactionError::TooLarge);
 }
+if transaction.inputs.is_empty() {
+    return Err(NormalTransactionError::EmptyInputs);
+}
+if transaction.outputs.is_empty() {
+    return Err(NormalTransactionError::EmptyOutputs);
+}
+if is_coinbase_form(transaction) {
+    return Err(NormalTransactionError::CoinbaseForm);
+}
+let null_txid = Hash256::from_bytes([0u8; 32]);
+if transaction.inputs.iter().any(|input| {
+    input.previous_txid == null_txid && input.previous_output_index == u32::MAX
+}) {
+    return Err(NormalTransactionError::NullOutpoint);
+}
+Ok(())
 ```
 
-- [ ] **Step 4: Refactor block validator without changing error precedence**.
+- [ ] **Step 4 — Preserve block error precedence.** Keep block-size check first. For the existing all-transaction size preflight, use direct size check for transaction index `0`; for every normal index call the shared helper and treat only `TooLarge` during this preflight. After Merkle/coinbase checks, call the helper again for each normal tx and map all variants to the existing indexed `ConsensusError` values. This retains the old “oversized tx before later shape/Merkle errors” behavior while making all normal shape decisions come from one helper.
 
-Keep the current block-size check first. Keep the all-transaction maximum-size preflight so an oversized normal transaction continues to beat later Merkle/shape errors. For normal entries, source the size result from the authoritative helper where possible, then run the helper again in the existing post-Merkle normal-transaction loop and map:
+- [ ] **Step 5 — Add parity regressions** for `TransactionTooLarge(index)`, `EmptyNormalTransactionInputs(index)`, `EmptyNormalTransactionOutputs(index)`, `MultipleCoinbase`, and `NullOutpointInNormalTransaction`.
 
-```rust
-match validate_normal_transaction_skeleton(transaction) {
-    Ok(()) => {}
-    Err(NormalTransactionError::TooLarge) => {
-        return Err(ConsensusError::TransactionTooLarge(index));
-    }
-    Err(NormalTransactionError::EmptyInputs) => {
-        return Err(ConsensusError::EmptyNormalTransactionInputs(index));
-    }
-    Err(NormalTransactionError::EmptyOutputs) => {
-        return Err(ConsensusError::EmptyNormalTransactionOutputs(index));
-    }
-    Err(NormalTransactionError::CoinbaseForm) => {
-        return Err(ConsensusError::MultipleCoinbase);
-    }
-    Err(NormalTransactionError::NullOutpoint) => {
-        return Err(ConsensusError::NullOutpointInNormalTransaction);
-    }
-}
-```
-
-Do not route the first coinbase transaction through this helper.
-
-- [ ] **Step 5: Add parity regression tests** proving the old block errors remain exact for oversized tx, empty inputs, empty outputs, second coinbase and null outpoint.
-
-- [ ] **Step 6: Full gate**.
+- [ ] **Step 6 — Full gate.**
 
 ```bash
 cargo +1.85.0 test --locked --workspace --all-targets
@@ -325,30 +300,17 @@ cargo +1.85.0 fmt --all -- --check
 cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-- [ ] **Step 7: Commit** `refactor: share Oregon normal transaction validation`.
+- [ ] **Step 7 — Commit** `refactor: share Oregon normal transaction validation`.
 
 ---
 
-### Task 2: Mempool Crate Foundation, Configuration, Base Identity, and CI Gate
+### Task 2: Mempool Crate/Foundation and CI
 
-**Files:**
-- Modify: `Cargo.toml`
-- Modify: `Cargo.lock`
-- Modify: `.github/workflows/oregon-rust.yml`
-- Create: `crates/oregon-mempool/Cargo.toml`
-- Create: `crates/oregon-mempool/src/lib.rs`
-- Create: `crates/oregon-mempool/src/config.rs`
-- Create: `crates/oregon-mempool/src/error.rs`
-- Create: `crates/oregon-mempool/src/entry.rs`
-- Create: `crates/oregon-mempool/src/pool.rs`
-- Create: `crates/oregon-mempool/tests/common/mod.rs`
-- Create: `crates/oregon-mempool/tests/admission.rs`
+**Files:** all new crate files from File Map, root `Cargo.toml`, `Cargo.lock`, `.github/workflows/oregon-rust.yml`.
 
-**Interfaces:**
-- Produces `ChainBase`, `MempoolConfig`, `MempoolEntry`, `AdmissionOutcome`, `ReconcileReport`, `MempoolError`, and read-only `Mempool` accessors from the public contract above.
-- Internal live collections: `BTreeMap<Hash256, MempoolEntry>` for entries; `HashMap<OutPoint, Hash256>` only for one-spender lookup; explicit sorted structures for observable order.
+**Produces:** public types/accessors above and complete error enum consumed later.
 
-- [ ] **Step 1: Add crate manifest and workspace member**.
+- [ ] **Step 1 — Add manifest/workspace member.**
 
 ```toml
 [package]
@@ -364,61 +326,37 @@ oregon-utxo = { path = "../oregon-utxo" }
 thiserror = "2"
 ```
 
-Regenerate `Cargo.lock` using Cargo; do not hand-invent third-party versions.
+Run Cargo once to generate the lock update; do not invent lock entries manually.
 
-- [ ] **Step 2: Add M5 branch to CI trigger** while preserving every existing branch, checkout SHA, read-only permissions, RocksDB prerequisite step and locked commands.
+- [ ] **Step 2 — Add `oregon-v1-m5-mempool` to CI push branches** without altering the checkout pin, permissions, Rust version, RocksDB prerequisites, or gate commands.
 
-- [ ] **Step 3: Write RED config/base tests**.
+- [ ] **Step 3 — RED default/config tests.**
 
 ```rust
 #[test]
-fn default_limits_are_frozen() {
-    let config = MempoolConfig::default();
-    assert_eq!(config.max_entries, 50_000);
-    assert_eq!(config.max_total_bytes, 64 * 1024 * 1024);
-    assert_eq!(config.max_ancestors, 25);
-    assert_eq!(config.max_descendants, 25);
+fn default_limits_are_exact() {
+    let c = MempoolConfig::default();
+    assert_eq!(c.max_entries, 50_000);
+    assert_eq!(c.max_total_bytes, 64 * 1024 * 1024);
+    assert_eq!(c.max_ancestors, 25);
+    assert_eq!(c.max_descendants, 25);
 }
 
 #[test]
-fn zero_hard_capacity_is_rejected() {
-    let base = ChainBase { tip_id: hash(1), tip_height: 10 };
-    let config = MempoolConfig {
-        max_entries: 0,
-        ..MempoolConfig::default()
-    };
-    assert_eq!(Mempool::new(base, config), Err(MempoolError::InvalidConfig));
+fn zero_entry_capacity_is_invalid() {
+    let config = MempoolConfig { max_entries: 0, ..MempoolConfig::default() };
+    assert!(matches!(
+        Mempool::new(base(1, 10), config),
+        Err(MempoolError::InvalidConfig)
+    ));
 }
 ```
 
-`max_ancestors = 0` and `max_descendants = 0` are valid policy settings that intentionally disable unconfirmed chains; only `max_entries == 0` or `max_total_bytes == 0` is invalid.
+Also prove `max_total_bytes = 0` invalid, while `max_ancestors = 0` and `max_descendants = 0` are valid intentional policies.
 
-- [ ] **Step 4: Run RED** with missing crate/types as the intended failure.
+- [ ] **Step 4 — Observe RED** because crate/types are missing.
 
-- [ ] **Step 5: Implement minimal foundation**.
-
-`lib.rs` begins:
-
-```rust
-#![forbid(unsafe_code)]
-
-mod config;
-mod entry;
-mod error;
-mod eviction;
-mod graph;
-mod pool;
-mod reconcile;
-
-pub use config::MempoolConfig;
-pub use entry::{AdmissionOutcome, ChainBase, MempoolEntry, ReconcileReport};
-pub use error::MempoolError;
-pub use pool::Mempool;
-```
-
-At this task, `eviction`, `graph`, and `reconcile` may be empty private modules containing no production behavior so module paths are stable for later tasks. Do not add placeholder comments such as TODO.
-
-Define `MempoolError` now with the complete variants later tasks consume:
+- [ ] **Step 5 — Implement exact structs/accessors and error enum.**
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -435,7 +373,7 @@ pub enum MempoolError {
     Conflict { outpoint: OutPoint, existing_txid: Hash256 },
     #[error("missing transaction dependency: {0:?}")]
     MissingDependency(OutPoint),
-    #[error("mempool parent does not contain referenced output: {0:?}")]
+    #[error("parent output does not exist: {0:?}")]
     InvalidParentOutput(OutPoint),
     #[error("too many unconfirmed ancestors")]
     TooManyAncestors,
@@ -454,96 +392,69 @@ pub enum MempoolError {
 }
 ```
 
-- [ ] **Step 6: Verify public read-only accessors and defaults**, then full workspace gate.
+`lib.rs` wires all seven private modules and exports only config/entry/error/pool public types. `graph.rs`, `eviction.rs`, and `reconcile.rs` are created as empty Rust source files in this commit so module resolution is valid; they gain behavior in later tasks.
 
-- [ ] **Step 7: Commit** `feat: add Oregon mempool foundation`.
+- [ ] **Step 6 — Full gate and commit** `feat: add Oregon mempool foundation`.
 
 ---
 
-### Task 3: Atomic Chain-Backed Admission, Conflict Rejection, and Narrow UTXO Validation
+### Task 3: Chain-Backed Atomic Admission
 
-**Files:**
-- Modify: `crates/oregon-mempool/src/pool.rs`
-- Modify: `crates/oregon-mempool/src/entry.rs`
-- Modify: `crates/oregon-mempool/tests/common/mod.rs`
-- Modify: `crates/oregon-mempool/tests/admission.rs`
+**Files:** `src/pool.rs`, `src/entry.rs`, `tests/common/mod.rs`, `tests/admission.rs`.
 
-**Interfaces:**
-- Produces full `Mempool::admit(...)` for transactions whose inputs are chain-backed; dependency support is added in Task 4 without changing the signature.
-- Internal helper: `fn next_spend_height(base: ChainBase) -> Result<u64, MempoolError>`.
-- Internal helper: `fn seed_chain_inputs(...) -> Result<UtxoState, MempoolError>` using `UtxoState::from_persisted_entries`.
-- No live pool mutation occurs until structural, context, conflict, dependency presence, UTXO and verifier checks have passed.
+**Internal preparation types**
 
-- [ ] **Step 1: RED valid admission test**.
+```rust
+struct PreparedCandidate {
+    entry: MempoolEntry,
+    spend_claims: Vec<OutPoint>,
+    ancestors: BTreeSet<Hash256>,
+}
+
+struct AdmissionPlan {
+    candidate: PreparedCandidate,
+    remove: BTreeSet<Hash256>,
+}
+```
+
+Task 3 uses an empty `ancestors` set and empty `remove`; later tasks populate them without changing the public API.
+
+- [ ] **Step 1 — RED valid admission.**
 
 ```rust
 #[test]
-fn valid_chain_backed_transaction_records_exact_fee_and_bytes() {
+fn valid_chain_backed_transaction_records_fee_and_size() {
     let previous = outpoint(0x11, 0);
     let chain = state_with(vec![(previous, entry(100, 1, false))]);
     let tx = spend(vec![previous], &[60, 30], 1);
     let base = base(0x22, 20);
     let mut pool = Mempool::new(base, MempoolConfig::default()).unwrap();
-
-    let outcome = pool
-        .admit(tx.clone(), base, &chain, &AcceptTestSpends)
-        .unwrap();
-
-    assert_eq!(outcome.txid, tx.txid());
-    assert_eq!(outcome.fee, 10);
-    assert_eq!(outcome.encoded_bytes, tx.encode().len());
-    assert!(outcome.evicted.is_empty());
-    assert_eq!(pool.len(), 1);
+    let out = pool.admit(tx.clone(), base, &chain, &AcceptTestSpends).unwrap();
+    assert_eq!(out.fee, 10);
+    assert_eq!(out.encoded_bytes, tx.encode().len());
     assert_eq!(pool.total_bytes(), tx.encode().len());
 }
 ```
 
-- [ ] **Step 2: Add RED failure-atomicity tests** for exact duplicate txid, different tx spending same outpoint, missing input, structural rejection, `RejectTestSpends`, immature coinbase at next height, and stale chain base. For each, snapshot `len`, `total_bytes`, `base`, deterministic order, and any existing entry metadata before call; assert exact equality afterward.
+- [ ] **Step 2 — RED failure atomicity** for duplicate txid, different tx spending an already claimed outpoint, missing chain input, structural rejection, rejecting verifier, stale base, and `tip_height == u64::MAX`. Snapshot public pool observations before each call and require exact equality afterward.
 
-Coinbase boundary test uses creation height `10`: base height `128` validates at spend height `129` and must reject; base height `129` validates at spend height `130` and must accept.
+- [ ] **Step 3 — RED coinbase maturity boundary.** A coinbase entry created at height `10` with base height `128` validates candidate at height `129` and must reject; base height `129` validates at `130` and must accept.
 
-- [ ] **Step 3: Run RED** and verify failures are missing admission behavior, not fixture errors.
+- [ ] **Step 4 — Observe RED.**
 
-- [ ] **Step 4: Implement admission preflight in this exact order**:
+- [ ] **Step 5 — Implement admission preflight in exact order:** base equality -> checked next height -> canonical bytes/txid -> shared structural helper -> duplicate txid -> live spend-index conflicts -> every input available in chain UTXO -> narrow `UtxoState::from_persisted_entries` -> `apply_normal_transaction` -> checked byte total -> construct `PreparedCandidate`/`AdmissionPlan`.
 
-```text
-1. chain_base == self.base
-2. checked next spend height
-3. canonical txid + encoded length
-4. validate_normal_transaction_skeleton
-5. duplicate txid
-6. each input: existing spend-index conflict
-7. each input must exist in chain UTXO for Task 3
-8. build narrow UtxoState from referenced chain entries
-9. apply_normal_transaction(candidate, next_height, verifier)
-10. prepare entry and all spend claims in local values
-11. publish entry/spend claims/total_bytes with no remaining fallible operation
-```
+- [ ] **Step 6 — Publish after last fallible check.** The commit section inserts spend claims, entry, and precomputed `total_bytes`; it returns no validation/policy error after the first live-field mutation.
 
-Do not clone the whole chain UTXO state. Deduplicate seed outpoints with a lookup-only `HashSet`; `UtxoState::from_persisted_entries` remains the checked constructor.
-
-- [ ] **Step 5: Publish only after validation**.
-
-The final mutation section must contain no validator call and no policy error return after the first live field is changed. Compute `new_total_bytes` with `checked_add` before mutation; arithmetic failure maps to `InvariantViolation`.
-
-- [ ] **Step 6: Focused tests and full gate**.
-
-- [ ] **Step 7: Commit** `feat: admit Oregon mempool transactions atomically`.
+- [ ] **Step 7 — Full gate and commit** `feat: admit Oregon mempool transactions atomically`.
 
 ---
 
-### Task 4: Parent-Child Dependencies, Orphan Rejection, Graph Limits, and Deterministic Topology
+### Task 4: Dependency Graph, Parent Replay, Exact 25/25 Limits, Deterministic Topology
 
-**Files:**
-- Modify: `crates/oregon-mempool/src/graph.rs`
-- Modify: `crates/oregon-mempool/src/pool.rs`
-- Modify: `crates/oregon-mempool/src/entry.rs`
-- Create/Modify: `crates/oregon-mempool/tests/dependencies.rs`
+**Files:** `src/graph.rs`, `src/pool.rs`, `src/entry.rs`, `tests/dependencies.rs`.
 
-**Interfaces:**
-- Produces complete ancestor-aware `Mempool::admit(...)`.
-- Produces `Mempool::deterministic_order() -> Result<Vec<Hash256>, MempoolError>`.
-- Internal graph helpers:
+**Produces**
 
 ```rust
 pub(crate) fn ancestor_closure(
@@ -561,84 +472,33 @@ pub(crate) fn topological_order(
 ) -> Result<Vec<Hash256>, MempoolError>;
 ```
 
-- [ ] **Step 1: RED parent-then-child and child-before-parent tests**.
+- [ ] **Step 1 — RED parent-then-child / child-before-parent.** Child-first returns `MissingDependency` and pool stays empty. Parent then child succeeds, and `deterministic_order()` is parent then child.
 
-```rust
-#[test]
-fn parent_then_child_is_valid_but_child_before_parent_is_not_retained() {
-    let chain_point = outpoint(0x30, 0);
-    let chain = state_with(vec![(chain_point, entry(100, 1, false))]);
-    let parent = spend(vec![chain_point], &[90], 1);
-    let child_point = OutPoint { txid: parent.txid(), index: 0 };
-    let child = spend(vec![child_point], &[80], 2);
-    let base = base(0x31, 20);
+- [ ] **Step 2 — RED invalid parent index.** If parent tx exists but referenced output index is `>= parent.outputs.len()`, return `InvalidParentOutput` with no mutation.
 
-    let mut first = Mempool::new(base, MempoolConfig::default()).unwrap();
-    assert_eq!(
-        first.admit(child.clone(), base, &chain, &AcceptTestSpends),
-        Err(MempoolError::MissingDependency(child_point))
-    );
-    assert!(first.is_empty());
+- [ ] **Step 3 — RED exact limits.** With `max_ancestors = 2`, a candidate with exactly two unique ancestors is allowed and three is `TooManyAncestors`. With `max_descendants = 2`, exactly two unique descendants per ancestor is allowed and a third is `TooManyDescendants`. Each rejection preserves pool state.
 
-    first.admit(parent.clone(), base, &chain, &AcceptTestSpends).unwrap();
-    first.admit(child.clone(), base, &chain, &AcceptTestSpends).unwrap();
-    assert_eq!(first.deterministic_order().unwrap(), vec![parent.txid(), child.txid()]);
-}
-```
+- [ ] **Step 4 — RED topology determinism.** Equivalent independent tx sets admitted in opposite orders produce the same ascending-txid ready ordering; DAG edges always force parent before child.
 
-- [ ] **Step 2: RED invalid parent output test** where parent exists but candidate references index `parent.outputs.len()`; expect `InvalidParentOutput` and no mutation.
+- [ ] **Step 5 — Implement cycle-safe closures and Kahn topology.** Use `BTreeSet<Hash256>` as ready set. If emitted count differs from entry count, return `DependencyCycle`.
 
-- [ ] **Step 3: RED ancestor/descendant exact-boundary tests** using a linear chain and configs `max_ancestors = 2`, `max_descendants = 2`: second ancestor/descendant is allowed; third is rejected with exact typed error and unchanged pool.
+- [ ] **Step 6 — Dependency discovery order per input:** existing live spend conflict -> if chain UTXO contains outpoint, chain-backed -> else if parent txid exists in pool, output index must exist and parent is recorded -> otherwise `MissingDependency`.
 
-- [ ] **Step 4: RED deterministic ordering test**: admit independent transactions in opposite orders into two pools; both `deterministic_order()` results must be identical ascending txid. Include a DAG where parent relations override txid order.
+- [ ] **Step 7 — Narrow ancestor replay.** Seed only chain-backed outpoints needed by ancestor closure and candidate. Replay ancestors in deterministic parent-before-child order through `apply_normal_transaction`. Require replayed fee to equal stored entry fee; mismatch is `InvariantViolation`. Apply candidate last through the same verifier path.
 
-- [ ] **Step 5: Implement graph traversal with cycle detection**.
+- [ ] **Step 8 — Limit preflight.** Candidate unique ancestor closure length must be `<= max_ancestors`. Every unique ancestor’s current descendant closure length plus one must be `<= max_descendants`, using checked addition.
 
-Use `BTreeSet<Hash256>` for ready sets and closures whose traversal order becomes visible. Kahn topology outline:
+- [ ] **Step 9 — Atomic graph publication.** Preflight all parent entries and byte/count arithmetic; then insert candidate and reciprocal parent child-links with no remaining error path.
 
-```rust
-let mut indegree = BTreeMap::<Hash256, usize>::new();
-let mut ready = BTreeSet::<Hash256>::new();
-// populate indegrees from explicit parent sets
-// always pop the smallest txid from ready
-// if emitted.len() != entries.len(): DependencyCycle
-```
-
-- [ ] **Step 6: Upgrade admission dependency discovery**.
-
-For each input:
-
-1. reject spend-index conflict first;
-2. if chain UTXO contains the outpoint, treat it as chain-backed;
-3. otherwise, if `entries` contains `input.previous_txid`, verify the output index exists and add that txid to direct parents;
-4. otherwise `MissingDependency`.
-
-This chain-first rule makes revalidated confirmed-parent outputs naturally promotable later.
-
-- [ ] **Step 7: Build narrow replay state**.
-
-Collect complete ancestor closure. Seed only chain-backed outpoints used by ancestors/candidate. Replay ancestors in topology order through `apply_normal_transaction`; verify each replayed fee equals the stored `MempoolEntry::fee()`, otherwise return `InvariantViolation`. Then validate candidate and record its fee.
-
-- [ ] **Step 8: Preflight descendant limits**.
-
-Candidate ancestor count must be `<= max_ancestors`. For every ancestor, compute its existing unique descendant closure; adding candidate would increase it by exactly one because candidate is new and has no descendants. Require `existing_descendants + 1 <= max_descendants` with checked arithmetic.
-
-- [ ] **Step 9: Publish graph edges atomically after all checks**. Candidate entry gets parent set; every parent entry gets child link. Preflight every parent existence before mutating any field.
-
-- [ ] **Step 10: Full gate and commit** `feat: add Oregon mempool dependency graph`.
+- [ ] **Step 10 — Full gate and commit** `feat: add Oregon mempool dependency graph`.
 
 ---
 
-### Task 5: Bounded Memory and Deterministic Dependency-Safe Eviction
+### Task 5: Deterministic Bounded Capacity and Eviction
 
-**Files:**
-- Modify: `crates/oregon-mempool/src/eviction.rs`
-- Modify: `crates/oregon-mempool/src/pool.rs`
-- Modify: `crates/oregon-mempool/src/graph.rs`
-- Create/Modify: `crates/oregon-mempool/tests/eviction.rs`
+**Files:** `src/eviction.rs`, `src/graph.rs`, `src/pool.rs`, `tests/eviction.rs`.
 
-**Interfaces:**
-- Internal exact comparator:
+**Produces**
 
 ```rust
 pub(crate) fn eviction_cmp(
@@ -647,271 +507,128 @@ pub(crate) fn eviction_cmp(
 ) -> std::cmp::Ordering;
 ```
 
-- Internal non-mutating planner returns a complete set/order of txids to remove before candidate publication.
-- Internal removal commit removes an already-preflighted set without returning policy/validation errors midway.
-
-- [ ] **Step 1: RED fee-rate comparison tests**.
-
-Freeze exact rational comparison without floating point. For entries A/B compare:
+- [ ] **Step 1 — RED comparator.** Compare rates only with:
 
 ```rust
-let left = u128::from(a.fee()) * (b.encoded_bytes() as u128);
-let right = u128::from(b.fee()) * (a.encoded_bytes() as u128);
+let left_cross = u128::from(left.fee()) * right.encoded_bytes() as u128;
+let right_cross = u128::from(right.fee()) * left.encoded_bytes() as u128;
 ```
 
-Lowest ratio sorts first. Equal ratio -> lower fee first. Equal fee -> smaller txid bytes first.
+Lower cross-ratio is evicted first; equal rate -> lower fee -> smaller txid.
 
-- [ ] **Step 2: RED entry-count and byte-cap tests** using tiny custom configs. Verify admission remains accepted when exactly equal to a bound and triggers eviction only when `>` the bound.
+- [ ] **Step 2 — RED hard bounds.** Tiny configs prove equality with entry/byte limit is accepted and eviction starts only when virtual state is greater than a limit.
 
-- [ ] **Step 3: RED subtree eviction test**: low-fee parent with high-fee child must be removed together if parent is selected; no surviving child may reference a removed mempool parent.
+- [ ] **Step 3 — RED subtree behavior.** If low-fee parent is selected, parent and every current descendant are removed; no survivor points at a removed parent.
 
-- [ ] **Step 4: RED candidate-self-eviction rollback**. Start with a better existing transaction, submit a worse candidate into `max_entries = 1`; expect `CapacityRejected`, and assert exact pre-call pool state including bytes/graph/spend index through public observations.
+- [ ] **Step 4 — RED candidate-self-eviction rollback.** With `max_entries = 1`, a worse candidate against a better existing tx returns `CapacityRejected` and every public pool observation is unchanged.
 
-- [ ] **Step 5: RED insertion-order determinism**. Equivalent pools constructed in different independent admission order must choose identical eviction txid(s).
+- [ ] **Step 5 — RED insertion-order independence.** Logically identical pools built in different independent order evict the same txid set.
 
-- [ ] **Step 6: Implement virtual capacity planning without cloning transaction payloads**.
+- [ ] **Step 6 — Implement non-mutating virtual plan.** Start from validated `PreparedCandidate`, maintain `BTreeSet<Hash256> remove`. Virtual counts are checked `existing + candidate - removed`. Select lowest eviction priority among existing-not-removed plus candidate. If candidate itself is selected, reject. If selected existing root belongs to `candidate.ancestors`, candidate would be its descendant, so reject. Otherwise add root plus its full existing descendant closure to `remove`; repeat until limits pass.
 
-Planner inputs are immutable live entries plus the fully validated prepared candidate. Maintain a `BTreeSet<Hash256>` `planned_removed`. Virtual counts are:
+- [ ] **Step 7 — Preflight removal consistency.** Before mutating, every txid in `remove` must exist; each stored input spend claim must point back to that txid; reciprocal parent/child edges must be internally consistent; checked byte subtraction/addition must succeed. Any mismatch is `InvariantViolation` before publication.
 
-```text
-entries = self.entries.len() + 1 - planned_removed.len()
-bytes = self.total_bytes + candidate_bytes - sum(bytes of planned_removed)
-```
+- [ ] **Step 8 — Commit.** Remove planned entries/spend claims/reciprocal edges in ascending txid order, then insert candidate. Return `evicted` as the sorted removed txid vector.
 
-Use checked arithmetic before publication. Candidate participates in score selection virtually. If selected directly, return `CapacityRejected`. If an existing selected root has candidate in its ancestor-descendant relation, candidate would be in that subtree; also return `CapacityRejected` without mutating live state.
-
-When an existing root is selected, add root plus its unique descendant closure to `planned_removed`; iterate until both hard bounds pass.
-
-- [ ] **Step 7: Preflight removal consistency before first mutation**.
-
-For every planned existing txid verify:
-- entry exists;
-- every input spend claim points back to this txid;
-- every parent/child reciprocal edge is present when the counterpart survives/is in the planned set;
-- byte subtraction is checked.
-
-Any failure -> `InvariantViolation` before mutation.
-
-- [ ] **Step 8: Commit removals then candidate insertion with no remaining fallible validation**. Remove spend claims and reciprocal edges, subtract bytes, remove entries, then insert candidate and its claims/edges. `AdmissionOutcome.evicted` is deterministic ascending-by-removal-plan order frozen by tests.
-
-- [ ] **Step 9: Full gate and commit** `feat: bound Oregon mempool with deterministic eviction`.
+- [ ] **Step 9 — Full gate and commit** `feat: bound Oregon mempool with deterministic eviction`.
 
 ---
 
 ### Task 6: Active-Block Reconciliation and Confirmed-Parent Promotion
 
-**Files:**
-- Modify: `crates/oregon-mempool/src/reconcile.rs`
-- Modify: `crates/oregon-mempool/src/pool.rs`
-- Modify: `crates/oregon-mempool/src/graph.rs`
-- Create/Modify: `crates/oregon-mempool/tests/reconciliation.rs`
+**Files:** `src/reconcile.rs`, `src/pool.rs`, `src/graph.rs`, `tests/reconciliation.rs`.
 
-**Interfaces:**
-- Produces `Mempool::reconcile_active_block(...)`.
-- Internal staged rebuild helper:
+**Produces internal rebuild**
 
 ```rust
 fn rebuild_against_chain<V: SpendVerifier>(
     &self,
-    source: &BTreeMap<Hash256, MempoolEntry>,
+    ordered_source: &[(Hash256, Transaction)],
     new_base: ChainBase,
     chain_utxos: &UtxoState,
     verifier: &V,
 ) -> Result<Mempool, MempoolError>;
 ```
 
-The rebuilt pool uses the same `MempoolConfig` and is published with `*self = rebuilt` only after success.
+The helper creates `Mempool::new(new_base, self.config.clone())`, validates/replays source transactions into that staged pool, and never touches `self`.
 
-- [ ] **Step 1: RED confirmed-parent child-survival test**.
+- [ ] **Step 1 — RED confirmed-parent promotion.** Parent->child is in pool. New chain snapshot contains parent output and active block contains parent. After reconciliation, parent is absent, child remains, child parent set is empty, and base equals new base.
 
-Construct parent->child in pool. Construct the new chain UTXO snapshot as if parent was mined: parent input absent, parent output present. Pass an active block containing the parent. After reconciliation parent is removed, child remains, child has empty mempool parent set, and base advances.
+- [ ] **Step 2 — RED active-chain conflict.** Pool A spends X and has descendant C; active block contains different B spending X. A and C are removed.
 
-- [ ] **Step 2: RED active-block conflict test**.
+- [ ] **Step 3 — RED ordinary tip update.** Unrelated valid entries survive; an entry whose chain input disappeared is filtered.
 
-Pool transaction A spends chain outpoint X and has child C. Active block contains different transaction B spending X. Reconciliation must remove A and C. `removed` must be sorted and deterministic.
+- [ ] **Step 4 — RED atomic invariant failure** in a crate-unit test that constructs broken reciprocal internal graph state under `#[cfg(test)]`; reconciliation returns `InvariantViolation` and original base/entries/bytes remain unchanged. No corruption constructor is exported.
 
-- [ ] **Step 3: RED ordinary tip-change revalidation test** where an unrelated valid pool transaction survives and an entry invalidated by new chain state is filtered.
+- [ ] **Step 5 — Stage preprocessing.** Compute original deterministic topology before removal. Build a source list in that order. Remove confirmed txids from the source without recursively removing their children. Remove active-block conflicting roots plus their descendants from source. Do not touch live pool.
 
-- [ ] **Step 4: RED reconciliation invariant atomicity test** using a `#[cfg(test)]` internal hook or crate-unit test that constructs a broken reciprocal graph, then calls staged rebuild and verifies the original pool/base are unchanged on `InvariantViolation`. Do not export a production corruption hook.
+- [ ] **Step 6 — Rebuild against actual input availability.** For each source tx: if input exists in new chain UTXO it is chain-backed; otherwise it may depend only on an earlier successfully retained staged transaction. Missing dependencies/structural/UTXO/verifier failures are expected transaction invalidity during rebuild and filter that tx; its unchain-backed descendants subsequently fail naturally. Internal cycle/bookkeeping failures abort the whole rebuild.
 
-- [ ] **Step 5: Stage confirmed/conflict preprocessing without touching live pool**.
+- [ ] **Step 7 — Reapply normal admission limits/capacity** to staged state; therefore rebuilt entries receive the same 25/25/bounded/deterministic policy as new admission.
 
-Create a source snapshot of transaction objects/metadata needed for rebuild. Determine confirmed txids from active block normal transactions. Determine active-block input conflicts from current spend index. Remove conflicting roots plus descendants from the staged source. Remove confirmed entries from staged source **without** automatically deleting children.
+- [ ] **Step 8 — Final publication.** Compute old minus rebuilt txids, sort ascending, then assign `*self = rebuilt`; return report. No base update occurs before this assignment.
 
-- [ ] **Step 6: Rebuild graph from actual input availability, not stale old edges**.
-
-For each source transaction in deterministic old topology/txid traversal:
-- if an input exists in `chain_utxos`, it is chain-backed even if its txid formerly named a mempool parent;
-- otherwise dependency may target only a transaction successfully retained in the staged rebuild;
-- if dependency is unavailable, filter transaction as invalid/missing rather than publishing an orphan;
-- structural validation and `SpendVerifier` are run again at `new_base.tip_height + 1`.
-
-This is the mechanism that promotes a child of a confirmed parent to chain-backed state.
-
-- [ ] **Step 7: Reapply configured ancestor/descendant and capacity policy to rebuilt state** deterministically. Since source entries were previously valid, capacity should normally not increase, but the rebuild must not assume that invariant if configuration/accounting is corrupt.
-
-- [ ] **Step 8: Publish rebuilt pool/base only after complete success**. Build `ReconcileReport` from old txid set minus rebuilt txid set, sorted ascending.
-
-- [ ] **Step 9: Full gate and commit** `feat: reconcile Oregon mempool with active blocks`.
+- [ ] **Step 9 — Full gate and commit** `feat: reconcile Oregon mempool with active blocks`.
 
 ---
 
-### Task 7: Reorg Full Revalidation, Stale Context, Determinism, and Recovery Matrix
+### Task 7: Reorg Revalidation and Recovery Matrix
 
-**Files:**
-- Modify: `crates/oregon-mempool/src/reconcile.rs`
-- Modify: `crates/oregon-mempool/src/pool.rs`
-- Modify: `crates/oregon-mempool/tests/reconciliation.rs`
-- Modify: `crates/oregon-mempool/tests/admission.rs`
-- Modify: `crates/oregon-mempool/tests/dependencies.rs`
+**Files:** `src/reconcile.rs`, `src/pool.rs`, `tests/reconciliation.rs`, `tests/admission.rs`, `tests/dependencies.rs`.
 
-**Interfaces:**
-- Produces `Mempool::reconcile_reorg(...)`.
-- No disconnected-block transaction list is accepted; M5 therefore cannot silently resurrect transactions.
+- [ ] **Step 1 — RED retained-valid reorg.** Compatible new UTXO snapshot retains valid txs and advances base.
 
-- [ ] **Step 1: RED reorg retained-valid test**. Change base id/height and provide a compatible new UTXO snapshot; valid existing pool entries remain and base advances.
+- [ ] **Step 2 — RED disappeared confirmed parent.** A child previously promoted to chain-backed loses that chain output after reorg; it is removed. No parent transaction is created.
 
-- [ ] **Step 2: RED disappeared-confirmed-parent test**. Begin with a child that survived because its parent had become chain-backed after prior active-block reconciliation. Reorg to a chain snapshot where that parent output no longer exists. Child must be removed as missing dependency; no parent transaction is synthesized.
+- [ ] **Step 3 — RED non-resurrection.** A disconnected transaction absent from current pool remains absent because `reconcile_reorg` accepts no disconnected transaction bodies.
 
-- [ ] **Step 3: RED non-resurrection test**. A disconnected old-chain transaction not currently present in the pool must not appear after `reconcile_reorg` because the API receives no disconnected transaction bodies.
+- [ ] **Step 4 — RED stale-context gate.** Admission with a new tip before reconciliation is `StaleChainContext`; after successful reconciliation, admission using that exact base may proceed.
 
-- [ ] **Step 4: RED stale-base admission test around reorg**. Before reconciliation, admission using new base returns `StaleChainContext`; after successful `reconcile_reorg`, same base is accepted for future admission.
+- [ ] **Step 5 — RED deterministic rebuild.** Logically identical pools with different independent insertion history reconcile to identical txid order, byte count, entry fee/size/parent metadata, and sorted removed vector.
 
-- [ ] **Step 5: RED deterministic rebuild test**. Two logically identical pools produced from different independent insertion histories and reconciled against same chain snapshot must have identical `deterministic_order`, `removed`, byte total and entry metadata.
+- [ ] **Step 6 — Implement `reconcile_reorg` as staged rebuild.** Compute current deterministic source topology, clone only `(txid, Transaction)` into ordered source, call `rebuild_against_chain`, compute sorted removed vector, then single final `*self = rebuilt` publication.
 
-- [ ] **Step 6: Implement reorg as full staged rebuild only**.
+- [ ] **Step 7 — Recovery matrix tests:** `tip_height = u64::MAX` returns `HeightOverflow` before publication; zero-fee transaction is valid if capacity allows; changed witness changes txid and canonical bytes; rejecting verifier during rebuild filters affected tx; internal graph cycle aborts rebuild and preserves old live state; unordered lookup insertion never changes observable outputs.
 
-```rust
-pub fn reconcile_reorg<V: SpendVerifier>(
-    &mut self,
-    new_base: ChainBase,
-    chain_utxos: &UtxoState,
-    verifier: &V,
-) -> Result<ReconcileReport, MempoolError> {
-    let rebuilt = self.rebuild_against_chain(&self.entries, new_base, chain_utxos, verifier)?;
-    let removed = sorted_difference(self.entries.keys(), rebuilt.entries.keys());
-    let retained = rebuilt.len();
-    *self = rebuilt;
-    Ok(ReconcileReport { removed, retained })
-}
-```
-
-The real helper may need internal ownership/borrowing adjustments, but semantics must remain: build first, single publication last.
-
-- [ ] **Step 7: Add recovery/atomicity matrix** covering:
-  - verifier rejection during rebuild filters expected-invalid tx without corrupting surviving state;
-  - graph cycle/invariant error aborts rebuild and preserves old pool/base;
-  - `tip_height == u64::MAX` returns `HeightOverflow` before publication;
-  - zero-fee valid transactions remain admissible if capacity permits;
-  - witness byte changes alter txid/size and are accounted independently;
-  - no observable output changes with `HashMap` insertion order.
-
-- [ ] **Step 8: Full gate and commit** `feat: revalidate Oregon mempool across reorgs`.
+- [ ] **Step 8 — Full gate and commit** `feat: revalidate Oregon mempool across reorgs`.
 
 ---
 
-### Task 8: Security Mutations, Manual M4->M5 Review, and Accepted Checkpoint
+### Task 8: Security Mutations, Review, and M5 Checkpoint
 
-**Files:**
-- Mutation branches: production/test files only on throwaway branches.
-- Create on clean M5 branch after evidence: `docs/checkpoints/OREGON_V1_M5_MEMPOOL.md`.
-- Remove any temporary mutation-branch CI triggers before accepted checkpoint.
+**Files:** throwaway mutation branches; clean-branch checkpoint `docs/checkpoints/OREGON_V1_M5_MEMPOOL.md`.
 
-**Interfaces:**
-- No new production behavior.
-- Planned accepted recovery branch: `oregon-v1-checkpoint-m5-mempool-accepted-2026-09-04`.
+- [ ] **Step 1 — Fresh pre-mutation CI** on exact reviewed M5 code SHA. Record SHA plus test/fmt/clippy run and job IDs.
 
-- [ ] **Step 1: Fresh pre-mutation clean gate** on exact reviewed M5 code head.
+- [ ] **Step 2 — Mutation A: conflict bypass.** Fresh throwaway branch; ignore/overwrite existing outpoint spend claim. Direct conflict and consistency tests must fail for the intended reason.
 
-Record commit SHA and GitHub Actions run/job IDs for:
+- [ ] **Step 3 — Mutation B: missing-parent bypass.** Fresh throwaway branch; accept an input absent from chain UTXO and mempool parents. Child-before-parent and missing-dependency tests must fail.
 
-```bash
-cargo +1.85.0 test --locked --workspace --all-targets
-cargo +1.85.0 fmt --all -- --check
-cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
-```
+- [ ] **Step 4 — Mutation C: early publication.** Fresh throwaway branch; move one live entry/spend/graph/byte mutation before final verifier or capacity success. Failure-atomicity and candidate-self-eviction tests must fail.
 
-- [ ] **Step 2: Mutation A — double-spend conflict bypass** on a fresh branch from clean M5 head.
+- [ ] **Step 5 — Boundary mutation if review reveals weak coverage.** Change ancestor/descendant exact comparison by one. Exact-boundary tests must fail. This supplements rather than replaces A/B/C.
 
-Change admission so an existing outpoint spend claim is ignored/overwritten. Expected killed tests include the direct conflict test and state/index consistency tests. The mutant is accepted as killed only if CI fails for the intended semantic reason.
+- [ ] **Step 6 — Fresh post-mutation clean CI** on clean branch and verify mutation commits are absent from clean ancestry/diff.
 
-- [ ] **Step 3: Mutation B — orphan/missing-parent bypass** on a fresh branch from clean M5 head.
+- [ ] **Step 7 — Manual M4->M5 review** covers: single structural helper; unchanged block error behavior; mandatory verifier on candidate/ancestors/rebuild; exact maturity height; one-spender invariant/no RBF; orphan rejection; parent index bounds; unique 25/25 closure boundaries; checked arithmetic; integer-only fee-rate order; deterministic txid ties; non-mutating capacity plan; candidate-self-eviction rollback; reciprocal graph/spend consistency; confirmed-parent promotion; active-chain conflict descendants; staged rebuild/base publication; reorg non-resurrection; no M4 storage/chainstate dependency regression; no unsafe Rust; no unexpected production dependency.
 
-Change dependency admission so an input unavailable in both active chain UTXO and accepted mempool parents is retained/accepted. Expected killed tests: child-before-parent and missing-dependency tests.
+- [ ] **Step 8 — Write checkpoint from observed evidence only.** Record accepted M4 base, final M5 code/checkpoint SHAs, design/plan paths, exact CI run IDs, mutation branch/commit/run/killed tests, manual review disposition, and exclusions. No future-state evidence is recorded.
 
-- [ ] **Step 4: Mutation C — early/partial publication** on a fresh branch from clean M5 head.
+- [ ] **Step 9 — Final checkpoint CI** on checkpoint commit.
 
-Move one live publication action (entry insert, spend claim, graph edge, or byte increment) before verifier/capacity completion. Expected killed tests: rejection atomicity/state-equality and candidate-self-eviction rollback.
-
-- [ ] **Step 5: Optional high-value boundary mutation if needed by review**: change ancestor or descendant `<=` boundary to `<`/`+1`. Exact-boundary tests must kill it. If existing Task 4 tests already demonstrate the off-by-one guard strongly, record that evidence without requiring this as one of the three mandatory mutations.
-
-- [ ] **Step 6: Return to clean branch and run fresh post-mutation gate**. Verify none of the mutation commits/files are ancestors/diffs of the clean M5 head.
-
-- [ ] **Step 7: Manual security review M4 accepted -> M5 clean head**.
-
-Review at minimum:
-- shared normal-transaction helper is the sole implementation used by mempool and mapped by block validation;
-- block error precedence/regressions remain unchanged;
-- no production permissive verifier;
-- candidate, ancestor replay and full rebuild all invoke `SpendVerifier`;
-- next-spend-height maturity boundary exactness;
-- one-spender-per-outpoint and no RBF path;
-- child-before-parent is not retained;
-- parent output index bounds;
-- ancestor/descendant unique closure and exact boundaries;
-- no unchecked amount/byte/count arithmetic;
-- fee-rate comparison uses integer cross multiplication only;
-- deterministic txid tie rules and no `HashMap` iteration leakage;
-- capacity planning is non-mutating and candidate-self-eviction rolls back completely;
-- planned subtree removal cannot leave dangling parent/child edges or spend claims;
-- confirmed-parent promotion keeps chain-backed children valid;
-- active-chain conflicts remove conflicting descendants;
-- full rebuild is staged and publishes base only at the end;
-- reorg does not resurrect unknown/disconnected txs;
-- M4 storage/chainstate code has no new dependency on mempool and durability semantics are untouched;
-- no unsafe Rust in new crate;
-- no unexpected new third-party production dependency beyond `thiserror` already used by workspace.
-
-No known Critical or Important finding may remain open.
-
-- [ ] **Step 8: Write checkpoint using observed evidence only**.
-
-`docs/checkpoints/OREGON_V1_M5_MEMPOOL.md` must record:
-- accepted M4 base SHA;
-- final reviewed M5 code SHA;
-- design and plan paths;
-- exact test/fmt/clippy run IDs;
-- each mutation branch/SHA/run and intended killed tests;
-- post-mutation clean run;
-- manual review disposition;
-- explicit exclusions (P2P, orphan pool, RBF, package relay, persistence, wallet, mining RPC, production spend cryptography, testnet/mainnet).
-
-No placeholder run IDs or future claims.
-
-- [ ] **Step 9: Commit checkpoint and run one final CI gate on the checkpoint commit**.
-
-- [ ] **Step 10: Create recovery branch** exactly from the final checkpoint commit:
-
-`oregon-v1-checkpoint-m5-mempool-accepted-2026-09-04`
-
-Verify branch SHA is identical to checkpoint commit and `main` remains untouched.
+- [ ] **Step 10 — Create accepted recovery branch** `oregon-v1-checkpoint-m5-mempool-accepted-2026-09-04` exactly at checkpoint commit; verify identical SHA and verify `main` remains unchanged.
 
 ---
 
 ## Definition of M5 Accepted
 
-M5 is accepted only when:
-
-- shared normal-transaction validation is authoritative and block/mempool parity tests pass;
-- `oregon-mempool` implements atomic admission, conflicts, parent-child dependencies, exact limits, deterministic topology/eviction, active-block reconciliation and reorg full rebuild;
-- child-before-parent is rejected with no orphan retention;
-- every normal input continues through mandatory `SpendVerifier`;
-- capacity is bounded by both entry count and canonical transaction bytes;
-- no observable ordering depends on unordered collection iteration;
-- all M1-M4 regression suites remain green;
-- required mutations A/B/C are each killed by intended tests;
-- fresh post-mutation clean CI is green;
-- manual M4->M5 review has no known Critical or Important finding open;
-- checkpoint evidence contains exact SHAs/runs only;
-- accepted M5 recovery branch points exactly to the final checkpoint commit;
-- `main` has not been merged or modified.
+- `oregon-mempool` implements the approved policy-only scope with no persistence/network/wallet/miner expansion.
+- Block/mempool structural validation shares one authoritative helper and M1-M4 regressions remain green.
+- Valid chain-backed and accepted-parent child transactions admit through mandatory `SpendVerifier`; child-before-parent is not retained.
+- Conflict, exact ancestor/descendant limits, byte/entry bounds, deterministic topology, deterministic eviction, and candidate-self-eviction rollback are tested.
+- Active-block confirmation/conflict handling and reorg full rebuild publish atomically and do not invent disconnected transactions.
+- Workspace tests, rustfmt, and clippy pass at the reviewed code and final checkpoint commits.
+- Mutations A/B/C are killed by intended tests; fresh post-mutation clean CI is green.
+- Manual M4->M5 review has no known Critical or Important finding open.
+- Accepted recovery branch points exactly to final checkpoint commit.
+- `main` is not merged or modified.
