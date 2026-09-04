@@ -1,66 +1,15 @@
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use oregon_consensus::ChainWork;
 use oregon_primitives::{
     Amount, Block, BlockHeader, Hash256, OutPoint, Transaction, TxOutput, transaction_root,
 };
-use oregon_utxo::{BlockUndo, UtxoEntry};
-use rocksdb::{ColumnFamilyDescriptor, DB, Options};
 
 use crate::batch::{DurabilityMode, StorageBatch};
-use crate::db::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb};
+use crate::db::{CF_BLOCK_INDEX, CF_BLOCKS, OregonDb};
 use crate::error::StorageError;
 use crate::records::{BlockIndexRecord, NodeHealth, ValidationStatus, encode_block_index};
-
-struct TestDir(PathBuf);
-
-impl TestDir {
-    fn new(label: &str) -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!("oregon-{label}-{}-{n}", std::process::id()));
-        std::fs::create_dir_all(&path).unwrap();
-        Self(path)
-    }
-
-    fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for TestDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
-fn sample_utxo(value: u64) -> UtxoEntry {
-    UtxoEntry {
-        output: TxOutput {
-            value: Amount::from_base_units(value).unwrap(),
-            locking_program: vec![0x51],
-        },
-        creation_height: 7,
-        is_coinbase: false,
-    }
-}
-
-fn sample_undo() -> BlockUndo {
-    BlockUndo {
-        spent: vec![(
-            OutPoint {
-                txid: Hash256::from_bytes([0x11; 32]),
-                index: 0,
-            },
-            sample_utxo(100),
-        )],
-        created: vec![OutPoint {
-            txid: Hash256::from_bytes([0x22; 32]),
-            index: 1,
-        }],
-    }
-}
+use crate::test_support::{
+    TestDir, open_raw_existing, sample_sorted_undo as sample_undo, sample_utxo,
+};
 
 fn sample_block(nonce: u64) -> Block {
     let transactions = vec![Transaction {
@@ -94,14 +43,6 @@ fn sample_index(block: &Block) -> BlockIndexRecord {
         validation: ValidationStatus::FullyValidated,
         body_retained: true,
     }
-}
-
-fn open_raw_existing(path: &Path) -> DB {
-    let options = Options::default();
-    let descriptors = [CF_BLOCKS, CF_BLOCK_INDEX, CF_UTXO, CF_UNDO, CF_CHAIN_META]
-        .into_iter()
-        .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
-    DB::open_cf_descriptors(&options, path, descriptors).unwrap()
 }
 
 #[test]
