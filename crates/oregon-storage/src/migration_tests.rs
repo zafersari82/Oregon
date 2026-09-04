@@ -3,10 +3,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use rocksdb::{ColumnFamilyDescriptor, DB, Options};
 
-use crate::{
-    CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb, SCHEMA_MIGRATION_KEY,
-    SchemaVersion, StorageError,
-};
+use crate::db::{CF_BLOCK_INDEX, CF_BLOCKS, CF_CHAIN_META, CF_UNDO, CF_UTXO, OregonDb};
+use crate::error::StorageError;
+use crate::records::SCHEMA_MIGRATION_KEY;
+use crate::schema::SchemaVersion;
 
 struct TestDir(PathBuf);
 
