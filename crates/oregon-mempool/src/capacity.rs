@@ -2,11 +2,11 @@ use std::collections::BTreeSet;
 
 use oregon_primitives::Hash256;
 
+use crate::MempoolError;
 use crate::admission::AdmissionPlan;
 use crate::eviction::eviction_cmp;
 use crate::graph::descendant_closure;
 use crate::pool::Mempool;
-use crate::MempoolError;
 
 pub(crate) fn plan_capacity(
     pool: &Mempool,
