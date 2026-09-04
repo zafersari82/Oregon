@@ -1,71 +1,16 @@
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 
-use oregon_consensus::{ChainWork, ConsensusParams, Target, block_work};
+use oregon_consensus::{ChainWork, block_work};
 use oregon_primitives::{
     Amount, Block, BlockHeader, FOUNDER_ALLOCATION_BASE_UNITS, Hash256, OutPoint, Transaction,
     TxInput, TxOutput, transaction_root, write_varint,
 };
 use oregon_storage::{BlockIndexRecord, OregonDb, StorageBatch, ValidationStatus};
-use oregon_utxo::{BlockUndo, SpendVerifier, UtxoEntry, UtxoError};
+use oregon_utxo::{BlockUndo, UtxoEntry};
 
 use crate::state::REORG_WINDOW;
+use crate::test_support::{AcceptAllSpends, TestDir, standard_chain_config};
 use crate::{AcceptOutcome, ChainConfig, ChainState, SessionHealth};
-
-struct TestDir(PathBuf);
-
-impl TestDir {
-    fn new(label: &str) -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "oregon-chainstate-recovery-{label}-{}-{n}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&path).unwrap();
-        Self(path)
-    }
-
-    fn path(&self) -> &Path {
-        &self.0
-    }
-}
-
-impl Drop for TestDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
-struct AcceptAllSpends;
-
-impl SpendVerifier for AcceptAllSpends {
-    fn verify_spend(
-        &self,
-        _transaction: &Transaction,
-        _input_index: usize,
-        _prevout: &UtxoEntry,
-    ) -> Result<(), UtxoError> {
-        Ok(())
-    }
-}
-
-fn test_config() -> ChainConfig {
-    let target = Target::from_le_bytes([0xff; 32]).unwrap();
-    let genesis_timestamp = 1_800_000_000;
-    ChainConfig {
-        anchor_header: BlockHeader {
-            version: 1,
-            previous_block: Hash256::from_bytes([0; 32]),
-            transaction_root: Hash256::from_bytes([0x22; 32]),
-            timestamp: genesis_timestamp,
-            difficulty_commitment: target.to_le_bytes(),
-            nonce: 7,
-        },
-        genesis_timestamp,
-        params: ConsensusParams::new(target, target, [0x42; 32]).unwrap(),
-    }
-}
 
 fn coinbase(config: &ChainConfig, height: u64) -> Transaction {
     let mut height_bytes = Vec::new();
@@ -238,8 +183,8 @@ fn seed_storage_chain(
 
 #[test]
 fn multiple_blocks_with_a_spend_reopen_to_identical_tip_and_sorted_utxos() {
-    let dir = TestDir::new("multi-block-reopen");
-    let config = test_config();
+    let dir = TestDir::scoped("chainstate-recovery", "multi-block-reopen");
+    let config = standard_chain_config();
     let seeded = seed_spendable_utxo(dir.path(), &config);
     let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
 
@@ -280,8 +225,8 @@ fn multiple_blocks_with_a_spend_reopen_to_identical_tip_and_sorted_utxos() {
 
 #[test]
 fn accepted_active_state_reopens_when_pruning_was_skipped_and_side_data_remains() {
-    let dir = TestDir::new("accepted-before-prune");
-    let config = test_config();
+    let dir = TestDir::scoped("chainstate-recovery", "accepted-before-prune");
+    let config = standard_chain_config();
     let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
 
     let active = block(
@@ -332,8 +277,8 @@ fn accepted_active_state_reopens_when_pruning_was_skipped_and_side_data_remains(
 
 #[test]
 fn skipped_pruning_with_extra_old_body_is_harmless_on_reopen() {
-    let dir = TestDir::new("skipped-prune-old-body");
-    let config = test_config();
+    let dir = TestDir::scoped("chainstate-recovery", "skipped-prune-old-body");
+    let config = standard_chain_config();
     let ids = seed_storage_chain(dir.path(), &config, REORG_WINDOW + 1, true);
     let old_id = ids[1];
 
@@ -352,8 +297,8 @@ fn skipped_pruning_with_extra_old_body_is_harmless_on_reopen() {
 
 #[test]
 fn missing_body_behind_valid_prune_horizon_reopens_healthy() {
-    let dir = TestDir::new("pruned-old-body");
-    let config = test_config();
+    let dir = TestDir::scoped("chainstate-recovery", "pruned-old-body");
+    let config = standard_chain_config();
     let ids = seed_storage_chain(dir.path(), &config, REORG_WINDOW + 1, false);
     let old_id = ids[1];
 
@@ -372,8 +317,8 @@ fn missing_body_behind_valid_prune_horizon_reopens_healthy() {
 
 #[test]
 fn reopen_fails_closed_when_active_index_height_is_tampered() {
-    let dir = TestDir::new("index-height-corruption");
-    let config = test_config();
+    let dir = TestDir::scoped("chainstate-recovery", "index-height-corruption");
+    let config = standard_chain_config();
     let ids = seed_storage_chain(dir.path(), &config, 2, false);
 
     let db = OregonDb::open(dir.path()).unwrap();
@@ -389,8 +334,8 @@ fn reopen_fails_closed_when_active_index_height_is_tampered() {
 
 #[test]
 fn reopen_fails_closed_when_active_parent_link_is_tampered() {
-    let dir = TestDir::new("index-parent-corruption");
-    let config = test_config();
+    let dir = TestDir::scoped("chainstate-recovery", "index-parent-corruption");
+    let config = standard_chain_config();
     let ids = seed_storage_chain(dir.path(), &config, 2, false);
 
     let db = OregonDb::open(dir.path()).unwrap();
@@ -416,8 +361,8 @@ fn reopen_fails_closed_when_active_parent_link_is_tampered() {
 
 #[test]
 fn lower_work_candidate_stays_side_chain_without_mutating_active_state() {
-    let dir = TestDir::new("lower-work-side-chain");
-    let config = test_config();
+    let dir = TestDir::scoped("chainstate-recovery", "lower-work-side-chain");
+    let config = standard_chain_config();
     let ids = seed_storage_chain(dir.path(), &config, 2, false);
     let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
     let before_tip = state.tip().clone();
