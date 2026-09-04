@@ -179,7 +179,10 @@ fn heavier_full_block_advances_preferred_header_tip_durably() {
     let reopened = ChainState::open(dir.path(), config).unwrap();
     assert_eq!(reopened.preferred_header_tip().block_id, block_id);
     assert_eq!(reopened.preferred_header_tip().height, 1);
-    assert_eq!(reopened.preferred_header_tip().cumulative_work, expected_work);
+    assert_eq!(
+        reopened.preferred_header_tip().cumulative_work,
+        expected_work
+    );
     drop(reopened);
 
     let db = OregonDb::open(dir.path()).unwrap();
