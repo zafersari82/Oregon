@@ -191,12 +191,7 @@ fn candidate_self_eviction_rejects_without_any_public_mutation() {
     let before = snapshot(&pool);
 
     assert_eq!(
-        pool.admit(
-            worse_candidate,
-            chain_base,
-            &chain,
-            &AcceptTestSpends,
-        ),
+        pool.admit(worse_candidate, chain_base, &chain, &AcceptTestSpends,),
         Err(MempoolError::CapacityRejected)
     );
     assert_eq!(snapshot(&pool), before);
@@ -245,6 +240,9 @@ fn eviction_is_independent_of_independent_insertion_order() {
 
     assert_eq!(first_outcome.evicted, second_outcome.evicted);
     assert_eq!(first_outcome.evicted, vec![a.txid()]);
-    assert_eq!(first.deterministic_order().unwrap(), second.deterministic_order().unwrap());
+    assert_eq!(
+        first.deterministic_order().unwrap(),
+        second.deterministic_order().unwrap()
+    );
     assert_eq!(first.total_bytes(), second.total_bytes());
 }
