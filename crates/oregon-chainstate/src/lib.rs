@@ -9,6 +9,7 @@ mod prune;
 mod recovery;
 mod reorg;
 mod state;
+mod sync_view;
 mod transition;
 mod utxo_delta;
 
