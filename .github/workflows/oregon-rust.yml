@@ -3,7 +3,7 @@ name: Oregon Rust CI
 # Oregon protocol development branches are CI-gated during test-first development.
 on:
   push:
-    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool]
+    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, mutation-m5-early-publication-2026-09-04]
   pull_request:
     branches: [main]
 
@@ -31,6 +31,8 @@ jobs:
           key: oregon-rust-${{ runner.os }}-1.85.0-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             oregon-rust-${{ runner.os }}-1.85.0-
+      - name: Inject early-publication mutation
+        run: python .github/mutations/m5_early_publication.py
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Format
