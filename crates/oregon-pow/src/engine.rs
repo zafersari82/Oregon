@@ -34,6 +34,12 @@ impl fmt::Display for PowError {
 
 impl Error for PowError {}
 
+pub trait PowEngine {
+    fn key(&self) -> [u8; 32];
+
+    fn hash(&mut self, input: &[u8]) -> [u8; 32];
+}
+
 pub struct LightEngine {
     key: [u8; 32],
     cache: NonNull<RandomxCache>,
@@ -73,6 +79,16 @@ impl Drop for LightEngine {
             randomx_destroy_vm(self.vm.as_ptr());
             randomx_release_cache(self.cache.as_ptr());
         }
+    }
+}
+
+impl PowEngine for LightEngine {
+    fn key(&self) -> [u8; 32] {
+        LightEngine::key(self)
+    }
+
+    fn hash(&mut self, input: &[u8]) -> [u8; 32] {
+        LightEngine::hash(self, input)
     }
 }
 
@@ -131,6 +147,16 @@ impl Drop for FullEngine {
             randomx_destroy_vm(self.vm.as_ptr());
             randomx_release_dataset(self.dataset.as_ptr());
         }
+    }
+}
+
+impl PowEngine for FullEngine {
+    fn key(&self) -> [u8; 32] {
+        FullEngine::key(self)
+    }
+
+    fn hash(&mut self, input: &[u8]) -> [u8; 32] {
+        FullEngine::hash(self, input)
     }
 }
 

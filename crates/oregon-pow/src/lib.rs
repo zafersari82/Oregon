@@ -11,7 +11,7 @@ mod input;
 mod key;
 mod target;
 
-pub use engine::{FullEngine, LightEngine, PowError};
+pub use engine::{FullEngine, LightEngine, PowEngine, PowError};
 pub use input::{POW_INPUT_DOMAIN, pow_input};
 pub use key::{
     RANDOMX_KEY_DELAY, RANDOMX_KEY_DOMAIN, RANDOMX_KEY_EPOCH, derive_randomx_key, key_block_height,

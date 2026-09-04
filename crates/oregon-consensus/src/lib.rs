@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod asert;
 pub mod block;
 pub mod coinbase;

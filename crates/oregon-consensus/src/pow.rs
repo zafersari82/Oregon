@@ -1,4 +1,4 @@
-use oregon_pow::{LightEngine, derive_randomx_key, hash_meets_target, key_block_height, pow_input};
+use oregon_pow::{PowEngine, derive_randomx_key, hash_meets_target, key_block_height, pow_input};
 use oregon_primitives::{BlockHeader, Hash256};
 
 use crate::{ConsensusError, PrePowHeaderFacts};
@@ -11,12 +11,16 @@ pub trait PowKeyBlockSource {
     fn validated_block_id_at_height(&self, height: u64) -> Option<Hash256>;
 }
 
-pub fn validate_header_pow<S: PowKeyBlockSource + ?Sized>(
+pub fn validate_header_pow<E, S>(
     header: &BlockHeader,
     facts: &PrePowHeaderFacts,
     key_blocks: &S,
-    engine: &mut LightEngine,
-) -> Result<[u8; 32], ConsensusError> {
+    engine: &mut E,
+) -> Result<[u8; 32], ConsensusError>
+where
+    E: PowEngine + ?Sized,
+    S: PowKeyBlockSource + ?Sized,
+{
     if facts.header_id() != header.block_id() {
         return Err(ConsensusError::PowPrevalidationMismatch);
     }
