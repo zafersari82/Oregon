@@ -25,9 +25,8 @@ use crate::records::{
     decode_block_index, decode_node_health, encode_block_index, encode_node_health,
 };
 use crate::schema::{
-    LEGACY_SCHEMA_VERSION_1_0, SCHEMA_KEY, SCHEMA_VERSION, SchemaVersion,
-    decode_migration_marker, decode_schema_version, encode_migration_marker,
-    encode_schema_version,
+    LEGACY_SCHEMA_VERSION_1_0, SCHEMA_KEY, SCHEMA_VERSION, SchemaVersion, decode_migration_marker,
+    decode_schema_version, encode_migration_marker, encode_schema_version,
 };
 
 pub(crate) const CF_BLOCKS: &str = "blocks";
@@ -121,11 +120,7 @@ impl OregonDb {
         }
         if current == target {
             if db.get_cf(chain_meta, SCHEMA_MIGRATION_KEY)?.is_some() {
-                run_synthetic_minor_migration_1_1(
-                    &db,
-                    chain_meta,
-                    interrupt_after_first_step,
-                )?;
+                run_synthetic_minor_migration_1_1(&db, chain_meta, interrupt_after_first_step)?;
             }
             return Ok(Self {
                 db,
@@ -466,11 +461,7 @@ fn run_migration_1_0_to_1_1(
     let mut final_batch = WriteBatch::default();
     if preferred_tip.is_none() {
         if let Some((block_id, height)) = active_tip.as_ref() {
-            final_batch.put_cf(
-                chain_meta,
-                PREFERRED_HEADER_TIP_ID_KEY,
-                block_id.as_bytes(),
-            );
+            final_batch.put_cf(chain_meta, PREFERRED_HEADER_TIP_ID_KEY, block_id.as_bytes());
             final_batch.put_cf(
                 chain_meta,
                 PREFERRED_HEADER_TIP_HEIGHT_KEY,

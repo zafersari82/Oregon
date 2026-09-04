@@ -2,12 +2,12 @@ use std::path::Path;
 
 use oregon_primitives::Hash256;
 
+use crate::StorageBatch;
 use crate::db::{CF_CHAIN_META, OregonDb};
 use crate::error::StorageError;
 use crate::records::SCHEMA_MIGRATION_KEY;
 use crate::schema::SchemaVersion;
 use crate::test_support::{TestDir, open_raw_existing};
-use crate::StorageBatch;
 
 const LEGACY_1_0: [u8; 4] = [0, 1, 0, 0];
 const TARGET_1_1: SchemaVersion = SchemaVersion { major: 1, minor: 1 };
@@ -59,7 +59,10 @@ fn legacy_1_0_active_tip_migrates_to_preferred_header_tip() {
     drop(migrated);
 
     let (preferred_id, preferred_height) = raw_preferred_tip(dir.path());
-    assert_eq!(preferred_id.as_deref(), Some(block_id.as_bytes().as_slice()));
+    assert_eq!(
+        preferred_id.as_deref(),
+        Some(block_id.as_bytes().as_slice())
+    );
     assert_eq!(
         preferred_height.as_deref(),
         Some(height.to_le_bytes().as_slice())
