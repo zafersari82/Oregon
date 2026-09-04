@@ -1,0 +1,11 @@
+[package]
+name = "oregon-mempool"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+oregon-consensus = { path = "../oregon-consensus" }
+oregon-primitives = { path = "../oregon-primitives" }
+oregon-utxo = { path = "../oregon-utxo" }
+thiserror = "2"
