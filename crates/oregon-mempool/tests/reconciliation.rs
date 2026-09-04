@@ -296,6 +296,46 @@ fn reorg_rebuild_is_insertion_order_independent() {
 }
 
 #[test]
+fn reorg_outputs_ignore_chain_utxo_insertion_order() {
+    let a_root = outpoint(0xa1, 0);
+    let b_root = outpoint(0xa2, 0);
+    let a_entry = entry(100, 1, false);
+    let b_entry = entry(100, 1, false);
+    let first_chain = state_with(vec![(a_root, a_entry.clone()), (b_root, b_entry.clone())]);
+    let second_chain = state_with(vec![(b_root, b_entry), (a_root, a_entry)]);
+    let old_base = base(0xa3, 20);
+    let new_base = base(0xa4, 19);
+    let a = spend(vec![a_root], &[90], 1);
+    let b = spend(vec![b_root], &[80], 2);
+
+    let mut first = Mempool::new(old_base, MempoolConfig::default()).unwrap();
+    first
+        .admit(a.clone(), old_base, &first_chain, &AcceptTestSpends)
+        .unwrap();
+    first
+        .admit(b.clone(), old_base, &first_chain, &AcceptTestSpends)
+        .unwrap();
+
+    let mut second = Mempool::new(old_base, MempoolConfig::default()).unwrap();
+    second
+        .admit(a, old_base, &second_chain, &AcceptTestSpends)
+        .unwrap();
+    second
+        .admit(b, old_base, &second_chain, &AcceptTestSpends)
+        .unwrap();
+
+    let first_report = first
+        .reconcile_reorg(new_base, &first_chain, &AcceptTestSpends)
+        .unwrap();
+    let second_report = second
+        .reconcile_reorg(new_base, &second_chain, &AcceptTestSpends)
+        .unwrap();
+
+    assert_eq!(first_report, second_report);
+    assert_eq!(observable(&first), observable(&second));
+}
+
+#[test]
 fn reorg_height_overflow_is_atomic_and_rejecting_verifier_filters_tx() {
     let root = outpoint(0x91, 0);
     let chain = state_with(vec![(root, entry(100, 1, false))]);
