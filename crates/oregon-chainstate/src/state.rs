@@ -639,10 +639,7 @@ mod deep_reorg_tests {
     fn test_path() -> PathBuf {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir().join(format!(
-            "oregon-deep-reorg-{}-{n}",
-            std::process::id()
-        ))
+        std::env::temp_dir().join(format!("oregon-deep-reorg-{}-{n}", std::process::id()))
     }
 
     fn test_config() -> ChainConfig {
