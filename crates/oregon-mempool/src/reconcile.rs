@@ -99,7 +99,9 @@ fn is_filterable_rebuild_error(error: &MempoolError) -> bool {
 #[cfg(test)]
 mod tests {
     use oregon_primitives::Amount;
-    use oregon_primitives::{Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput};
+    use oregon_primitives::{
+        Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput,
+    };
     use oregon_utxo::{SpendVerifier, UtxoEntry, UtxoError, UtxoState};
 
     use crate::{ChainBase, Mempool, MempoolConfig, MempoolError};
