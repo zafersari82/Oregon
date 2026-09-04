@@ -236,4 +236,53 @@ mod tests {
         assert_eq!(pool.spenders, before_spenders);
         assert_eq!(pool.total_bytes, before_bytes);
     }
+
+    #[test]
+    fn reorg_dependency_cycle_preserves_live_pool_exactly() {
+        let root = OutPoint {
+            txid: Hash256::from_bytes([0x81; 32]),
+            index: 0,
+        };
+        let chain = UtxoState::from_persisted_entries(vec![(root, chain_entry(100))]).unwrap();
+        let old_base = base(0x82, 20);
+        let mut pool = Mempool::new(old_base, MempoolConfig::default()).unwrap();
+        let parent = transaction(root, 90, 1);
+        let child = transaction(
+            OutPoint {
+                txid: parent.txid(),
+                index: 0,
+            },
+            80,
+            2,
+        );
+        let parent_txid = parent.txid();
+        let child_txid = child.txid();
+        pool.admit(parent, old_base, &chain, &Accept).unwrap();
+        pool.admit(child, old_base, &chain, &Accept).unwrap();
+
+        pool.entries
+            .get_mut(&parent_txid)
+            .unwrap()
+            .parents
+            .insert(child_txid);
+        pool.entries
+            .get_mut(&child_txid)
+            .unwrap()
+            .children
+            .insert(parent_txid);
+
+        let before_base = pool.base;
+        let before_entries = pool.entries.clone();
+        let before_spenders = pool.spenders.clone();
+        let before_bytes = pool.total_bytes;
+
+        assert_eq!(
+            pool.reconcile_reorg(base(0x83, 19), &chain, &Accept),
+            Err(MempoolError::DependencyCycle)
+        );
+        assert_eq!(pool.base, before_base);
+        assert_eq!(pool.entries, before_entries);
+        assert_eq!(pool.spenders, before_spenders);
+        assert_eq!(pool.total_bytes, before_bytes);
+    }
 }
