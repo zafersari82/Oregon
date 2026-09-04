@@ -8,13 +8,13 @@ const STORAGE_RECORD_VERSION: u8 = 1;
 const BLOCK_HEADER_BYTES: usize = 114;
 const MAX_CHAINWORK_BYTES: usize = 40;
 
-pub const SCHEMA_MIGRATION_KEY: &[u8] = b"schema/migration";
-pub const CONFIG_ANCHOR_ID_KEY: &[u8] = b"config/anchor_id";
-pub const CONFIG_GENESIS_TIMESTAMP_KEY: &[u8] = b"config/genesis_timestamp";
-pub const ACTIVE_TIP_ID_KEY: &[u8] = b"active/tip_id";
-pub const ACTIVE_TIP_HEIGHT_KEY: &[u8] = b"active/tip_height";
-pub const HEALTH_STATE_KEY: &[u8] = b"health/state";
-pub const PRUNE_CURSOR_KEY: &[u8] = b"prune/cursor";
+pub(crate) const SCHEMA_MIGRATION_KEY: &[u8] = b"schema/migration";
+pub(crate) const CONFIG_ANCHOR_ID_KEY: &[u8] = b"config/anchor_id";
+pub(crate) const CONFIG_GENESIS_TIMESTAMP_KEY: &[u8] = b"config/genesis_timestamp";
+pub(crate) const ACTIVE_TIP_ID_KEY: &[u8] = b"active/tip_id";
+pub(crate) const ACTIVE_TIP_HEIGHT_KEY: &[u8] = b"active/tip_height";
+pub(crate) const HEALTH_STATE_KEY: &[u8] = b"health/state";
+pub(crate) const PRUNE_CURSOR_KEY: &[u8] = b"prune/cursor";
 const ACTIVE_HEIGHT_PREFIX: &[u8; 7] = b"active/";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,7 +40,7 @@ pub enum NodeHealth {
     ReindexRequired,
 }
 
-pub fn encode_block_index(record: &BlockIndexRecord) -> Result<Vec<u8>, StorageError> {
+pub(crate) fn encode_block_index(record: &BlockIndexRecord) -> Result<Vec<u8>, StorageError> {
     if record.parent != record.header.previous_block {
         return Err(corrupt(
             "block index parent does not match header previous block",
@@ -75,7 +75,7 @@ pub fn encode_block_index(record: &BlockIndexRecord) -> Result<Vec<u8>, StorageE
     Ok(bytes)
 }
 
-pub fn decode_block_index(bytes: &[u8]) -> Result<BlockIndexRecord, StorageError> {
+pub(crate) fn decode_block_index(bytes: &[u8]) -> Result<BlockIndexRecord, StorageError> {
     let mut cursor = StorageCursor::new(bytes);
     let version = cursor.read_u8("block index record version")?;
     if version != STORAGE_RECORD_VERSION {
@@ -118,7 +118,7 @@ pub fn decode_block_index(bytes: &[u8]) -> Result<BlockIndexRecord, StorageError
     })
 }
 
-pub fn encode_node_health(health: NodeHealth) -> [u8; 2] {
+pub(crate) fn encode_node_health(health: NodeHealth) -> [u8; 2] {
     [
         STORAGE_RECORD_VERSION,
         match health {
@@ -128,7 +128,7 @@ pub fn encode_node_health(health: NodeHealth) -> [u8; 2] {
     ]
 }
 
-pub fn decode_node_health(bytes: &[u8]) -> Result<NodeHealth, StorageError> {
+pub(crate) fn decode_node_health(bytes: &[u8]) -> Result<NodeHealth, StorageError> {
     let mut cursor = StorageCursor::new(bytes);
     let version = cursor.read_u8("node health record version")?;
     if version != STORAGE_RECORD_VERSION {
@@ -145,7 +145,7 @@ pub fn decode_node_health(bytes: &[u8]) -> Result<NodeHealth, StorageError> {
     Ok(health)
 }
 
-pub fn active_height_key(height: u64) -> [u8; 15] {
+pub(crate) fn active_height_key(height: u64) -> [u8; 15] {
     let mut key = [0u8; 15];
     key[..7].copy_from_slice(ACTIVE_HEIGHT_PREFIX);
     key[7..].copy_from_slice(&height.to_be_bytes());
