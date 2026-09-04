@@ -158,7 +158,11 @@ pub(crate) fn encode_block_undo(undo: &BlockUndo) -> Result<Vec<u8>, StorageErro
     require_strictly_sorted_outpoints(&undo.created, "created undo outpoints")?;
 
     let spent_set: BTreeSet<OutPoint> = spent_outpoints.iter().copied().collect();
-    if undo.created.iter().any(|outpoint| spent_set.contains(outpoint)) {
+    if undo
+        .created
+        .iter()
+        .any(|outpoint| spent_set.contains(outpoint))
+    {
         return Err(corrupt(
             "undo outpoint appears in both spent and created sets",
         ));
