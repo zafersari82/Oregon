@@ -121,6 +121,53 @@ fn valid_chain_backed_transaction_records_fee_and_size() {
 }
 
 #[test]
+fn zero_fee_transaction_is_valid_when_capacity_allows() {
+    let previous = outpoint(0x12, 0);
+    let chain = state_with(vec![(previous, entry(100, 1, false))]);
+    let tx = spend(vec![previous], &[100], 2);
+    let chain_base = base(0x13, 20);
+    let mut pool = Mempool::new(chain_base, MempoolConfig::default()).unwrap();
+
+    let outcome = pool
+        .admit(tx.clone(), chain_base, &chain, &AcceptTestSpends)
+        .expect("zero-fee transaction is valid policy");
+
+    assert_eq!(outcome.fee, 0);
+    assert_eq!(outcome.encoded_bytes, tx.encode().len());
+    assert_eq!(pool.entry(&tx.txid()).unwrap().fee(), 0);
+    assert!(pool.contains(&tx.txid()));
+}
+
+#[test]
+fn changed_witness_changes_mempool_txid_and_canonical_bytes() {
+    let previous = outpoint(0x14, 0);
+    let chain = state_with(vec![(previous, entry(100, 1, false))]);
+    let chain_base = base(0x15, 20);
+    let plain = spend(vec![previous], &[90], 3);
+    let mut witnessed = plain.clone();
+    witnessed.inputs[0].witness = vec![vec![0xaa, 0xbb, 0xcc]];
+
+    assert_ne!(plain.txid(), witnessed.txid());
+    assert_ne!(plain.encode().len(), witnessed.encode().len());
+
+    let mut plain_pool = Mempool::new(chain_base, MempoolConfig::default()).unwrap();
+    let plain_outcome = plain_pool
+        .admit(plain.clone(), chain_base, &chain, &AcceptTestSpends)
+        .unwrap();
+    let mut witnessed_pool = Mempool::new(chain_base, MempoolConfig::default()).unwrap();
+    let witnessed_outcome = witnessed_pool
+        .admit(witnessed.clone(), chain_base, &chain, &AcceptTestSpends)
+        .unwrap();
+
+    assert_eq!(plain_outcome.txid, plain.txid());
+    assert_eq!(witnessed_outcome.txid, witnessed.txid());
+    assert_eq!(plain_outcome.encoded_bytes, plain.encode().len());
+    assert_eq!(witnessed_outcome.encoded_bytes, witnessed.encode().len());
+    assert_ne!(plain_outcome.txid, witnessed_outcome.txid);
+    assert_ne!(plain_outcome.encoded_bytes, witnessed_outcome.encoded_bytes);
+}
+
+#[test]
 fn duplicate_txid_rejection_is_atomic() {
     let previous = outpoint(0x21, 0);
     let chain = state_with(vec![(previous, entry(100, 1, false))]);
