@@ -34,9 +34,9 @@ jobs:
       - name: Generate Task 2 lockfile diagnostic
         run: |
           cargo +1.85.0 check -p oregon-mempool --lib
-          echo '=== CARGO_LOCK_DIFF_BEGIN ==='
-          git diff -- Cargo.lock
-          echo '=== CARGO_LOCK_DIFF_END ==='
+          echo '=== CARGO_LOCK_BEGIN ==='
+          cat Cargo.lock
+          echo '=== CARGO_LOCK_END ==='
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Format
