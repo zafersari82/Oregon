@@ -40,6 +40,20 @@ fn height_one_founder_block(config: &ChainConfig) -> Block {
     }
 }
 
+fn height_one_header(config: &ChainConfig, nonce: u64) -> BlockHeader {
+    let mut root = [0u8; 32];
+    root[..8].copy_from_slice(&1u64.to_le_bytes());
+    root[8..16].copy_from_slice(&nonce.to_le_bytes());
+    BlockHeader {
+        version: 1,
+        previous_block: config.anchor_header.block_id(),
+        transaction_root: Hash256::from_bytes(root),
+        timestamp: config.genesis_timestamp + 300,
+        difficulty_commitment: config.params.initial_target.to_le_bytes(),
+        nonce,
+    }
+}
+
 #[test]
 fn durable_failure_faults_session_without_publishing_or_persisting_candidate() {
     let dir = TestDir::scoped("storage-fault", "direct-extension");
@@ -80,4 +94,47 @@ fn durable_failure_faults_session_without_publishing_or_persisting_candidate() {
     assert_eq!(db.get_index(block_id).unwrap(), None);
     assert_eq!(db.get_block(block_id).unwrap(), None);
     assert_eq!(db.active_tip().unwrap(), Some((before_tip.block_id, 0)));
+}
+
+#[test]
+fn header_durable_failure_faults_session_without_publishing_or_persisting_candidate() {
+    let dir = TestDir::scoped("storage-fault", "header-import");
+    let config = standard_chain_config();
+    let header = height_one_header(&config, 202);
+    let header_id = header.block_id();
+
+    let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
+    let before_tip = state.tip().clone();
+    let before_header_tip = state.preferred_header_tip().clone();
+    let before_utxos = state.utxos().clone();
+    state.test_fail_next_durable_write();
+
+    assert!(matches!(
+        state.accept_header(header.clone()),
+        Err(ChainStateError::Storage(_))
+    ));
+    assert_eq!(state.tip(), &before_tip);
+    assert_eq!(state.preferred_header_tip(), &before_header_tip);
+    assert_eq!(state.utxos(), &before_utxos);
+    assert_eq!(state.session_health(), SessionHealth::StorageFaulted);
+    assert!(matches!(
+        state.accept_header(header),
+        Err(ChainStateError::StorageFaulted)
+    ));
+    drop(state);
+
+    let reopened = ChainState::open(dir.path(), config).unwrap();
+    assert_eq!(reopened.tip(), &before_tip);
+    assert_eq!(reopened.preferred_header_tip(), &before_header_tip);
+    assert_eq!(reopened.utxos(), &before_utxos);
+    assert_eq!(reopened.session_health(), SessionHealth::Healthy);
+    drop(reopened);
+
+    let db = oregon_storage::OregonDb::open(dir.path()).unwrap();
+    assert_eq!(db.get_index(header_id).unwrap(), None);
+    assert_eq!(db.active_tip().unwrap(), Some((before_tip.block_id, 0)));
+    assert_eq!(
+        db.preferred_header_tip().unwrap(),
+        Some((before_header_tip.block_id, 0))
+    );
 }
