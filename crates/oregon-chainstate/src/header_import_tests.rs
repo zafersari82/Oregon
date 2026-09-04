@@ -89,3 +89,45 @@ fn duplicate_header_returns_known_without_changing_chainstate() {
     assert_eq!(state.tip(), &active_before);
     assert_eq!(state.utxos(), &utxos_before);
 }
+
+#[test]
+fn lower_work_valid_header_is_stored_without_replacing_preferred_tip() {
+    let dir = TestDir::scoped("header-import", "stored-lower-work");
+    let config = standard_chain_config();
+    let anchor_id = config.anchor_header.block_id();
+    let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
+
+    let first = candidate_header(&config, anchor_id, 1, 301);
+    let first_id = first.block_id();
+    assert_eq!(
+        state.accept_header(first).unwrap().status,
+        HeaderImportStatus::Preferred
+    );
+    let second = candidate_header(&config, first_id, 2, 302);
+    let second_id = second.block_id();
+    assert_eq!(
+        state.accept_header(second).unwrap().status,
+        HeaderImportStatus::Preferred
+    );
+    let preferred_before = state.preferred_header_tip().clone();
+    let active_before = state.tip().clone();
+
+    let lower_work = candidate_header(&config, anchor_id, 1, 303);
+    let lower_work_id = lower_work.block_id();
+    let out = state.accept_header(lower_work.clone()).unwrap();
+
+    assert_eq!(out.block_id, lower_work_id);
+    assert_eq!(out.height, 1);
+    assert_eq!(out.status, HeaderImportStatus::Stored);
+    assert_eq!(out.preferred_tip, preferred_before);
+    assert_eq!(state.preferred_header_tip(), &preferred_before);
+    assert_eq!(state.tip(), &active_before);
+    assert_eq!(
+        state.storage().preferred_header_tip().unwrap(),
+        Some((second_id, 2))
+    );
+    let index = state.storage().get_index(lower_work_id).unwrap().unwrap();
+    assert_eq!(index.header, lower_work);
+    assert_eq!(index.validation, ValidationStatus::HeaderValidated);
+    assert!(!index.body_retained);
+}
