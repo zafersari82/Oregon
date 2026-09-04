@@ -2,8 +2,9 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use oregon_consensus::validate_normal_transaction_skeleton;
 use oregon_primitives::{Hash256, OutPoint, Transaction};
-use oregon_utxo::{SpendVerifier, UtxoError, UtxoState};
+use oregon_utxo::{SpendVerifier, UtxoState};
 
+use crate::graph::{ancestor_closure, descendant_closure, topological_order};
 use crate::{AdmissionOutcome, MempoolConfig, MempoolEntry, MempoolError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,7 +75,7 @@ impl Mempool {
     }
 
     pub fn deterministic_order(&self) -> Result<Vec<Hash256>, MempoolError> {
-        Ok(self.entries.keys().copied().collect())
+        topological_order(&self.entries)
     }
 
     pub fn admit<V: SpendVerifier>(
@@ -88,12 +89,24 @@ impl Mempool {
             self.prepare_admission(transaction, chain_base, chain_utxos, verifier)?;
 
         debug_assert!(plan.remove.is_empty());
-        debug_assert!(plan.candidate.ancestors.is_empty());
+        for parent in &plan.candidate.entry.parents {
+            if !self.entries.contains_key(parent) {
+                return Err(MempoolError::InvariantViolation);
+            }
+        }
 
         let txid = plan.candidate.entry.txid;
         let fee = plan.candidate.entry.fee;
         let encoded_bytes = plan.candidate.entry.encoded_bytes;
+        let parents = plan.candidate.entry.parents.clone();
 
+        for parent in &parents {
+            let parent_entry = self
+                .entries
+                .get_mut(parent)
+                .expect("parent existence was preflighted");
+            parent_entry.children.insert(txid);
+        }
         for outpoint in &plan.candidate.spend_claims {
             let previous = self.spenders.insert(*outpoint, txid);
             debug_assert!(previous.is_none());
@@ -148,25 +161,94 @@ impl Mempool {
             }
         }
 
-        let mut seeded = HashSet::with_capacity(spend_claims.len());
-        let mut narrow_entries = Vec::with_capacity(spend_claims.len());
+        let mut direct_parents = BTreeSet::new();
         for outpoint in &spend_claims {
-            let entry = chain_utxos
-                .get(outpoint)
-                .cloned()
-                .ok_or(MempoolError::Utxo(UtxoError::MissingUtxo(*outpoint)))?;
-            if seeded.insert(*outpoint) {
-                narrow_entries.push((*outpoint, entry));
+            if chain_utxos.get(outpoint).is_some() {
+                continue;
+            }
+
+            let Some(parent) = self.entries.get(&outpoint.txid) else {
+                return Err(MempoolError::MissingDependency(*outpoint));
+            };
+            if parent
+                .transaction
+                .outputs
+                .get(outpoint.index as usize)
+                .is_none()
+            {
+                return Err(MempoolError::InvalidParentOutput(*outpoint));
+            }
+            direct_parents.insert(parent.txid);
+        }
+
+        let ancestors = ancestor_closure(&self.entries, &direct_parents)?;
+        if ancestors.len() > self.config.max_ancestors {
+            return Err(MempoolError::TooManyAncestors);
+        }
+        for ancestor in &ancestors {
+            let descendants = descendant_closure(&self.entries, *ancestor)?;
+            let with_candidate = descendants
+                .len()
+                .checked_add(1)
+                .ok_or(MempoolError::InvariantViolation)?;
+            if with_candidate > self.config.max_descendants {
+                return Err(MempoolError::TooManyDescendants);
             }
         }
 
+        let full_order = topological_order(&self.entries)?;
+        let replay_order: Vec<_> = full_order
+            .into_iter()
+            .filter(|ancestor| ancestors.contains(ancestor))
+            .collect();
+        if replay_order.len() != ancestors.len() {
+            return Err(MempoolError::InvariantViolation);
+        }
+
+        let mut seeded = HashSet::new();
+        let mut narrow_entries = Vec::new();
+        for ancestor in &replay_order {
+            let entry = self
+                .entries
+                .get(ancestor)
+                .ok_or(MempoolError::InvariantViolation)?;
+            seed_chain_inputs(
+                &entry.transaction,
+                chain_utxos,
+                &mut seeded,
+                &mut narrow_entries,
+            );
+        }
+        seed_chain_inputs(
+            &transaction,
+            chain_utxos,
+            &mut seeded,
+            &mut narrow_entries,
+        );
+
+        let mut replay_txids = ancestors.clone();
+        replay_txids.insert(txid);
         for (outpoint, entry) in chain_utxos.entries() {
-            if outpoint.txid == txid && seeded.insert(*outpoint) {
+            if replay_txids.contains(&outpoint.txid) && seeded.insert(*outpoint) {
                 narrow_entries.push((*outpoint, entry.clone()));
             }
         }
 
         let mut validation_state = UtxoState::from_persisted_entries(narrow_entries)?;
+        for ancestor in &replay_order {
+            let entry = self
+                .entries
+                .get(ancestor)
+                .ok_or(MempoolError::InvariantViolation)?;
+            let replayed_fee = validation_state.apply_normal_transaction(
+                &entry.transaction,
+                spend_height,
+                verifier,
+            )?;
+            if replayed_fee != entry.fee {
+                return Err(MempoolError::InvariantViolation);
+            }
+        }
         let fee =
             validation_state.apply_normal_transaction(&transaction, spend_height, verifier)?;
 
@@ -181,11 +263,11 @@ impl Mempool {
                 txid,
                 fee,
                 encoded_bytes,
-                parents: BTreeSet::new(),
+                parents: direct_parents,
                 children: BTreeSet::new(),
             },
             spend_claims,
-            ancestors: BTreeSet::new(),
+            ancestors,
         };
 
         Ok((
@@ -195,5 +277,21 @@ impl Mempool {
             },
             new_total_bytes,
         ))
+    }
+}
+
+fn seed_chain_inputs(
+    transaction: &Transaction,
+    chain_utxos: &UtxoState,
+    seeded: &mut HashSet<OutPoint>,
+    narrow_entries: &mut Vec<(OutPoint, oregon_utxo::UtxoEntry)>,
+) {
+    for input in &transaction.inputs {
+        let outpoint = input.outpoint();
+        if let Some(entry) = chain_utxos.get(&outpoint)
+            && seeded.insert(outpoint)
+        {
+            narrow_entries.push((outpoint, entry.clone()));
+        }
     }
 }
