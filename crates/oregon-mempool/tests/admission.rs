@@ -161,7 +161,7 @@ fn conflicting_spend_rejection_is_atomic() {
 }
 
 #[test]
-fn missing_chain_input_rejection_is_atomic() {
+fn missing_dependency_rejection_is_atomic() {
     let missing = outpoint(0x41, 0);
     let chain = state_with(vec![]);
     let tx = spend(vec![missing], &[1], 1);
@@ -171,7 +171,7 @@ fn missing_chain_input_rejection_is_atomic() {
 
     assert_eq!(
         pool.admit(tx, chain_base, &chain, &AcceptTestSpends),
-        Err(MempoolError::Utxo(UtxoError::MissingUtxo(missing)))
+        Err(MempoolError::MissingDependency(missing))
     );
     assert_eq!(snapshot(&pool), before);
 }
