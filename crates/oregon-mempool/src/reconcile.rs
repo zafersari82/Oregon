@@ -190,7 +190,7 @@ mod tests {
             txid: Hash256::from_bytes([0x71; 32]),
             index: 0,
         };
-        let chain = UtxoState::from_persisted_entries(vec![(root, chain_entry(100))]).unwrap();
+        let chain = UtxoState::try_from_entries(vec![(root, chain_entry(100))]).unwrap();
         let old_base = base(0x72, 20);
         let mut pool = Mempool::new(old_base, MempoolConfig::default()).unwrap();
         let parent = transaction(root, 90, 1);
@@ -243,7 +243,7 @@ mod tests {
             txid: Hash256::from_bytes([0x81; 32]),
             index: 0,
         };
-        let chain = UtxoState::from_persisted_entries(vec![(root, chain_entry(100))]).unwrap();
+        let chain = UtxoState::try_from_entries(vec![(root, chain_entry(100))]).unwrap();
         let old_base = base(0x82, 20);
         let mut pool = Mempool::new(old_base, MempoolConfig::default()).unwrap();
         let parent = transaction(root, 90, 1);
