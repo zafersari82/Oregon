@@ -65,11 +65,23 @@ The accepted block validator already enforces structural rules for every non-coi
 
 M5 must not copy these consensus-shape rules into a second independent implementation.
 
-Implementation may refactor `oregon-consensus` to expose a small shared normal-transaction skeleton validator. The block skeleton validator must call the same authoritative helper so block validation and mempool admission cannot drift.
+Implementation must refactor `oregon-consensus` to expose one authoritative helper:
 
-The refactor must preserve the exact existing block-level behavior and error meaning. It is not permission to weaken or reinterpret consensus rules.
+`validate_normal_transaction_skeleton(transaction: &Transaction) -> Result<(), NormalTransactionError>`
 
-The standalone helper may use a dedicated small structural error type if necessary so block validation can attach transaction indexes without forcing mempool policy to invent a fake block index.
+`NormalTransactionError` is a focused structural-consensus error enum with variants equivalent to:
+
+- `TooLarge`
+- `EmptyInputs`
+- `EmptyOutputs`
+- `CoinbaseForm`
+- `NullOutpoint`
+
+The existing block skeleton validator must call this helper for every non-coinbase transaction and map the focused error back to the existing indexed `ConsensusError` variants so block-level externally observed behavior remains unchanged.
+
+`oregon-mempool` must call the same helper directly. This makes the helper the single authoritative implementation of normal-transaction structural consensus rules and prevents block/mempool drift.
+
+This refactor is not permission to weaken, reorder away, or reinterpret any existing consensus rejection.
 
 ## 5. Mempool entry model
 
