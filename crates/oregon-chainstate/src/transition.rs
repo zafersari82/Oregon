@@ -3,12 +3,12 @@ use oregon_primitives::{Block, Hash256};
 use oregon_storage::{BlockIndexRecord, NodeHealth, StorageBatch, ValidationStatus};
 use oregon_utxo::SpendVerifier;
 
+use crate::ChainStateError;
 use crate::reorg::{ReorgPlan, discover_fork, load_reorg_plan, reorg_depth_allowed};
 use crate::state::{AcceptOutcome, ChainState, SessionHealth, Tip};
 use crate::utxo_delta::{
     UtxoDelta, apply_utxo_delta, build_utxo_delta, record_connect_delta, record_disconnect_delta,
 };
-use crate::ChainStateError;
 
 pub(crate) fn extend_active<V: SpendVerifier>(
     state: &mut ChainState,
