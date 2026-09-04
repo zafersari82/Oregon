@@ -85,7 +85,7 @@ impl Block {
             return Err(PrimitiveError::EmptyBlockTransactions);
         }
 
-        let mut transactions = Vec::with_capacity(transaction_count);
+        let mut transactions = Vec::new();
         for _ in 0..transaction_count {
             transactions.push(Transaction::decode_from(&mut decoder, limits)?);
         }

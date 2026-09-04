@@ -89,14 +89,14 @@ impl Transaction {
         }
 
         let input_count = decoder.read_len(limits.max_transaction_inputs)?;
-        let mut inputs = Vec::with_capacity(input_count);
+        let mut inputs = Vec::new();
         for _ in 0..input_count {
             let previous_txid = Hash256::from_slice(decoder.read_bytes(32)?)?;
             let previous_output_index = decoder.read_u32()?;
             let sequence = decoder.read_u32()?;
 
             let witness_count = decoder.read_len(limits.max_witness_items_per_input)?;
-            let mut witness = Vec::with_capacity(witness_count);
+            let mut witness = Vec::new();
             for _ in 0..witness_count {
                 let item_len = decoder.read_len(limits.max_witness_item_bytes)?;
                 witness.push(decoder.read_bytes(item_len)?.to_vec());
@@ -111,7 +111,7 @@ impl Transaction {
         }
 
         let output_count = decoder.read_len(limits.max_transaction_outputs)?;
-        let mut outputs = Vec::with_capacity(output_count);
+        let mut outputs = Vec::new();
         for _ in 0..output_count {
             let value = Amount::from_base_units(decoder.read_u64()?)?;
             let program_len = decoder.read_len(limits.max_locking_program_bytes)?;
