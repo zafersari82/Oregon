@@ -19,8 +19,8 @@ jobs:
           submodules: recursive
       - name: Install Rust 1.85.0
         run: rustup toolchain install 1.85.0 --profile minimal --component rustfmt,clippy
-      - name: Install RocksDB build prerequisites
-        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
+      - name: Install native and CI scan prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev ripgrep
       - name: Cache Cargo and native build
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
