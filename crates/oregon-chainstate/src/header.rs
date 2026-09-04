@@ -3,7 +3,7 @@ use oregon_consensus::{
 };
 use oregon_pow::{LightEngine, derive_randomx_key, key_block_height};
 use oregon_primitives::{BlockHeader, Hash256};
-use oregon_storage::{BlockIndexRecord, ValidationStatus};
+use oregon_storage::{BlockIndexRecord, StorageBatch, ValidationStatus};
 
 use crate::ChainStateError;
 use crate::branch::BranchView;
@@ -82,10 +82,29 @@ pub(crate) fn validate_candidate_header(
 }
 
 pub(crate) fn accept_header_healthy(
-    _state: &mut ChainState,
-    _header: BlockHeader,
+    state: &mut ChainState,
+    header: BlockHeader,
 ) -> Result<HeaderImportOutcome, ChainStateError> {
-    Err(corrupt("header import behavior is not implemented yet"))
+    let block_id = header.block_id();
+    let index = validate_candidate_header(state, &header)?;
+    let preferred_tip = HeaderTip {
+        block_id,
+        height: index.height,
+        cumulative_work: index.cumulative_work.clone(),
+    };
+
+    let mut batch = StorageBatch::new();
+    batch.put_index(index);
+    batch.set_preferred_header_tip(block_id, preferred_tip.height);
+    state.db.commit_durable(batch)?;
+
+    state.header_tip = preferred_tip.clone();
+    Ok(HeaderImportOutcome {
+        block_id,
+        height: preferred_tip.height,
+        status: HeaderImportStatus::Preferred,
+        preferred_tip,
+    })
 }
 
 fn corrupt(message: impl Into<String>) -> ChainStateError {
