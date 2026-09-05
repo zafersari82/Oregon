@@ -110,10 +110,7 @@ pub fn unknown_parent_block(config: &ChainConfig) -> Block {
     block
 }
 
-pub fn state_with_spendable_utxo(
-    dir: &TestDir,
-    config: &ChainConfig,
-) -> (ChainState, OutPoint) {
+pub fn state_with_spendable_utxo(dir: &TestDir, config: &ChainConfig) -> (ChainState, OutPoint) {
     let state = ChainState::open(dir.path(), config.clone()).unwrap();
     drop(state);
 
