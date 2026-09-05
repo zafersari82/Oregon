@@ -9,12 +9,7 @@ fn oregon_address(byte: u8) -> ExecutionAddress {
 }
 
 fn schnorr(byte: u8, scope: AuthorizationScope) -> AuthorizationProof {
-    AuthorizationProof::new(
-        scope,
-        AuthorizationScheme::OregonSchnorrV1,
-        vec![byte; 96],
-    )
-    .unwrap()
+    AuthorizationProof::new(scope, AuthorizationScheme::OregonSchnorrV1, vec![byte; 96]).unwrap()
 }
 
 fn distinct_fee_payer_envelope(fee_payer_byte: u8) -> ExecutionEnvelopeV1 {
