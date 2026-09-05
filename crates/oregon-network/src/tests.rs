@@ -224,7 +224,7 @@ async fn intermittent_write_progress_cannot_extend_fifteen_second_deadline() {
 #[tokio::test]
 async fn tcp_transport_binds_connects_and_round_trips() {
     let transport = TcpTransport;
-    let mut listener = transport
+    let listener = transport
         .bind("127.0.0.1:0".parse().unwrap(), MAGIC)
         .await
         .unwrap();
@@ -241,7 +241,7 @@ async fn tcp_transport_binds_connects_and_round_trips() {
 #[tokio::test]
 async fn outbound_remote_addr_uses_kernel_observed_endpoint() {
     let transport = TcpTransport;
-    let mut listener = transport
+    let listener = transport
         .bind("127.0.0.1:0".parse().unwrap(), MAGIC)
         .await
         .unwrap();
