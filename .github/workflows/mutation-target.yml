@@ -22,4 +22,4 @@ jobs:
           key: oregon-rust-${{ runner.os }}-1.85.0-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             oregon-rust-${{ runner.os }}-1.85.0-
-      - run: cargo +1.85.0 test --locked -p oregon-sync scheduler_enforces_exact_global_peer_buffer_and_attempt_constants --lib
+      - run: cargo +1.85.0 test --locked --workspace scheduler_enforces_exact_global_peer_buffer_and_attempt_constants
