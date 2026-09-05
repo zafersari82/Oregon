@@ -56,8 +56,7 @@ async fn accepted_block_relays_over_tcp_only_after_chainstate_acceptance() {
     .unwrap();
 
     let hub_addr = hub.local_addr();
-    let (source_outcome, hub_source_outcome) =
-        tokio::join!(source.connect(hub_addr), hub.accept());
+    let (source_outcome, hub_source_outcome) = tokio::join!(source.connect(hub_addr), hub.accept());
     let (downstream_outcome, hub_downstream_outcome) =
         tokio::join!(downstream.connect(hub_addr), hub.accept());
     let mut source_session = source_outcome.unwrap().session;
@@ -202,8 +201,7 @@ async fn admitted_transaction_relays_over_tcp_but_conflicting_spend_does_not() {
     .unwrap();
 
     let hub_addr = hub.local_addr();
-    let (source_outcome, hub_source_outcome) =
-        tokio::join!(source.connect(hub_addr), hub.accept());
+    let (source_outcome, hub_source_outcome) = tokio::join!(source.connect(hub_addr), hub.accept());
     let (downstream_outcome, hub_downstream_outcome) =
         tokio::join!(downstream.connect(hub_addr), hub.accept());
     let mut source_session = source_outcome.unwrap().session;
@@ -219,7 +217,9 @@ async fn admitted_transaction_relays_over_tcp_but_conflicting_spend_does_not() {
         hash: transaction.txid(),
     };
 
-    hub_source_session.expect(RequestKey::Object(tx_item)).unwrap();
+    hub_source_session
+        .expect(RequestKey::Object(tx_item))
+        .unwrap();
     assert!(
         source_session
             .send(
