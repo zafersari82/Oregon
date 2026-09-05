@@ -1,6 +1,8 @@
 use oregon_chainstate::AcceptOutcome;
 use oregon_mempool::{ChainBase, Mempool, MempoolConfig, MempoolError, ReconcileReport};
-use oregon_primitives::{Amount, Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput};
+use oregon_primitives::{
+    Amount, Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput,
+};
 use oregon_utxo::{SpendVerifier, UtxoEntry, UtxoError, UtxoState};
 
 use crate::orchestration::{reconcile_after_acceptance, recover_reconciliation_failure};

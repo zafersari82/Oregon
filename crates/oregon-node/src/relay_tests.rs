@@ -36,8 +36,9 @@ fn accepted_transaction_authorizes_inventory_relay() {
 #[test]
 fn invalid_block_never_authorizes_inventory_relay() {
     let block_id = Hash256::from_bytes([0x33; 32]);
-    let result: Result<AcceptOutcome, ChainStateError> =
-        Err(ChainStateError::UnknownParent(Hash256::from_bytes([0x44; 32])));
+    let result: Result<AcceptOutcome, ChainStateError> = Err(ChainStateError::UnknownParent(
+        Hash256::from_bytes([0x44; 32]),
+    ));
     assert_eq!(
         validated_inventory(InventoryKind::Block, block_id, &result),
         None
