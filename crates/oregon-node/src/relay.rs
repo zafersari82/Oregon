@@ -7,6 +7,17 @@ use oregon_protocol::{InventoryItem, InventoryKind, Message};
 pub(crate) const MAX_KNOWN_INVENTORY_PER_PEER: usize = 8_192;
 pub(crate) const MAX_RECENT_RELAY_CACHE: usize = 65_536;
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ValidatedRelay {
+    item: InventoryItem,
+}
+
+impl ValidatedRelay {
+    pub fn inventory(&self) -> InventoryItem {
+        self.item
+    }
+}
+
 struct BoundedInventory {
     capacity: usize,
     members: HashSet<InventoryItem>,
@@ -86,11 +97,12 @@ impl RelayState {
         &mut self,
         source_peer: Option<PeerId>,
         peers: I,
-        item: InventoryItem,
+        authorization: &ValidatedRelay,
     ) -> Vec<PeerCommand>
     where
         I: IntoIterator<Item = PeerId>,
     {
+        let item = authorization.inventory();
         if let Some(source_peer) = source_peer {
             self.note_peer_inventory(source_peer, item);
         }
@@ -149,10 +161,12 @@ pub(crate) fn object_request_commands(peer_id: PeerId, item: InventoryItem) -> V
     ]
 }
 
-pub(crate) fn validated_inventory<T, E>(
+pub(crate) fn validated_relay<T, E>(
     kind: InventoryKind,
     hash: Hash256,
     result: &Result<T, E>,
-) -> Option<InventoryItem> {
-    result.as_ref().ok().map(|_| InventoryItem { kind, hash })
+) -> Option<ValidatedRelay> {
+    result.as_ref().ok().map(|_| ValidatedRelay {
+        item: InventoryItem { kind, hash },
+    })
 }
