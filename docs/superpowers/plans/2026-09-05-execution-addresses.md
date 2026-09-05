@@ -38,33 +38,34 @@
 - `ExecutionAddress::{kind, payload, to_bytes, evm_address}` expose validated data; `evm_address() -> Option<[u8; 20]>` returns `None` outside EVM.
 - `ExecutionAddressError::{InvalidLength(usize), UnknownKind(u8), NonCanonicalEvmPadding}`.
 
-- [ ] Write literal vectors for four namespaces, EVM zero/nonuniform/all-ones addresses, and malformed encodings. Add exhaustive unknown-kind rejection, every truncated length, oversized input, every EVM padding byte, namespace-identity and property tests. Catch tag collapse, lost payload bytes, truncating decoders and EVM padding aliases.
-- [ ] Run the tests before implementation. Example assertion:
-
-```rust
-assert_eq!(
-    ExecutionAddress::from_slice(&[0u8; 33]),
-    Err(ExecutionAddressError::UnknownKind(0))
-);
-```
-
-Run `cargo +1.85.0 test --locked -p oregon-primitives --test execution_addresses` and observe missing module/API. If the local toolchain is absent, push the test-only commit and use the existing GitHub Rust CI; missing local Cargo is not a test result.
-
-- [ ] Implement the specified API using private fields, exact slice-to-array conversion and one constructor validation owner. `from_slice` delegates to `new`; EVM extraction checks the stored kind. Do not silently normalize malformed input.
-- [ ] Run the focused test and inherited workspace/format/Clippy/docs/architecture gates. Preserve exact commit/run IDs.
-- [ ] Check three deliberate security mutations: accepting unknown kinds, allowing nonzero EVM padding, and coordinated WASM/Oregon tag reassignment. Each must fail its named address contract test, not merely fail compilation.
-- [ ] Commit and publish the clean implementation branch with verified source-tree identity.
+- [x] Write literal vectors for four namespaces, EVM zero/nonuniform/all-ones addresses, and malformed encodings. Add exhaustive unknown-kind rejection, every truncated length, oversized input, every EVM padding byte, namespace-identity and property tests. Catch tag collapse, lost payload bytes, truncating decoders and EVM padding aliases.
+- [x] Run the tests before implementation. The authoritative red checkpoint is commit `e7bae512cbf47f17b50d9db85c12dbca3ab874da`, Oregon Rust CI run `33970929497`, job `101319185976`, which failed with E0432 because the `execution_address` module did not yet exist.
+- [x] Implement the specified API using private fields, exact slice-to-array conversion and one constructor validation owner. `from_slice` delegates to `new`; EVM extraction checks the stored kind. Do not silently normalize malformed input. Implementation commit: `445a0a92fd22409dd171bb915c2310203534ccca`.
+- [x] Run the focused test and inherited workspace/format/Clippy/docs/architecture gates. Verified hardening head `52acaa1b645577314407372b4933d11eef5500cd`: Oregon Rust CI run `33971365738` SUCCESS; RandomX Architecture Vector run `33971365737` SUCCESS; RandomX Full Light Parity run `33971365761` SUCCESS.
+- [x] Check three deliberate security mutations: accepting unknown kinds, allowing nonzero EVM padding, and coordinated WASM/Oregon tag reassignment. All 3/3 were killed by named address contract tests in Oregon Rust CI run `33971365738`.
+- [x] Commit and publish the clean implementation branch with verified source-tree identity. The verified implementation tree at `52acaa1b645577314407372b4933d11eef5500cd` is `e90a96247f8cc19bdd7340eb3e18dd9cbc349c1c`.
 
 ## Task 2: Discoverable continuation record
 
-**Files:** create root `HANDOFF.md`, link it from `AGENTS.md` and `README.md`, and create `docs/checkpoints/OREGON_EXECUTION_ADDRESS_PROGRESS.md` as an implementation progress record, not a mainnet/activation acceptance.
+**Files:** root `HANDOFF.md`, links from `AGENTS.md` and `README.md`, and `docs/checkpoints/OREGON_EXECUTION_ADDRESS_PROGRESS.md` as an implementation progress record, not a mainnet/activation acceptance.
 
-- [ ] Record accepted main, source design branch/PR #9, active work branch/PR, plan path, test-only and clean implementation SHAs, CI evidence and limitations.
-- [ ] State the exact next action: define the bounded inactive universal-envelope and authorization-descriptor wire specification before implementing it. §4 currently specifies logical fields but does not freeze all widths, discriminants, canonical options/order, limit constants or signing/source-byte commitments.
-- [ ] Preserve the §27 stage sequence. Do not invent missing envelope rules from Ethereum conventions or repeat already completed M6 work.
-- [ ] Record the resume procedure: fetch current refs, inspect this handoff at the active branch, read normative docs, compare working tree to origin, and continue the first incomplete item. Commit/push after coherent verified increments; never label local-only work as remotely saved.
-- [ ] Verify every changed file exists at the remote branch and local/remote Git tree hashes match. Keep a draft PR available for discovery; integration requires its own owner decision.
+- [x] Record accepted main, source design branch/PR #9, active work branch/PR, plan path, test-only and clean implementation SHAs, CI evidence and limitations.
+- [x] State the exact next action: define the bounded inactive universal-envelope and authorization-descriptor wire specification before implementing it. §4 currently specifies logical fields but does not freeze all widths, discriminants, canonical options/order, limit constants or signing/source-byte commitments.
+- [x] Preserve the §27 stage sequence. Do not invent missing envelope rules from Ethereum conventions or repeat already completed M6 work.
+- [x] Record the resume procedure: fetch current refs, inspect the handoff at the active branch, read normative docs, compare the working state to the remote head, and continue the first incomplete item. Commit/push after coherent verified increments; never label local-only work as remotely saved.
+- [x] Verify every required changed file exists on the remote work branch and record the exact verified implementation tree. This execution session used GitHub-connected remote writes rather than a local worktree, so there is no separate local tree to compare; descendant commits still require their own exact-head CI before being called clean. Keep PR #10 draft for discovery; integration requires its own owner decision.
+
+## Verification summary
+
+- Accepted main: `bf7675bfe17182f77d4c43e2bcbd0c283709d799`.
+- Execution design source: `ed67ccb89131970571d93911cf5553be33636e2f`, PR #9.
+- Expected-red CI: `e7bae512cbf47f17b50d9db85c12dbca3ab874da`, run `33970929497`, job `101319185976`.
+- Address implementation: `445a0a92fd22409dd171bb915c2310203534ccca`.
+- Verified implementation/hardening head: `52acaa1b645577314407372b4933d11eef5500cd`, tree `e90a96247f8cc19bdd7340eb3e18dd9cbc349c1c`.
+- Oregon Rust CI run `33971365738`: SUCCESS, including focused address contracts, full workspace tests, 3/3 address mutations, chainstate rustdoc, workspace docs, rustfmt, Clippy and architecture scan.
+- RandomX Architecture Vector run `33971365737`: SUCCESS.
+- RandomX Full Light Parity run `33971365761`: SUCCESS.
 
 ## Scope review
 
-This plan implements the exact approved address representation without assigning previously unspecified consensus parameters. Other execution primitives, full envelope/authorization and stages 2–10 remain open; the address work is not execution-milestone acceptance.
+This plan implements the exact approved address representation without assigning previously unspecified consensus parameters. Other execution primitives, full envelope/authorization and stages 2–10 remain open; the address work is not execution-milestone acceptance and does not activate any VM, fee market, RPC or wallet behavior.
