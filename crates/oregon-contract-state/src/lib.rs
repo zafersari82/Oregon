@@ -4,6 +4,7 @@ mod error;
 mod hash;
 mod node;
 mod proof;
+mod source;
 mod transition;
 
 pub use error::StateError;
@@ -16,7 +17,8 @@ pub use proof::{
     MAX_SMT_PROOF_BYTES, MAX_SMT_SIBLINGS, SMT_PROOF_BITMAP_BYTES, SMT_PROOF_VERSION,
     SparseMerkleProofV1, prove, verify_proof,
 };
+pub use source::StateSource;
 pub use transition::{
-    MAX_STATE_WRITE_SET_ENTRIES, DomainSnapshot, StateSource, StateTransition, StateWrite,
-    StateWriteSet, apply_write_set, read_value,
+    MAX_STATE_WRITE_SET_ENTRIES, DomainSnapshot, StateTransition, StateWrite, StateWriteSet,
+    apply_write_set, read_value,
 };
