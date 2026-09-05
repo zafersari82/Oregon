@@ -35,11 +35,11 @@ Adding, removing, or materially changing a VM backend is a versioned protocol ch
 
 Native OREG value remains rooted in the accepted UTXO model.
 
-Smart-contract execution uses a separate account/contract-state domain suitable for EVM and WASM execution. The contract-state domain must not replace the native UTXO domain or duplicate its ownership rules.
+Smart-contract execution uses separate account/contract-state domains suitable for EVM and WASM execution. Contract-state domains must not replace the native UTXO domain or duplicate its ownership rules.
 
 Cross-domain movement or interaction is allowed only through explicit, deterministic, consensus-reviewed interfaces. VM code must not reach directly into UTXO, chainstate, storage representation, or mempool internals.
 
-Any milestone that activates contract execution must make the accepted result of both the native UTXO transition and the contract-state transition consensus-verifiable within the block transition. The exact commitment/root encoding is intentionally not defined by this decision record and therefore may not be invented ad hoc during implementation; it requires its own versioned execution/state design before code is written.
+Any milestone that activates contract execution must make the accepted result of both the native UTXO transition and execution-domain transitions consensus-verifiable within the block transition.
 
 ## 4. Frozen decision C — future platform transactions use one Oregon universal envelope
 
@@ -66,32 +66,37 @@ Ethereum-compatible ingress is an adapter, not a second consensus system. It mus
 
 MetaMask, Solidity tooling, ethers/web3-style clients, and similar Ethereum ecosystem tools should be supportable without making Oregon an Ethereum fork or making Ethereum transaction semantics the permanent container for WASM or future Oregon-native domains.
 
-## 6. Reserved platform domains — planned, but not yet semantically frozen
+## 6. Frozen execution direction and reserved future domains
 
-The architecture is intentionally being prepared for the following future capabilities:
+The detailed owner-approved execution architecture is normative in:
 
-- token and NFT standards;
-- DeFi applications and protocol primitives;
-- privacy capabilities;
-- bridge/interoperability capabilities; and
-- AI/oracle/agent capabilities.
+`docs/superpowers/specs/2026-09-05-execution-architecture-design.md`
 
-Their presence on this list means the architecture must not make them impossible or force a later core rewrite. It does **not** authorize an agent to invent their consensus rules, cryptography, trust model, bridge security model, privacy model, oracle authority, token economics, or AI execution semantics.
+That specification freezes, among other things, VM-specific deterministic metering with one normalized Oregon weight/fee market, no fee burn, UTXO-backed execution OREG, domain-separated commitments, separate EVM/WASM state, versioned cross-VM calls, synchronous journaled execution, explicit async messages, typed internal addresses, layered replay protection, and a multi-scheme authorization framework.
 
-Each such domain requires its own versioned design, explicit owner approval, threat model, authoritative rule ownership, tests/vectors, isolated implementation, and acceptance checkpoint before activation.
+The following future-domain directions are also fixed at architecture level while their cryptographic/application details still require their own threat-modeled specifications:
+
+- OREG remains the only protocol-level native asset and protocol-level fee asset in V1.
+- Fungible tokens, NFTs, and DeFi are smart-contract standards/applications rather than new built-in consensus asset types when contracts can own the rule cleanly.
+- Privacy is opt-in through a future shielded domain that must preserve publicly verifiable OREG conservation; it does not silently replace the transparent native UTXO ledger.
+- Bridges use explicit asynchronous proof/message boundaries and may not gain administrator mint authority over native OREG.
+- AI/oracle work uses asynchronous jobs/messages and deterministic proof/attestation verification; nondeterministic model inference, HTTP lookups, or external service responses do not execute as validator consensus truth.
+
+The presence of a future domain does not authorize an agent to invent its proof system, trust model, economics, quorum, disclosure model, or application semantics. Those details require a separate versioned design, explicit owner-approved direction under the current delegation/process, threat model, tests/vectors, isolated implementation, and acceptance checkpoint before activation.
 
 ## 7. Non-negotiable architectural consequences
 
 Future Oregon work must preserve all of the following:
 
 - Native OREG remains UTXO-based unless a separately approved protocol amendment explicitly changes that rule.
-- Contract account/state remains a distinct state domain rather than leaking account semantics into the UTXO owner.
+- Contract account/state remains distinct from native UTXO ownership semantics.
 - EVM and WASM share an Oregon execution boundary rather than defining parallel block-consensus systems.
 - Ethereum compatibility is an ingress/tooling adapter and execution backend, not Oregon's global architecture.
 - Future protocol domains extend the universal Oregon envelope through versioned, bounded discriminants rather than introducing unrelated top-level transaction consensuses.
 - Cross-domain calls are explicit and deterministic; no VM receives direct storage or chainstate representation access.
 - Existing fail-closed durability, one-authoritative-owner, bounded-resource, and validation-before-publication/relay rules continue to apply.
 - Compatibility shims or duplicate rule implementations are forbidden when callers can migrate to one authoritative path.
+- No runtime administrator key, governance RPC, bridge operator, oracle, or AI service can alter consensus rules or mint native OREG.
 
 ## 8. Explicitly prohibited shortcuts
 
@@ -105,22 +110,26 @@ An implementation must be rejected if it does any of the following without an ap
 - creates independent Ethereum and Oregon consensus/mempool truths;
 - changes current canonical transaction encoding as an incidental refactor;
 - duplicates fee, authorization, state-transition, or block-validity rules in multiple VM adapters;
-- implements privacy, bridge, DeFi, NFT, token, oracle, or AI consensus semantics from assumption rather than an approved design; or
+- creates VM-specific fee tokens or unbacked execution OREG;
+- implements synchronous external bridge/oracle/AI callbacks into consensus;
+- promotes contract tokens/NFTs into native OREG or native supply accounting;
+- implements privacy, bridge, DeFi, NFT, token, oracle, or AI security semantics from assumption rather than an approved design; or
 - introduces a temporary patch/shim that violates the one-owner architecture because a proper migration was considered inconvenient.
 
 ## 9. Change control
 
-These four accepted decisions are frozen architectural constraints:
+The following accepted decisions are frozen architectural constraints:
 
 1. Multi-VM architecture with EVM and WASM as first intended VM families;
-2. hybrid native-UTXO plus contract account/state model;
-3. one future versioned Oregon universal transaction envelope; and
-4. dual external ingress with Ethereum compatibility normalized into one Oregon EVM execution path.
+2. hybrid native-UTXO plus separate execution account/state domains;
+3. one future versioned Oregon universal transaction envelope;
+4. dual external ingress with Ethereum compatibility normalized into one Oregon EVM execution path; and
+5. all execution-level constraints marked normative by `docs/superpowers/specs/2026-09-05-execution-architecture-design.md`.
 
 Changing one of them requires, before implementation:
 
 1. a versioned architecture-amendment document that names the existing rule and proposed replacement;
-2. explicit owner approval;
+2. explicit owner approval or a later explicit owner delegation that specifically authorizes the replacement;
 3. characterization tests or vectors that make the behavioral difference observable;
 4. an isolated implementation branch;
 5. full required CI/security verification; and
@@ -134,11 +143,12 @@ Before proposing or implementing platform work, an AI agent must read:
 
 1. repository-root `AGENTS.md`;
 2. `docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md`;
-3. this Platform Architecture Contract; and
-4. the latest accepted checkpoint relevant to the subsystem being changed.
+3. this Platform Architecture Contract;
+4. `docs/superpowers/specs/2026-09-05-execution-architecture-design.md` for execution, VM, fee, contract-state, token/NFT/DeFi integration, privacy-boundary, bridge-boundary, or AI/oracle-boundary work; and
+5. the latest accepted checkpoint relevant to the subsystem being changed.
 
-If a requested implementation would conflict with this contract, the agent must stop and surface the conflict instead of silently choosing a new architecture.
+If a requested implementation would conflict with these contracts, the agent must stop and surface the conflict instead of silently choosing a new architecture.
 
-If this contract intentionally leaves a later subsystem's semantics unspecified, the agent must not fill the gap from convention, another blockchain, or personal preference. It must first produce a versioned design for owner review.
+If a contract intentionally leaves a later subsystem's detailed security semantics unspecified, the agent must not fill the gap from convention, another blockchain, or personal preference. It must first produce the required versioned design under the repository's architecture process.
 
-This contract freezes architecture direction, not the detailed implementation of future subsystems. Exact VM engines, gas schedules, contract-state commitment format, cross-domain call ABI, token standards, privacy construction, bridge verification model, DeFi primitives, and AI/oracle semantics remain subjects for their respective approved designs.
+The contracts freeze architecture direction. Activation constants, exact first EVM engine/revision, state-tree byte encodings, privacy proof construction, bridge proof/quorum parameters, oracle truth model, and AI-result verification protocol remain separate versioned implementation/security decisions where explicitly stated by the execution specification.
