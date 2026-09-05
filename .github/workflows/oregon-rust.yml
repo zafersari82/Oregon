@@ -3,7 +3,7 @@ name: Oregon Rust CI
 # Oregon protocol development branches are CI-gated during test-first development.
 on:
   push:
-    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, oregon-v1-architecture-unification-2026-09-04, design/m6-network-architecture-2026-09-04, design/execution-envelope-wire-v1-2026-09-05, work/execution-envelope-auth-v1-2026-09-05]
+    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, oregon-v1-architecture-unification-2026-09-04, design/m6-network-architecture-2026-09-04, design/execution-envelope-wire-v1-2026-09-05, work/execution-envelope-auth-v1-2026-09-05, design/contract-state-commitments-v1-2026-09-05, work/contract-state-v1-2026-09-05]
   pull_request:
     branches: [main]
 
@@ -43,7 +43,8 @@ jobs:
             docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md \
             docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md \
             docs/superpowers/specs/2026-09-05-execution-architecture-design.md \
-            docs/superpowers/specs/2026-09-05-execution-envelope-wire-v1.md; do
+            docs/superpowers/specs/2026-09-05-execution-envelope-wire-v1.md \
+            docs/superpowers/specs/2026-09-05-contract-state-commitments-v1.md; do
             if [[ ! -s "$required_contract" ]]; then
               echo "Required architecture/agent contract is missing or empty: $required_contract" >&2
               exit 1
@@ -73,6 +74,19 @@ jobs:
             '## 22. Token, NFT, DeFi, privacy, bridge, and AI architecture defaults'; do
             if ! rg -Fq "$frozen_heading" "$execution_contract"; then
               echo "Frozen execution architecture decision is missing: $frozen_heading" >&2
+              exit 1
+            fi
+          done
+
+          state_contract=docs/superpowers/specs/2026-09-05-contract-state-commitments-v1.md
+          for frozen_heading in \
+            '## 7. Canonical Oregon aggregate state commitment' \
+            '## 8. Oregon Sparse Merkle Tree V1' \
+            '## 11. Immutable/content-addressed logical state' \
+            '## 16. Canonical Sparse Merkle proof V1' \
+            '## 21. Current header and transaction bytes remain frozen'; do
+            if ! rg -Fq "$frozen_heading" "$state_contract"; then
+              echo "Frozen contract-state architecture decision is missing: $frozen_heading" >&2
               exit 1
             fi
           done
@@ -114,6 +128,8 @@ jobs:
         run: cargo +1.85.0 test --locked -p oregon-primitives --test execution_addresses
       - name: Execution envelope contracts
         run: cargo +1.85.0 test --locked -p oregon-primitives --test execution_envelopes --test execution_envelope_security --test execution_envelope_canonical --test execution_envelope_golden_hashes
+      - name: State commitment contracts
+        run: cargo +1.85.0 test --locked -p oregon-primitives --test state_commitments
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Execution address mutation gates
