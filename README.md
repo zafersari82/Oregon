@@ -21,7 +21,7 @@ The accepted M6 baseline includes:
 - headers-first, fork-aware synchronization with bounded per-peer/global block scheduling and timeout reassignment; and
 - node orchestration that keeps ChainState and Mempool authoritative, validates before relay, slices remote header batches, and is exercised by real loopback TCP integration/resilience tests.
 
-Accepted milestone records are under [`docs/checkpoints`](docs/checkpoints). The current architectural contract is [`docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md`](docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md).
+Accepted milestone records are under [`docs/checkpoints`](docs/checkpoints). The current engineering contract is [`docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md`](docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md). Owner-approved future platform direction is frozen separately in [`docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md`](docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md). AI coding agents must begin with [`AGENTS.md`](AGENTS.md).
 
 ## Monetary design
 
@@ -40,9 +40,13 @@ Oregon now contains a tested P2P transport/session/sync foundation, but it is no
 - production peer discovery/bootstrap policy such as DNS seeding;
 - a node RPC surface or mining RPC;
 - a wallet or production spend-authorization scheme;
+- activated smart-contract execution, EVM/WASM runtimes, or contract account/state commitments;
+- activated token/NFT, DeFi, privacy, bridge/interoperability, or AI/oracle/agent protocol domains;
 - orphan transaction handling or replace-by-fee;
 - a production genesis block, testnet, or mainnet launch configuration; or
 - production founder keys, wallet seeds, or deployment secrets.
+
+The Platform Architecture Contract reserves Multi-VM, hybrid-state, universal-envelope, and dual-ingress direction for future versioned milestones; those capabilities are architecture decisions, not claims of current implementation.
 
 Do not describe the repository as a launched cryptocurrency or production-ready node.
 
