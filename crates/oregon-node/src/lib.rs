@@ -7,6 +7,7 @@ use oregon_chainstate::{
 };
 use oregon_mempool::{AdmissionOutcome, MempoolConfig, MempoolError};
 use oregon_network::Transport;
+use oregon_peer::{PeerCommand, PeerId};
 use oregon_primitives::{Block, Transaction};
 use oregon_protocol::{InventoryItem, InventoryKind};
 use oregon_utxo::SpendVerifier;
@@ -18,7 +19,7 @@ mod relay;
 mod sync_adapter;
 
 use core::{CoreHandle, spawn_core};
-use relay::validated_inventory;
+use relay::{RelayState, validated_inventory};
 pub use sync_adapter::NodeSyncView;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
@@ -56,6 +57,7 @@ pub struct TransactionSubmission {
 pub struct OregonNode<V, T> {
     core: CoreHandle,
     transport: T,
+    relay: RelayState,
     _verifier: PhantomData<fn() -> V>,
 }
 
@@ -74,6 +76,7 @@ where
         Ok(Self {
             core,
             transport,
+            relay: RelayState::default(),
             _verifier: PhantomData,
         })
     }
@@ -84,6 +87,26 @@ where
 
     pub fn sync_view(&self) -> NodeSyncView {
         NodeSyncView::new(self.core.clone())
+    }
+
+    pub fn note_peer_inventory(&mut self, peer_id: PeerId, item: InventoryItem) -> bool {
+        self.relay.note_peer_inventory(peer_id, item)
+    }
+
+    pub fn relay_inventory_commands<I>(
+        &mut self,
+        source_peer: Option<PeerId>,
+        peers: I,
+        item: InventoryItem,
+    ) -> Vec<PeerCommand>
+    where
+        I: IntoIterator<Item = PeerId>,
+    {
+        self.relay.relay_inventory(source_peer, peers, item)
+    }
+
+    pub fn request_object_commands(&self, peer_id: PeerId, item: InventoryItem) -> Vec<PeerCommand> {
+        relay::object_request_commands(peer_id, item)
     }
 
     pub async fn submit_headers(
