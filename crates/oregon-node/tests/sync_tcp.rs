@@ -1,4 +1,4 @@
-mod support;
+pub mod support;
 
 use oregon_chainstate::{AcceptOutcome, ChainState};
 use oregon_mempool::MempoolConfig;
@@ -14,8 +14,7 @@ use oregon_sync::{
 };
 
 use support::{
-    AcceptAllSpends, TestDir, accepted_state, chain_config, hello, linear_chain, magic,
-    node_config,
+    AcceptAllSpends, TestDir, accepted_state, chain_config, hello, linear_chain, magic, node_config,
 };
 
 async fn preferred_path<V: ChainSyncView + ?Sized>(view: &V) -> Vec<(u64, Hash256)> {
@@ -94,10 +93,8 @@ async fn behind_node_catches_up_headers_first_through_validating_middle_peer() {
     .unwrap();
 
     let b_addr = b_network.local_addr();
-    let (a_outcome, b_from_a_outcome) =
-        tokio::join!(a_network.connect(b_addr), b_network.accept());
-    let (c_outcome, b_from_c_outcome) =
-        tokio::join!(c_network.connect(b_addr), b_network.accept());
+    let (a_outcome, b_from_a_outcome) = tokio::join!(a_network.connect(b_addr), b_network.accept());
+    let (c_outcome, b_from_c_outcome) = tokio::join!(c_network.connect(b_addr), b_network.accept());
     let mut a_to_b = a_outcome.unwrap().session;
     let mut b_from_a = b_from_a_outcome.unwrap().session;
     let mut c_to_b = c_outcome.unwrap().session;
@@ -178,7 +175,11 @@ async fn behind_node_catches_up_headers_first_through_validating_middle_peer() {
     let b_after_headers = b_node.sync_view();
     assert_eq!(b_after_headers.active_tip().await.unwrap().height, 0);
     assert_eq!(
-        b_after_headers.preferred_header_tip().await.unwrap().block_id,
+        b_after_headers
+            .preferred_header_tip()
+            .await
+            .unwrap()
+            .block_id,
         expected_tip
     );
 
@@ -209,7 +210,11 @@ async fn behind_node_catches_up_headers_first_through_validating_middle_peer() {
     let c_after_headers = c_node.sync_view();
     assert_eq!(c_after_headers.active_tip().await.unwrap().height, 0);
     assert_eq!(
-        c_after_headers.preferred_header_tip().await.unwrap().block_id,
+        c_after_headers
+            .preferred_header_tip()
+            .await
+            .unwrap()
+            .block_id,
         expected_tip
     );
 
