@@ -3,17 +3,10 @@ use std::collections::BTreeMap;
 use oregon_primitives::Hash256;
 use oregon_primitives::state_commitment::CommitmentDomainId;
 
-use crate::{
-    SMT_DEPTH, StateError, StateNode, branch_hash, empty_hashes, leaf_hash, path_bit, path_key,
-    value_hash,
-};
+use crate::source::{StateSource, load_checked_node, load_checked_value};
+use crate::{SMT_DEPTH, StateError, StateNode, empty_hashes, leaf_hash, path_bit, path_key, value_hash};
 
 pub const MAX_STATE_WRITE_SET_ENTRIES: usize = 65_536;
-
-pub trait StateSource {
-    fn get_node(&self, node_hash: &Hash256) -> Result<Option<StateNode>, StateError>;
-    fn get_value(&self, value_hash: &Hash256) -> Result<Option<Vec<u8>>, StateError>;
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DomainSnapshot {
@@ -171,36 +164,18 @@ pub fn read_value<S: StateSource + ?Sized>(
         if current == empty[depth] {
             return Ok(None);
         }
-        let node = load_checked_node(source, snapshot.domain, &empty, current, depth)?;
-        match node {
-            StateNode::Branch {
-                depth: actual,
-                left,
-                right,
-            } => {
-                if actual as usize != depth {
-                    return Err(StateError::NodeDepthMismatch {
-                        expected: depth as u16,
-                        actual,
-                    });
-                }
-                current = if path_bit(path, depth)? { right } else { left };
-            }
-            StateNode::Leaf { .. } => return Err(StateError::UnexpectedLeaf),
-        }
+        let node = load_checked_node(source, snapshot.domain, current, depth)?;
+        let StateNode::Branch { left, right, .. } = node else {
+            return Err(StateError::UnexpectedLeaf);
+        };
+        current = if path_bit(path, depth)? { right } else { left };
     }
 
     if current == empty[SMT_DEPTH] {
         return Ok(None);
     }
 
-    let node = load_checked_node(
-        source,
-        snapshot.domain,
-        &empty,
-        current,
-        SMT_DEPTH,
-    )?;
+    let node = load_checked_node(source, snapshot.domain, current, SMT_DEPTH)?;
     let StateNode::Leaf {
         path_key: actual_path,
         value_hash: committed_value_hash,
@@ -216,13 +191,11 @@ pub fn read_value<S: StateSource + ?Sized>(
         });
     }
 
-    let value = source
-        .get_value(&committed_value_hash)?
-        .ok_or(StateError::MissingValue(committed_value_hash))?;
-    if value_hash(snapshot.domain, &value)? != committed_value_hash {
-        return Err(StateError::ValueHashMismatch(committed_value_hash));
-    }
-    Ok(Some(value))
+    Ok(Some(load_checked_value(
+        source,
+        snapshot.domain,
+        committed_value_hash,
+    )?))
 }
 
 struct TransitionBuilder<'a, S: StateSource + ?Sized> {
@@ -251,23 +224,11 @@ impl<S: StateSource + ?Sized> TransitionBuilder<'_, S> {
         let (old_left, old_right) = if old_hash == self.empty[depth] {
             (self.empty[depth + 1], self.empty[depth + 1])
         } else {
-            let node = load_checked_node(self.source, self.domain, &self.empty, old_hash, depth)?;
-            match node {
-                StateNode::Branch {
-                    depth: actual,
-                    left,
-                    right,
-                } => {
-                    if actual as usize != depth {
-                        return Err(StateError::NodeDepthMismatch {
-                            expected: depth as u16,
-                            actual,
-                        });
-                    }
-                    (left, right)
-                }
-                StateNode::Leaf { .. } => return Err(StateError::UnexpectedLeaf),
-            }
+            let node = load_checked_node(self.source, self.domain, old_hash, depth)?;
+            let StateNode::Branch { left, right, .. } = node else {
+                return Err(StateError::UnexpectedLeaf);
+            };
+            (left, right)
         };
 
         let split = writes.partition_point(|write| !path_bit_unchecked(write.path, depth));
@@ -307,28 +268,21 @@ impl<S: StateSource + ?Sized> TransitionBuilder<'_, S> {
         let old_value_hash = if old_hash == self.empty[SMT_DEPTH] {
             None
         } else {
-            let node = load_checked_node(
-                self.source,
-                self.domain,
-                &self.empty,
-                old_hash,
-                SMT_DEPTH,
-            )?;
-            match node {
-                StateNode::Leaf {
-                    path_key: actual_path,
-                    value_hash,
-                } => {
-                    if actual_path != write.path {
-                        return Err(StateError::LeafPathMismatch {
-                            expected: write.path,
-                            actual: actual_path,
-                        });
-                    }
-                    Some(value_hash)
-                }
-                StateNode::Branch { .. } => return Err(StateError::UnexpectedBranch),
+            let node = load_checked_node(self.source, self.domain, old_hash, SMT_DEPTH)?;
+            let StateNode::Leaf {
+                path_key: actual_path,
+                value_hash,
+            } = node
+            else {
+                return Err(StateError::UnexpectedBranch);
+            };
+            if actual_path != write.path {
+                return Err(StateError::LeafPathMismatch {
+                    expected: write.path,
+                    actual: actual_path,
+                });
             }
+            Some(value_hash)
         };
 
         match &write.value {
@@ -364,53 +318,6 @@ impl<S: StateSource + ?Sized> TransitionBuilder<'_, S> {
         }
         self.values.entry(hash).or_insert_with(|| value.to_vec());
         Ok(())
-    }
-}
-
-fn load_checked_node<S: StateSource + ?Sized>(
-    source: &S,
-    domain: CommitmentDomainId,
-    empty: &[Hash256; SMT_DEPTH + 1],
-    requested_hash: Hash256,
-    depth: usize,
-) -> Result<StateNode, StateError> {
-    let node = source
-        .get_node(&requested_hash)?
-        .ok_or(StateError::MissingNode(requested_hash))?;
-
-    let computed = match &node {
-        StateNode::Leaf {
-            path_key,
-            value_hash,
-        } => leaf_hash(domain, *path_key, *value_hash),
-        StateNode::Branch {
-            depth: actual,
-            left,
-            right,
-        } => {
-            if *actual as usize >= SMT_DEPTH {
-                return Err(StateError::DepthOutOfRange(*actual as usize));
-            }
-            if *left == empty[*actual as usize + 1] && *right == empty[*actual as usize + 1] {
-                return Err(StateError::NonCanonicalEmptyBranch(*actual));
-            }
-            branch_hash(domain, *actual, *left, *right)?
-        }
-    };
-    if computed != requested_hash {
-        return Err(StateError::NodeHashMismatch(requested_hash));
-    }
-
-    match &node {
-        StateNode::Branch { depth: actual, .. } if depth < SMT_DEPTH && *actual as usize != depth => {
-            Err(StateError::NodeDepthMismatch {
-                expected: depth as u16,
-                actual: *actual,
-            })
-        }
-        StateNode::Leaf { .. } if depth < SMT_DEPTH => Err(StateError::UnexpectedLeaf),
-        StateNode::Branch { .. } if depth == SMT_DEPTH => Err(StateError::UnexpectedBranch),
-        _ => Ok(node),
     }
 }
 
