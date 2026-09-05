@@ -1,13 +1,106 @@
 use std::collections::HashMap;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use oregon_network::{Transport, TransportConnection};
-use oregon_protocol::Hello;
+use oregon_protocol::{Hello, Message};
+use tokio::time::Instant;
 
 use crate::budget::{GlobalQueueBudget, PeerQueueBudget};
+use crate::cooldown::CooldownTable;
 use crate::handshake::{HandshakeResult, perform_handshake, preferred_direction};
-use crate::{Direction, EstablishedPeer, PeerConfig, PeerError, PeerId, PeerSession};
+use crate::{
+    Direction, EstablishedPeer, PeerConfig, PeerError, PeerFeedback, PeerId, PeerSession,
+    QueueClass, RequestKey,
+};
+
+pub const PING_INTERVAL: Duration = Duration::from_secs(30);
+pub const PONG_TIMEOUT: Duration = Duration::from_secs(15);
+pub const IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LivenessAction {
+    None,
+    SendPing(u64),
+    Disconnect,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LivenessState {
+    last_activity: Instant,
+    outstanding_ping: Option<(u64, Instant)>,
+    next_ping_nonce: u64,
+}
+
+impl LivenessState {
+    pub fn new(now: Instant) -> Self {
+        Self {
+            last_activity: now,
+            outstanding_ping: None,
+            next_ping_nonce: 1,
+        }
+    }
+
+    pub fn note_activity(&mut self, now: Instant) {
+        self.last_activity = now;
+    }
+
+    pub fn on_pong(&mut self, nonce: u64, now: Instant) -> bool {
+        if self
+            .outstanding_ping
+            .is_some_and(|(expected, _)| expected == nonce)
+        {
+            self.outstanding_ping = None;
+            self.last_activity = now;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn poll_at(&mut self, now: Instant) -> LivenessAction {
+        if now.saturating_duration_since(self.last_activity) >= IDLE_TIMEOUT {
+            return LivenessAction::Disconnect;
+        }
+        if let Some((_, sent_at)) = self.outstanding_ping {
+            if now.saturating_duration_since(sent_at) >= PONG_TIMEOUT {
+                return LivenessAction::Disconnect;
+            }
+            return LivenessAction::None;
+        }
+        if now.saturating_duration_since(self.last_activity) >= PING_INTERVAL {
+            let nonce = self.next_ping_nonce;
+            self.next_ping_nonce = self.next_ping_nonce.wrapping_add(1);
+            if self.next_ping_nonce == 0 {
+                self.next_ping_nonce = 1;
+            }
+            self.outstanding_ping = Some((nonce, now));
+            return LivenessAction::SendPing(nonce);
+        }
+        LivenessAction::None
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PeerCommand {
+    Send {
+        peer_id: PeerId,
+        message: Message,
+        class: QueueClass,
+    },
+    Expect {
+        peer_id: PeerId,
+        key: RequestKey,
+    },
+    Disconnect {
+        peer_id: PeerId,
+    },
+    Feedback {
+        peer_id: PeerId,
+        feedback: PeerFeedback,
+    },
+}
 
 #[derive(Debug, Clone, Copy)]
 struct RegisteredPeer {
@@ -130,6 +223,7 @@ pub struct PeerService<T: Transport> {
     registry: Arc<Mutex<Registry>>,
     pending: PendingHandshakes,
     global_budget: GlobalQueueBudget,
+    cooldown: Mutex<CooldownTable>,
 }
 
 impl<T: Transport> PeerService<T> {
@@ -145,6 +239,7 @@ impl<T: Transport> PeerService<T> {
             },
             registry,
             global_budget: GlobalQueueBudget::new(),
+            cooldown: Mutex::new(CooldownTable::default()),
         })
     }
 
@@ -156,11 +251,28 @@ impl<T: Transport> PeerService<T> {
         self.config
     }
 
+    pub fn cooldown_remote(&self, ip: IpAddr) {
+        self.cooldown
+            .lock()
+            .expect("peer cooldown poisoned")
+            .insert(ip);
+    }
+
+    pub fn is_cooling_down(&self, ip: IpAddr) -> bool {
+        self.cooldown
+            .lock()
+            .expect("peer cooldown poisoned")
+            .contains(ip)
+    }
+
     pub async fn connect(
         &self,
         addr: SocketAddr,
         magic: [u8; 4],
     ) -> Result<EstablishOutcome<T::Connection>, PeerError> {
+        if self.is_cooling_down(addr.ip()) {
+            return Err(PeerError::Cooldown);
+        }
         let _pending = self.pending.acquire()?;
         let connection = self.transport.connect(addr, magic).await?;
         self.establish(connection, Direction::Outbound).await
@@ -170,6 +282,9 @@ impl<T: Transport> PeerService<T> {
         &self,
         connection: T::Connection,
     ) -> Result<EstablishOutcome<T::Connection>, PeerError> {
+        if self.is_cooling_down(connection.remote_addr().ip()) {
+            return Err(PeerError::Cooldown);
+        }
         let _pending = self.pending.acquire()?;
         self.establish(connection, Direction::Inbound).await
     }

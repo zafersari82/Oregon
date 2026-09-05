@@ -272,7 +272,10 @@ async fn handshake_timeout_fires_at_exact_ten_second_bound() {
     assert!(!task.is_finished());
     tokio::time::advance(Duration::from_millis(1)).await;
     tokio::task::yield_now().await;
-    assert_eq!(task.await.unwrap().unwrap_err(), PeerError::HandshakeTimeout);
+    assert_eq!(
+        task.await.unwrap().unwrap_err(),
+        PeerError::HandshakeTimeout
+    );
 }
 
 #[test]

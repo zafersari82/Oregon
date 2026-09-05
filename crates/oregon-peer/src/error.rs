@@ -30,6 +30,8 @@ pub enum PeerError {
     QueueEnqueueTimeout,
     #[error("peer queue item cannot fit within the configured bound")]
     QueueItemTooLarge,
+    #[error("remote IP is inside disconnect cooldown")]
+    Cooldown,
     #[error("operating-system entropy source failed")]
     Entropy,
     #[error("peer identifier space exhausted")]
@@ -54,6 +56,7 @@ impl PartialEq for PeerError {
             | (AckMismatch, AckMismatch)
             | (QueueEnqueueTimeout, QueueEnqueueTimeout)
             | (QueueItemTooLarge, QueueItemTooLarge)
+            | (Cooldown, Cooldown)
             | (Entropy, Entropy)
             | (PeerIdExhausted, PeerIdExhausted) => true,
             (DirectionLimit(a), DirectionLimit(b)) => a == b,

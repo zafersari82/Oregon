@@ -2,8 +2,11 @@
 
 mod budget;
 mod config;
+mod cooldown;
 mod error;
 mod handshake;
+mod request;
+mod score;
 mod service;
 mod session;
 
@@ -13,9 +16,20 @@ pub use config::{
     MAX_QUEUE_BYTES_GLOBAL, MAX_QUEUE_BYTES_PEER, MAX_QUEUE_FRAMES_PEER, PeerConfig,
     QUEUE_ENQUEUE_TIMEOUT, QueueClass,
 };
+pub use cooldown::{
+    DISCONNECT_COOLDOWN, MAX_COOLDOWN_ENTRIES, CooldownTable, canonical_ip,
+};
 pub use error::PeerError;
 pub use handshake::{HandshakeState, generate_process_nonce, preferred_direction};
-pub use service::{EstablishOutcome, PeerService};
+pub use request::{
+    EXPIRED_REQUEST_GRACE, MAX_RECENTLY_EXPIRED_REQUESTS_PER_PEER, PerformanceSnapshot,
+    RESPONSE_START_TIMEOUT, RequestError, RequestKey, RequestRegistry, ResponseDisposition,
+};
+pub use score::{Misbehavior, PeerFeedback, PeerScore, ScoreDecision};
+pub use service::{
+    EstablishOutcome, IDLE_TIMEOUT, LivenessAction, LivenessState, PING_INTERVAL, PONG_TIMEOUT,
+    PeerCommand, PeerService,
+};
 pub use session::{DisconnectReason, EstablishedPeer, PeerEvent, PeerId, PeerSession};
 
 #[cfg(test)]
