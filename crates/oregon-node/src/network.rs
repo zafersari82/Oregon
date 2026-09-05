@@ -48,7 +48,7 @@ impl<T: Transport> NodeNetwork<T> {
         Ok(self.peer_service.connect(addr, self.magic).await?)
     }
 
-    pub async fn accept(&mut self) -> Result<EstablishOutcome<T::Connection>, NodeNetworkError> {
+    pub async fn accept(&self) -> Result<EstablishOutcome<T::Connection>, NodeNetworkError> {
         let connection = self.listener.accept().await?;
         Ok(self.peer_service.accept_connection(connection).await?)
     }

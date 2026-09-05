@@ -23,7 +23,7 @@ impl TransportListener for TcpTransportListener {
         self.local_addr
     }
 
-    async fn accept(&mut self) -> Result<Self::Connection, NetworkError> {
+    async fn accept(&self) -> Result<Self::Connection, NetworkError> {
         let (stream, remote_addr) = self.listener.accept().await?;
         stream.set_nodelay(true)?;
         Ok(FramedConnection::new(stream, remote_addr, self.magic))

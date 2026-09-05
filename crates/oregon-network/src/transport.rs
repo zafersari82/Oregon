@@ -9,7 +9,7 @@ pub trait TransportListener: Send + 'static {
     type Connection: TransportConnection;
 
     fn local_addr(&self) -> SocketAddr;
-    async fn accept(&mut self) -> Result<Self::Connection, NetworkError>;
+    async fn accept(&self) -> Result<Self::Connection, NetworkError>;
 }
 
 #[async_trait::async_trait]
