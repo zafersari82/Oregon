@@ -9,8 +9,8 @@ use tokio::time::Instant;
 use crate::budget::PeerQueueBudget;
 use crate::service::{LivenessAction, LivenessState, Registration};
 use crate::{
-    Direction, PeerError, PeerEvent, PeerFeedback, PeerScore, PerformanceSnapshot, QueueClass,
-    RequestError, RequestKey, RequestRegistry, ResponseDisposition, ScoreDecision,
+    Direction, PeerError, PeerFeedback, PeerScore, PerformanceSnapshot, QueueClass, RequestError,
+    RequestKey, RequestRegistry, ResponseDisposition, ScoreDecision,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
