@@ -148,13 +148,7 @@ where
     let (handle, mut receiver) = core_channel();
 
     drop(tokio::task::spawn_blocking(move || {
-        run_core(
-            state,
-            mempool,
-            saved_config,
-            verifier,
-            &mut receiver,
-        );
+        run_core(state, mempool, saved_config, verifier, &mut receiver);
     }));
 
     Ok(handle)
@@ -201,12 +195,7 @@ fn run_core<V>(
             } => {
                 let result = match state.session_health() {
                     SessionHealth::Healthy => mempool
-                        .admit(
-                            transaction,
-                            chain_base(&state),
-                            state.utxos(),
-                            &verifier,
-                        )
+                        .admit(transaction, chain_base(&state), state.utxos(), &verifier)
                         .map_err(NodeTransactionError::Mempool),
                     health => Err(NodeTransactionError::Unavailable(health)),
                 };
