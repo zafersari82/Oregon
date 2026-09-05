@@ -81,7 +81,7 @@ impl BlockScheduler {
         }
 
         for index in self.next_submit..self.targets.len() {
-            if self.in_flight.len() >= MAX_IN_FLIGHT_BLOCKS_GLOBAL {
+            if self.in_flight.len() > MAX_IN_FLIGHT_BLOCKS_GLOBAL {
                 break;
             }
             let block_id = self.targets[index];
