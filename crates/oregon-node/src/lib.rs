@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod core;
+mod orchestration;
 mod relay;
 
 #[cfg(test)]
