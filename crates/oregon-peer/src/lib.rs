@@ -19,4 +19,6 @@ pub use service::{EstablishOutcome, PeerService};
 pub use session::{DisconnectReason, EstablishedPeer, PeerEvent, PeerId, PeerSession};
 
 #[cfg(test)]
+mod request_policy_tests;
+#[cfg(test)]
 mod tests;
