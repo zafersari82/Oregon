@@ -36,7 +36,7 @@ async fn three_nodes_establish_real_tcp_sessions_with_negotiated_features() {
     let chain_id = Hash256::from_bytes([0x42; 32]);
     let magic = network_magic(chain_id);
 
-    let mut node_b = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x20), magic)
+    let node_b = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x20), magic)
         .await
         .unwrap();
     let node_a = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x10), magic)
@@ -76,7 +76,7 @@ async fn three_nodes_establish_real_tcp_sessions_with_negotiated_features() {
 async fn real_tcp_self_connection_is_rejected_by_process_nonce() {
     let chain_id = Hash256::from_bytes([0x43; 32]);
     let magic = network_magic(chain_id);
-    let mut node_b = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x55), magic)
+    let node_b = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x55), magic)
         .await
         .unwrap();
     let node_a = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x55), magic)
@@ -99,10 +99,10 @@ async fn real_tcp_self_connection_is_rejected_by_process_nonce() {
 async fn simultaneous_duplicate_tcp_dials_choose_the_same_physical_direction() {
     let chain_id = Hash256::from_bytes([0x44; 32]);
     let magic = network_magic(chain_id);
-    let mut node_a = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x10), magic)
+    let node_a = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x10), magic)
         .await
         .unwrap();
-    let mut node_b = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x20), magic)
+    let node_b = NodeNetwork::bind(TcpTransport, config(), hello(chain_id, 0x20), magic)
         .await
         .unwrap();
     let a_addr = node_a.local_addr();
@@ -129,6 +129,12 @@ async fn simultaneous_duplicate_tcp_dials_choose_the_same_physical_direction() {
         Err(NodeNetworkError::Peer(PeerError::DuplicatePeer))
     ) || b_preferred.replaced_peer.is_some();
 
-    assert!(a_nonpreferred_lost, "A must reject or replace its inbound duplicate");
-    assert!(b_nonpreferred_lost, "B must reject or replace its outbound duplicate");
+    assert!(
+        a_nonpreferred_lost,
+        "A must reject or replace its inbound duplicate"
+    );
+    assert!(
+        b_nonpreferred_lost,
+        "B must reject or replace its outbound duplicate"
+    );
 }
