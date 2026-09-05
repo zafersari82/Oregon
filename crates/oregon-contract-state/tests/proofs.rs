@@ -1,11 +1,10 @@
-use std::collections::BTreeMap;
-
 use oregon_contract_state::{
-    DomainSnapshot, SparseMerkleProofV1, StateError, StateNode, StateSource, StateTransition,
-    StateWrite, StateWriteSet, apply_write_set, empty_hashes, prove, verify_proof,
+    apply_write_set, empty_hashes, prove, verify_proof, DomainSnapshot, SparseMerkleProofV1,
+    StateError, StateNode, StateWrite, StateWriteSet, MAX_SMT_PROOF_BYTES,
 };
-use oregon_primitives::Hash256;
 use oregon_primitives::state_commitment::CommitmentDomainId;
+use oregon_primitives::Hash256;
+use proptest::prelude::*;
 
 const SINGLE_ALPHA_MEMBERSHIP_HEX: &str =
     "01000000000000000000000000000000000000000000000000000000000000000000";
@@ -14,38 +13,8 @@ const EMPTY_MISSING_NONMEMBERSHIP_HEX: &str =
 const TRIPLE_ALPHA_MEMBERSHIP_HEX: &str = "0100200080000000000000000000000000000000000000000000000000000000000054640ff819faf4d395c56a3980c30de67a52dadd432bc1043c6b3ec24b23fa7f3c7fca5980be2aff39ab5ff09f334615a5eebf194d8a07a64aabd2b56786e2f5";
 const TRIPLE_MISSING_NONMEMBERSHIP_HEX: &str = "01003000000000000000000000000000000000000000000000000000000000000000d3f8e15329761de2a7ce80a1c77bad39af30ec5b629d1886719a2d4b3633163204ad4bf658c337319fbe4f3b69076ce52825b8ab98fb5c212c336c8c760ba34d";
 
-#[derive(Default)]
-struct MemorySource {
-    nodes: BTreeMap<Hash256, StateNode>,
-    values: BTreeMap<Hash256, Vec<u8>>,
-}
-
-impl StateSource for MemorySource {
-    fn get_node(&self, node_hash: &Hash256) -> Result<Option<StateNode>, StateError> {
-        Ok(self.nodes.get(node_hash).cloned())
-    }
-
-    fn get_value(&self, value_hash: &Hash256) -> Result<Option<Vec<u8>>, StateError> {
-        Ok(self.values.get(value_hash).cloned())
-    }
-}
-
-impl MemorySource {
-    fn absorb(&mut self, transition: &StateTransition) {
-        self.nodes.extend(
-            transition
-                .nodes
-                .iter()
-                .map(|(hash, node)| (*hash, node.clone())),
-        );
-        self.values.extend(
-            transition
-                .values
-                .iter()
-                .map(|(hash, value)| (*hash, value.clone())),
-        );
-    }
-}
+mod support;
+use support::MemorySource;
 
 fn decode_hex(value: &str) -> Vec<u8> {
     assert_eq!(value.len() % 2, 0);
@@ -131,8 +100,8 @@ fn literal_single_membership_and_empty_nonmembership_proofs_are_canonical() {
     assert_eq!(value.as_deref(), Some(b"beta".as_slice()));
     assert_eq!(proof.encode(), decode_hex(SINGLE_ALPHA_MEMBERSHIP_HEX));
 
-    let decoded = SparseMerkleProofV1::decode(domain, &decode_hex(SINGLE_ALPHA_MEMBERSHIP_HEX))
-        .unwrap();
+    let decoded =
+        SparseMerkleProofV1::decode(domain, &decode_hex(SINGLE_ALPHA_MEMBERSHIP_HEX)).unwrap();
     verify_proof(domain, b"alpha", Some(b"beta"), &decoded, snapshot.root).unwrap();
 
     let empty_source = MemorySource::default();
@@ -141,11 +110,8 @@ fn literal_single_membership_and_empty_nonmembership_proofs_are_canonical() {
     assert_eq!(missing, None);
     assert_eq!(proof.encode(), decode_hex(EMPTY_MISSING_NONMEMBERSHIP_HEX));
 
-    let decoded = SparseMerkleProofV1::decode(
-        domain,
-        &decode_hex(EMPTY_MISSING_NONMEMBERSHIP_HEX),
-    )
-    .unwrap();
+    let decoded =
+        SparseMerkleProofV1::decode(domain, &decode_hex(EMPTY_MISSING_NONMEMBERSHIP_HEX)).unwrap();
     verify_proof(domain, b"missing", None, &decoded, empty.root).unwrap();
 }
 
@@ -157,20 +123,24 @@ fn literal_multi_sibling_membership_proof_matches_independent_vector() {
     assert_eq!(value.as_deref(), Some(b"beta".as_slice()));
     assert_eq!(proof.encode(), decode_hex(TRIPLE_ALPHA_MEMBERSHIP_HEX));
 
-    let decoded = SparseMerkleProofV1::decode(domain, &decode_hex(TRIPLE_ALPHA_MEMBERSHIP_HEX))
-        .unwrap();
+    let decoded =
+        SparseMerkleProofV1::decode(domain, &decode_hex(TRIPLE_ALPHA_MEMBERSHIP_HEX)).unwrap();
     assert_eq!(decoded.encode(), decode_hex(TRIPLE_ALPHA_MEMBERSHIP_HEX));
     verify_proof(domain, b"alpha", Some(b"beta"), &decoded, snapshot.root).unwrap();
+}
 
-    let missing = SparseMerkleProofV1::decode(
-        domain,
-        &decode_hex(TRIPLE_MISSING_NONMEMBERSHIP_HEX),
-    )
-    .unwrap();
-    assert_eq!(
-        missing.encode(),
-        decode_hex(TRIPLE_MISSING_NONMEMBERSHIP_HEX)
-    );
+#[test]
+fn literal_multi_sibling_nonmembership_proof_is_constructed_and_verified() {
+    let domain = CommitmentDomainId::Wasm;
+    let (source, snapshot) = triple_state();
+    let literal = decode_hex(TRIPLE_MISSING_NONMEMBERSHIP_HEX);
+
+    let (value, constructed) = prove(&source, snapshot, b"missing").unwrap();
+    assert_eq!(value, None);
+    assert_eq!(constructed.encode(), literal);
+
+    let decoded = SparseMerkleProofV1::decode(domain, &literal).unwrap();
+    verify_proof(domain, b"missing", None, &decoded, snapshot.root).unwrap();
 }
 
 #[test]
@@ -198,14 +168,73 @@ fn proof_decoder_rejects_malformed_and_redundant_default_siblings() {
         SparseMerkleProofV1::decode(domain, &redundant_default),
         Err(StateError::RedundantDefaultSibling(0))
     ));
+
+    let mut trailing = canonical.clone();
+    trailing.push(0);
+    assert!(matches!(
+        SparseMerkleProofV1::decode(domain, &trailing),
+        Err(StateError::MalformedProof)
+    ));
+}
+
+#[test]
+fn proof_size_boundary_accepts_exact_limit_and_rejects_limit_plus_one() {
+    let domain = CommitmentDomainId::Wasm;
+    let mut maximum = Vec::with_capacity(MAX_SMT_PROOF_BYTES);
+    maximum.extend_from_slice(&1u16.to_le_bytes());
+    maximum.extend_from_slice(&[0xff; 32]);
+    for depth in 0..256 {
+        let mut sibling = [0xa5; 32];
+        sibling[0] = depth as u8;
+        sibling[1] = (depth >> 8) as u8;
+        maximum.extend_from_slice(&sibling);
+    }
+    assert_eq!(maximum.len(), MAX_SMT_PROOF_BYTES);
+    assert_eq!(
+        SparseMerkleProofV1::decode(domain, &maximum)
+            .unwrap()
+            .encode(),
+        maximum
+    );
+
+    let oversized = vec![0u8; MAX_SMT_PROOF_BYTES + 1];
+    assert!(matches!(
+        SparseMerkleProofV1::decode(domain, &oversized),
+        Err(StateError::ProofTooLarge(size)) if size == MAX_SMT_PROOF_BYTES + 1
+    ));
+}
+
+#[test]
+fn verification_rejects_default_sibling_for_its_own_domain() {
+    let decode_domain = CommitmentDomainId::Wasm;
+    let verification_domain = CommitmentDomainId::ExecutionAccounting;
+    let verification_empty = empty_hashes(verification_domain);
+    let mut bytes = Vec::with_capacity(66);
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    let mut bitmap = [0u8; 32];
+    bitmap[0] = 0x80;
+    bytes.extend_from_slice(&bitmap);
+    bytes.extend_from_slice(verification_empty[1].as_bytes());
+
+    let proof = SparseMerkleProofV1::decode(decode_domain, &bytes).unwrap();
+    assert!(matches!(
+        verify_proof(
+            verification_domain,
+            b"missing",
+            None,
+            &proof,
+            verification_empty[0],
+        ),
+        Err(StateError::RedundantDefaultSibling(0))
+    ));
 }
 
 #[test]
 fn proof_verification_binds_domain_key_value_and_root() {
     let domain = CommitmentDomainId::Wasm;
     let (_, snapshot) = single_alpha_state();
-    let proof = SparseMerkleProofV1::decode(domain, &decode_hex(SINGLE_ALPHA_MEMBERSHIP_HEX))
-        .unwrap();
+    let proof =
+        SparseMerkleProofV1::decode(domain, &decode_hex(SINGLE_ALPHA_MEMBERSHIP_HEX)).unwrap();
 
     verify_proof(domain, b"alpha", Some(b"beta"), &proof, snapshot.root).unwrap();
     assert!(verify_proof(
@@ -229,6 +258,58 @@ fn proof_verification_binds_domain_key_value_and_root() {
 }
 
 #[test]
+fn nonmembership_proof_rejects_wrong_context_and_tampering() {
+    let domain = CommitmentDomainId::Wasm;
+    let (_, snapshot) = triple_state();
+    let literal = decode_hex(TRIPLE_MISSING_NONMEMBERSHIP_HEX);
+    let proof = SparseMerkleProofV1::decode(domain, &literal).unwrap();
+
+    assert!(verify_proof(domain, b"other", None, &proof, snapshot.root).is_err());
+    assert!(verify_proof(domain, b"missing", Some(b""), &proof, snapshot.root).is_err());
+    assert!(verify_proof(
+        CommitmentDomainId::ExecutionAccounting,
+        b"missing",
+        None,
+        &proof,
+        snapshot.root,
+    )
+    .is_err());
+    assert!(verify_proof(domain, b"missing", None, &proof, empty_hashes(domain)[0],).is_err());
+
+    let mut sibling_tampered = literal.clone();
+    *sibling_tampered.last_mut().unwrap() ^= 1;
+    let sibling_tampered = SparseMerkleProofV1::decode(domain, &sibling_tampered).unwrap();
+    assert!(verify_proof(domain, b"missing", None, &sibling_tampered, snapshot.root,).is_err());
+
+    let mut bitmap_tampered = literal;
+    bitmap_tampered[2] = 0x50;
+    let bitmap_tampered = SparseMerkleProofV1::decode(domain, &bitmap_tampered).unwrap();
+    assert!(verify_proof(domain, b"missing", None, &bitmap_tampered, snapshot.root,).is_err());
+}
+
+#[test]
+fn present_empty_value_survives_transition_and_proof() {
+    let domain = CommitmentDomainId::Wasm;
+    let mut source = MemorySource::default();
+    let transition = apply_write_set(
+        &source,
+        empty_snapshot(domain),
+        &write_set(domain, vec![StateWrite::put(b"empty".to_vec(), Vec::new())]),
+    )
+    .unwrap();
+    let snapshot = DomainSnapshot {
+        domain,
+        root: transition.new_root,
+    };
+    source.absorb(&transition);
+
+    let (value, proof) = prove(&source, snapshot, b"empty").unwrap();
+    assert_eq!(value, Some(Vec::new()));
+    verify_proof(domain, b"empty", Some(b""), &proof, snapshot.root).unwrap();
+    assert!(verify_proof(domain, b"empty", None, &proof, snapshot.root).is_err());
+}
+
+#[test]
 fn proof_construction_fails_closed_on_missing_nonempty_node() {
     let domain = CommitmentDomainId::Wasm;
     let source = MemorySource::default();
@@ -242,4 +323,86 @@ fn proof_construction_fails_closed_on_missing_nonempty_node() {
         prove(&source, snapshot, b"alpha"),
         Err(StateError::MissingNode(hash)) if hash == bogus_root
     ));
+}
+
+#[test]
+fn proof_construction_fails_closed_on_wrong_node_hash_and_depth() {
+    let domain = CommitmentDomainId::Wasm;
+    let empty = empty_hashes(domain);
+
+    let requested = Hash256::from_bytes([0x11; 32]);
+    let mut wrong_hash_source = MemorySource::default();
+    wrong_hash_source.nodes.insert(
+        requested,
+        StateNode::Branch {
+            depth: 0,
+            left: empty[1],
+            right: Hash256::from_bytes([0x22; 32]),
+        },
+    );
+    assert!(matches!(
+        prove(
+            &wrong_hash_source,
+            DomainSnapshot {
+                domain,
+                root: requested,
+            },
+            b"alpha",
+        ),
+        Err(StateError::NodeHashMismatch(hash)) if hash == requested
+    ));
+
+    let wrong_depth_node = StateNode::Branch {
+        depth: 1,
+        left: empty[2],
+        right: Hash256::from_bytes([0x33; 32]),
+    };
+    let wrong_depth_root = wrong_depth_node.hash(domain).unwrap();
+    let mut wrong_depth_source = MemorySource::default();
+    wrong_depth_source
+        .nodes
+        .insert(wrong_depth_root, wrong_depth_node);
+    assert!(matches!(
+        prove(
+            &wrong_depth_source,
+            DomainSnapshot {
+                domain,
+                root: wrong_depth_root,
+            },
+            b"alpha",
+        ),
+        Err(StateError::NodeDepthMismatch {
+            expected: 0,
+            actual: 1,
+        })
+    ));
+}
+
+#[test]
+fn proof_construction_fails_closed_on_missing_and_corrupt_value() {
+    let (mut missing_source, snapshot) = single_alpha_state();
+    let committed_value_hash = *missing_source.values.keys().next().unwrap();
+    missing_source.values.remove(&committed_value_hash);
+    assert!(matches!(
+        prove(&missing_source, snapshot, b"alpha"),
+        Err(StateError::MissingValue(hash)) if hash == committed_value_hash
+    ));
+
+    let (mut corrupt_source, snapshot) = single_alpha_state();
+    corrupt_source
+        .values
+        .insert(committed_value_hash, b"tampered".to_vec());
+    assert!(matches!(
+        prove(&corrupt_source, snapshot, b"alpha"),
+        Err(StateError::ValueHashMismatch(hash)) if hash == committed_value_hash
+    ));
+}
+
+proptest! {
+    #[test]
+    fn arbitrary_proof_bytes_up_to_8500_never_panic(
+        bytes in prop::collection::vec(any::<u8>(), 0..=8_500),
+    ) {
+        let _ = SparseMerkleProofV1::decode(CommitmentDomainId::Wasm, &bytes);
+    }
 }

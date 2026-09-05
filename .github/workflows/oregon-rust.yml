@@ -136,7 +136,7 @@ jobs:
       - name: State commitment contracts
         run: cargo +1.85.0 test --locked -p oregon-primitives --test state_commitments
       - name: Contract state contracts
-        run: cargo +1.85.0 test --locked -p oregon-contract-state --test smt_vectors --test security --test proofs
+        run: cargo +1.85.0 test --locked -p oregon-contract-state --all-targets
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Execution address mutation gates

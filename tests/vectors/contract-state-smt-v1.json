@@ -52,11 +52,19 @@
           "path_key_hex": "093f439e85317217a7a73f98e25893fa33a9e853e0d28539d3ddaccf2267c53d",
           "value_hash_hex": "0259ed8e90d16c1a200d1b187c8c42b017cfc18def9ac1ac8ab73c4bb3b45e21",
           "one_leaf_root_hex": "12202f56a132acdf98adccbf577e8c1c5704151a7323c3f7f1398bfe8f3ff9a4"
+        },
+        {
+          "key_hex": "6b3632353231",
+          "value_hex": "7468657461",
+          "path_key_hex": "093f89da6b760867cdc1d251799ca675b07c74ef524f29d3915a2b935e866084",
+          "value_hash_hex": "55d4b09f559b1e6dca06de7a67b457af892e573123dc9dcfca40106af3ccdd06",
+          "one_leaf_root_hex": "5aeb4679d31d970124649ea9a0d403d3c125383cbfab526c4186d4697228d224"
         }
       ],
       "state_roots": {
         "alpha_gamma": "ffd73a4b3fc3472b2d7b717c05d10368c0b7d3936fb22b4ec511982550208e2e",
-        "alpha_beta_omega_zeta": "16a773e38ee5a9964975bb8d17dd37cca6f4d0d3a8f55019766f6cb1103429a1"
+        "alpha_beta_omega_zeta": "16a773e38ee5a9964975bb8d17dd37cca6f4d0d3a8f55019766f6cb1103429a1",
+        "alpha_beta_k62521_theta": "b52d5248dfbba67a22a21ff47cc05501ad6b3c84543db6c57aa8eec5bcb67d4f"
       }
     }
   ]

@@ -1,11 +1,18 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use oregon_contract_state::{branch_hash, empty_hashes, leaf_hash, path_bit, path_key, value_hash};
+use oregon_contract_state::{
+    apply_write_set, branch_hash, empty_hashes, leaf_hash, path_bit, path_key, value_hash,
+    DomainSnapshot, StateWrite, StateWriteSet,
+};
 use oregon_primitives::state_commitment::CommitmentDomainId;
 use oregon_primitives::Hash256;
 use serde::Deserialize;
+
+mod support;
+use support::MemorySource;
 
 #[derive(Debug, Deserialize)]
 struct VectorFile {
@@ -20,6 +27,7 @@ struct DomainVector {
     empty_root_hex: String,
     present_empty_value_hash_hex: String,
     entries: Vec<EntryVector>,
+    state_roots: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,11 +53,7 @@ fn vectors() -> VectorFile {
     serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
 }
 
-fn one_leaf_root(
-    domain: CommitmentDomainId,
-    path: Hash256,
-    value: Hash256,
-) -> Hash256 {
+fn one_leaf_root(domain: CommitmentDomainId, path: Hash256, value: Hash256) -> Hash256 {
     let empty = empty_hashes(domain);
     let mut current = leaf_hash(domain, path, value);
     for depth in (0..256).rev() {
@@ -158,5 +162,105 @@ fn identical_raw_key_and_value_are_domain_separated() {
             accounting_path,
             accounting_value,
         )
+    );
+}
+
+#[test]
+fn execution_accounting_transition_vectors_cover_update_delete_and_shared_prefix() {
+    let vector = vectors()
+        .domains
+        .into_iter()
+        .find(|vector| vector.domain_id == u16::from(CommitmentDomainId::ExecutionAccounting))
+        .unwrap();
+    let domain = CommitmentDomainId::ExecutionAccounting;
+    let empty_root = Hash256::from_str(&vector.empty_root_hex).unwrap();
+    let mut source = MemorySource::default();
+
+    let alpha = apply_write_set(
+        &source,
+        DomainSnapshot {
+            domain,
+            root: empty_root,
+        },
+        &StateWriteSet::new(
+            domain,
+            vec![StateWrite::put(b"alpha".to_vec(), b"beta".to_vec())],
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        alpha.new_root,
+        Hash256::from_str(vector.entries[0].one_leaf_root_hex.as_deref().unwrap(),).unwrap()
+    );
+    source.absorb(&alpha);
+    let alpha_snapshot = DomainSnapshot {
+        domain,
+        root: alpha.new_root,
+    };
+
+    let updated = apply_write_set(
+        &source,
+        alpha_snapshot,
+        &StateWriteSet::new(
+            domain,
+            vec![StateWrite::put(b"alpha".to_vec(), b"gamma".to_vec())],
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        updated.new_root,
+        Hash256::from_str(&vector.state_roots["alpha_gamma"]).unwrap()
+    );
+
+    let deleted = apply_write_set(
+        &source,
+        alpha_snapshot,
+        &StateWriteSet::new(domain, vec![StateWrite::delete(b"alpha".to_vec())]).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(deleted.new_root, empty_root);
+
+    let two_leaf = apply_write_set(
+        &MemorySource::default(),
+        DomainSnapshot {
+            domain,
+            root: empty_root,
+        },
+        &StateWriteSet::new(
+            domain,
+            vec![
+                StateWrite::put(b"alpha".to_vec(), b"beta".to_vec()),
+                StateWrite::put(b"omega".to_vec(), b"zeta".to_vec()),
+            ],
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        two_leaf.new_root,
+        Hash256::from_str(&vector.state_roots["alpha_beta_omega_zeta"]).unwrap()
+    );
+
+    let long_prefix = apply_write_set(
+        &MemorySource::default(),
+        DomainSnapshot {
+            domain,
+            root: empty_root,
+        },
+        &StateWriteSet::new(
+            domain,
+            vec![
+                StateWrite::put(b"alpha".to_vec(), b"beta".to_vec()),
+                StateWrite::put(b"k62521".to_vec(), b"theta".to_vec()),
+            ],
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        long_prefix.new_root,
+        Hash256::from_str(&vector.state_roots["alpha_beta_k62521_theta"]).unwrap()
     );
 }
