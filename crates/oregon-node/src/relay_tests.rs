@@ -5,8 +5,8 @@ use oregon_primitives::Hash256;
 use oregon_protocol::{InventoryItem, InventoryKind, Message};
 
 use crate::relay::{
-    MAX_KNOWN_INVENTORY_PER_PEER, MAX_RECENT_RELAY_CACHE, RelayState, object_request_commands,
-    validated_inventory,
+    MAX_KNOWN_INVENTORY_PER_PEER, MAX_RECENT_RELAY_CACHE, RelayState, ValidatedRelay,
+    object_request_commands, validated_relay,
 };
 
 fn inventory(sequence: u64) -> InventoryItem {
@@ -18,14 +18,16 @@ fn inventory(sequence: u64) -> InventoryItem {
     }
 }
 
+fn authorization(item: InventoryItem) -> ValidatedRelay {
+    let result: Result<(), ()> = Ok(());
+    validated_relay(item.kind, item.hash, &result).expect("successful validation authorizes relay")
+}
+
 #[test]
 fn rejected_transaction_never_authorizes_inventory_relay() {
     let txid = Hash256::from_bytes([0x11; 32]);
     let result: Result<AdmissionOutcome, MempoolError> = Err(MempoolError::AlreadyKnown(txid));
-    assert_eq!(
-        validated_inventory(InventoryKind::Transaction, txid, &result),
-        None
-    );
+    assert!(validated_relay(InventoryKind::Transaction, txid, &result).is_none());
 }
 
 #[test]
@@ -37,12 +39,14 @@ fn accepted_transaction_authorizes_inventory_relay() {
         encoded_bytes: 42,
         evicted: Vec::new(),
     });
+    let authorization = validated_relay(InventoryKind::Transaction, txid, &result)
+        .expect("accepted transaction must authorize relay");
     assert_eq!(
-        validated_inventory(InventoryKind::Transaction, txid, &result),
-        Some(InventoryItem {
+        authorization.inventory(),
+        InventoryItem {
             kind: InventoryKind::Transaction,
             hash: txid,
-        })
+        }
     );
 }
 
@@ -52,23 +56,42 @@ fn invalid_block_never_authorizes_inventory_relay() {
     let result: Result<AcceptOutcome, ChainStateError> = Err(ChainStateError::UnknownParent(
         Hash256::from_bytes([0x44; 32]),
     ));
-    assert_eq!(
-        validated_inventory(InventoryKind::Block, block_id, &result),
-        None
-    );
+    assert!(validated_relay(InventoryKind::Block, block_id, &result).is_none());
 }
 
 #[test]
 fn accepted_sidechain_block_authorizes_inventory_relay() {
     let block_id = Hash256::from_bytes([0x55; 32]);
     let result: Result<AcceptOutcome, ChainStateError> = Ok(AcceptOutcome::StoredSideChain);
+    let authorization = validated_relay(InventoryKind::Block, block_id, &result)
+        .expect("accepted sidechain block must authorize relay");
     assert_eq!(
-        validated_inventory(InventoryKind::Block, block_id, &result),
-        Some(InventoryItem {
+        authorization.inventory(),
+        InventoryItem {
             kind: InventoryKind::Block,
             hash: block_id,
-        })
+        }
     );
+}
+
+#[test]
+fn public_relay_api_requires_opaque_validation_capability() {
+    let lib = include_str!("lib.rs");
+    let relay = include_str!("relay.rs");
+    let start = lib
+        .find("pub fn relay_inventory_commands")
+        .expect("public relay method must exist");
+    let tail = &lib[start..];
+    let end = tail
+        .find("pub fn request_object_commands")
+        .expect("request method must follow relay method");
+    let public_relay_method = &tail[..end];
+
+    assert!(public_relay_method.contains("authorization: ValidatedRelay"));
+    assert!(!public_relay_method.contains("item: InventoryItem"));
+    assert!(relay.contains("pub struct ValidatedRelay"));
+    assert!(relay.contains("pub(crate) fn validated_relay"));
+    assert!(!relay.contains("pub fn validated_relay"));
 }
 
 #[test]
@@ -128,10 +151,11 @@ fn authorized_relay_excludes_source_and_known_peers_and_marks_recipients_known()
     let known = PeerId(2);
     let recipient = PeerId(3);
     let item = inventory(42);
+    let authorization = authorization(item);
     let mut relay = RelayState::default();
     relay.note_peer_inventory(known, item);
 
-    let commands = relay.relay_inventory(Some(source), [source, known, recipient], item);
+    let commands = relay.relay_inventory(Some(source), [source, known, recipient], &authorization);
 
     assert_eq!(
         commands,
@@ -147,7 +171,7 @@ fn authorized_relay_excludes_source_and_known_peers_and_marks_recipients_known()
     assert!(relay.was_recently_relayed(item));
     assert!(
         relay
-            .relay_inventory(Some(source), [source, known, recipient], item)
+            .relay_inventory(Some(source), [source, known, recipient], &authorization)
             .is_empty()
     );
 }
