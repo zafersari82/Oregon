@@ -13,12 +13,16 @@ use oregon_protocol::{InventoryItem, InventoryKind};
 use oregon_utxo::SpendVerifier;
 use thiserror::Error;
 
+mod config;
 mod core;
+mod network;
 mod orchestration;
 mod relay;
 mod sync_adapter;
 
+pub use config::NodeConfig;
 use core::{CoreHandle, spawn_core};
+pub use network::{NodeNetwork, NodeNetworkError};
 use relay::{RelayState, validated_inventory};
 pub use sync_adapter::NodeSyncView;
 
