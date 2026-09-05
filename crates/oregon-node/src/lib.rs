@@ -21,7 +21,7 @@ mod relay;
 mod sync_adapter;
 
 pub use config::NodeConfig;
-use core::{CoreHandle, spawn_core};
+use core::{CoreHandle, HEADER_VALIDATION_SLICE, spawn_core};
 pub use network::{NodeNetwork, NodeNetworkError};
 pub use relay::ValidatedRelay;
 use relay::{RelayState, validated_relay};
@@ -123,7 +123,16 @@ where
         &self,
         headers: Vec<oregon_primitives::BlockHeader>,
     ) -> Result<Vec<Result<HeaderImportOutcome, ChainStateError>>, NodeQueueError> {
-        self.core.submit_headers(headers).await
+        let mut results = Vec::with_capacity(headers.len());
+        let mut headers = headers.into_iter();
+        loop {
+            let slice: Vec<_> = headers.by_ref().take(HEADER_VALIDATION_SLICE).collect();
+            if slice.is_empty() {
+                break;
+            }
+            results.extend(self.core.submit_headers(slice).await?);
+        }
+        Ok(results)
     }
 
     pub async fn submit_block(&self, block: Block) -> Result<BlockSubmission, NodeQueueError> {
