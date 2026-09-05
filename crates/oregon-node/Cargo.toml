@@ -16,3 +16,6 @@ oregon-utxo = { path = "../oregon-utxo" }
 async-trait = "0.1"
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+
+[dev-dependencies]
+oregon-consensus = { path = "../oregon-consensus" }
