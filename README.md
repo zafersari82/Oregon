@@ -4,6 +4,8 @@ Oregon is an experimental, independent proof-of-work blockchain protocol impleme
 
 The repository is a clean-room implementation. Bitcoin and earlier Radium materials were used only as historical research inputs; Oregon does not import or patch their implementation code.
 
+For the current development branch, verified progress and next task, see [`HANDOFF.md`](HANDOFF.md). Unmerged execution work is tracked there separately from the accepted main baseline.
+
 ## Implemented baseline
 
 The accepted M6 baseline includes:

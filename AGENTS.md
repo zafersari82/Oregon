@@ -2,6 +2,8 @@
 
 This file is the repository-root entry point for AI coding agents and human contributors using agentic tools.
 
+For cross-session continuation, read [`HANDOFF.md`](HANDOFF.md) to locate the active branch, current plan, verification evidence and next incomplete action. It is a progress record and cannot override the normative documents below.
+
 ## Mandatory reading before any change
 
 Read these files before proposing or implementing Oregon changes:
