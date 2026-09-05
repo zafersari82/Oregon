@@ -6,9 +6,7 @@ use std::task::{Context, Poll, Wake, Waker};
 use async_trait::async_trait;
 use oregon_primitives::{BlockHeader, Hash256};
 
-use crate::{
-    ChainSyncView, SyncTip, SyncViewError, find_common_height, missing_body_targets,
-};
+use crate::{ChainSyncView, SyncTip, SyncViewError, find_common_height, missing_body_targets};
 
 #[derive(Clone, Copy)]
 struct ImmediateWake;

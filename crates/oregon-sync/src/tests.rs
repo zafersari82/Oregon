@@ -327,6 +327,7 @@ fn sync_layer_has_no_chainwork_or_remote_height_authority() {
         include_str!("locator.rs"),
         include_str!("scheduler.rs"),
         include_str!("state.rs"),
+        include_str!("topology.rs"),
         include_str!("view.rs")
     );
     assert!(!source.contains("ChainWork"));

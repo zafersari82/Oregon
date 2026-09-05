@@ -2,9 +2,7 @@ use oregon_primitives::Hash256;
 
 use crate::{ChainSyncView, SyncViewError};
 
-pub async fn find_common_height<V: ChainSyncView + ?Sized>(
-    view: &V,
-) -> Result<u64, SyncViewError> {
+pub async fn find_common_height<V: ChainSyncView + ?Sized>(view: &V) -> Result<u64, SyncViewError> {
     let active = view.active_tip().await?;
     let preferred = view.preferred_header_tip().await?;
     let mut height = active.height.min(preferred.height);
@@ -39,13 +37,16 @@ pub async fn missing_body_targets<V: ChainSyncView + ?Sized>(
 
     let mut targets = Vec::new();
     let mut height = common_height + 1;
-    while height <= preferred.height {
+    loop {
         let block_id = view
             .preferred_header_id_at_height(height)
             .await?
             .ok_or(SyncViewError::Unavailable)?;
         if !view.body_retained(block_id).await? {
             targets.push(block_id);
+        }
+        if height == preferred.height {
+            break;
         }
         height += 1;
     }
