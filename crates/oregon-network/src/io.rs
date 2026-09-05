@@ -35,6 +35,11 @@ where
         let deadline = Instant::now() + READ_ABSOLUTE_DEADLINE;
         let mut bytes = [0u8; FRAME_HEADER_BYTES];
         read_exact_counted(&mut self.stream, &mut bytes, deadline).await?;
+
+        let declared_payload_length = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
+        let mut payload = vec![0u8; declared_payload_length as usize];
+        read_exact_counted(&mut self.stream, &mut payload, deadline).await?;
+
         let header = match FrameHeader::decode(&bytes) {
             Err(ProtocolError::PayloadTooLarge { actual, max }) => {
                 return Err(NetworkError::OversizedFrame {
@@ -48,8 +53,6 @@ where
         if header.network_magic != self.magic {
             return Err(ProtocolError::WrongNetworkMagic.into());
         }
-        let mut payload = vec![0u8; header.payload_length as usize];
-        read_exact_counted(&mut self.stream, &mut payload, deadline).await?;
         verify_frame_payload(&header, self.magic, &payload)?;
         Ok(decode_message(header.message_type, &payload)?)
     }
