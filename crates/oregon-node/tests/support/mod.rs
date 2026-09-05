@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use oregon_chainstate::{ChainConfig, ChainState};
+use oregon_chainstate::{AcceptOutcome, ChainConfig, ChainState};
 use oregon_consensus::{ConsensusParams, Target, params::KEY_COMMIT_V1};
 use oregon_mempool::MempoolConfig;
 use oregon_peer::PeerConfig;
@@ -71,12 +71,20 @@ pub fn chain_config() -> ChainConfig {
     }
 }
 
-pub fn founder_block(config: &ChainConfig) -> Block {
+fn coinbase(config: &ChainConfig, height: u64) -> Transaction {
     let mut height_bytes = Vec::new();
-    write_varint(1, &mut height_bytes);
-    let mut founder_program = vec![KEY_COMMIT_V1];
-    founder_program.extend_from_slice(&config.params.founder_key_commitment);
-    let coinbase = Transaction {
+    write_varint(height, &mut height_bytes);
+    let outputs = if height == 1 {
+        let mut founder_program = vec![KEY_COMMIT_V1];
+        founder_program.extend_from_slice(&config.params.founder_key_commitment);
+        vec![TxOutput {
+            value: Amount::from_base_units(FOUNDER_ALLOCATION_BASE_UNITS).unwrap(),
+            locking_program: founder_program,
+        }]
+    } else {
+        Vec::new()
+    };
+    Transaction {
         version: 1,
         inputs: vec![TxInput {
             previous_txid: Hash256::from_bytes([0; 32]),
@@ -84,24 +92,53 @@ pub fn founder_block(config: &ChainConfig) -> Block {
             sequence: u32::MAX,
             witness: vec![height_bytes],
         }],
-        outputs: vec![TxOutput {
-            value: Amount::from_base_units(FOUNDER_ALLOCATION_BASE_UNITS).unwrap(),
-            locking_program: founder_program,
-        }],
+        outputs,
         lock_time: 0,
-    };
-    let transactions = vec![coinbase];
+    }
+}
+
+pub fn block_at_height(config: &ChainConfig, previous_block: Hash256, height: u64) -> Block {
+    assert!(height > 0);
+    let transactions = vec![coinbase(config, height)];
     Block {
         header: BlockHeader {
             version: 1,
-            previous_block: config.anchor_header.block_id(),
+            previous_block,
             transaction_root: transaction_root(&transactions).unwrap(),
-            timestamp: config.genesis_timestamp + 300,
+            timestamp: config.genesis_timestamp + 300 * height,
             difficulty_commitment: config.params.initial_target.to_le_bytes(),
-            nonce: 801,
+            nonce: 800 + height,
         },
         transactions,
     }
+}
+
+pub fn founder_block(config: &ChainConfig) -> Block {
+    block_at_height(config, config.anchor_header.block_id(), 1)
+}
+
+pub fn linear_chain(config: &ChainConfig, length: u64) -> Vec<Block> {
+    let mut blocks = Vec::with_capacity(length as usize);
+    let mut previous = config.anchor_header.block_id();
+    for height in 1..=length {
+        let block = block_at_height(config, previous, height);
+        previous = block.header.block_id();
+        blocks.push(block);
+    }
+    blocks
+}
+
+pub fn accepted_state(dir: &TestDir, config: &ChainConfig, blocks: &[Block]) -> ChainState {
+    let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
+    for block in blocks {
+        assert_eq!(
+            state
+                .accept_block(block.clone(), &AcceptAllSpends)
+                .unwrap(),
+            AcceptOutcome::Extended
+        );
+    }
+    state
 }
 
 pub fn unknown_parent_block(config: &ChainConfig) -> Block {
