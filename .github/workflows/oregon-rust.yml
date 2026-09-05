@@ -3,7 +3,7 @@ name: Oregon Rust CI
 # Oregon protocol development branches are CI-gated during test-first development.
 on:
   push:
-    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, oregon-v1-architecture-unification-2026-09-04]
+    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, oregon-v1-architecture-unification-2026-09-04, design/m6-network-architecture-2026-09-04]
   pull_request:
     branches: [main]
 
@@ -19,8 +19,8 @@ jobs:
           submodules: recursive
       - name: Install Rust 1.85.0
         run: rustup toolchain install 1.85.0 --profile minimal --component rustfmt,clippy
-      - name: Install RocksDB build prerequisites
-        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
+      - name: Install native and CI scan prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev ripgrep
       - name: Cache Cargo and native build
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -48,6 +48,25 @@ jobs:
 
           if rg -n 'unsafe[[:space:]]*(fn|impl|trait|extern|\{|\()' crates --glob '!crates/oregon-pow/**'; then
             echo 'Unsafe Rust escaped the oregon-pow boundary.' >&2
+            exit 1
+          fi
+
+          if rg -n 'oregon-(protocol|network|peer|sync|node)' \
+            crates/oregon-consensus/Cargo.toml crates/oregon-utxo/Cargo.toml \
+            crates/oregon-storage/Cargo.toml crates/oregon-chainstate/Cargo.toml \
+            crates/oregon-mempool/Cargo.toml; then
+            echo 'Core crate depends upward on M6 networking.' >&2
+            exit 1
+          fi
+
+          if rg -n 'Vec::with_capacity\((input_count|output_count|witness_count|transaction_count)\)' crates/oregon-primitives/src; then
+            echo 'Remote decoder preallocates from attacker count.' >&2
+            exit 1
+          fi
+
+          if rg -n 'FOUNDER_ALLOCATION_BASE_UNITS|block_subsidy|derive_randomx_key|CF_(BLOCKS|BLOCK_INDEX|UTXO|UNDO|CHAIN_META)' \
+            crates/oregon-protocol crates/oregon-network crates/oregon-peer crates/oregon-sync; then
+            echo 'Core rule leaked below oregon-node orchestration boundary.' >&2
             exit 1
           fi
       - name: Test

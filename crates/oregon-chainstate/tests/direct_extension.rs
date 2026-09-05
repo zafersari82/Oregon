@@ -156,3 +156,35 @@ fn direct_extension_persists_tip_undo_and_founder_utxo_across_reopen() {
     assert_eq!(db.active_id_at_height(1).unwrap(), Some(block_id));
     assert_eq!(db.active_tip().unwrap(), Some((block_id, 1)));
 }
+
+#[test]
+fn heavier_full_block_advances_preferred_header_tip_durably() {
+    let dir = TestDir::new("preferred-header-full-block");
+    let config = config();
+    let block = height_one_founder_block(&config);
+    let block_id = block.header.block_id();
+    let expected_work = block_work(config.params.initial_target);
+
+    let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
+    assert_eq!(state.preferred_header_tip().height, 0);
+    assert_eq!(
+        state.accept_block(block, &AcceptTestSpends).unwrap(),
+        AcceptOutcome::Extended
+    );
+    assert_eq!(state.preferred_header_tip().block_id, block_id);
+    assert_eq!(state.preferred_header_tip().height, 1);
+    assert_eq!(state.preferred_header_tip().cumulative_work, expected_work);
+    drop(state);
+
+    let reopened = ChainState::open(dir.path(), config).unwrap();
+    assert_eq!(reopened.preferred_header_tip().block_id, block_id);
+    assert_eq!(reopened.preferred_header_tip().height, 1);
+    assert_eq!(
+        reopened.preferred_header_tip().cumulative_work,
+        expected_work
+    );
+    drop(reopened);
+
+    let db = OregonDb::open(dir.path()).unwrap();
+    assert_eq!(db.preferred_header_tip().unwrap(), Some((block_id, 1)));
+}

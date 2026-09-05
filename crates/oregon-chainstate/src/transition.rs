@@ -4,6 +4,7 @@ use oregon_storage::{BlockIndexRecord, NodeHealth, StorageBatch, ValidationStatu
 use oregon_utxo::SpendVerifier;
 
 use crate::ChainStateError;
+use crate::header::HeaderTip;
 use crate::reorg::{ReorgPlan, discover_fork, load_reorg_plan, reorg_depth_allowed};
 use crate::state::{AcceptOutcome, ChainState, SessionHealth, Tip};
 use crate::utxo_delta::{
@@ -30,6 +31,7 @@ pub(crate) fn extend_active<V: SpendVerifier>(
         validation: ValidationStatus::FullyValidated,
         body_retained: true,
     };
+    let becomes_preferred = cumulative_work > state.header_tip.cumulative_work;
 
     let mut batch = StorageBatch::new();
     batch.put_block(block);
@@ -38,14 +40,24 @@ pub(crate) fn extend_active<V: SpendVerifier>(
     apply_utxo_delta(&mut batch, delta);
     batch.set_active_height(height, block_id);
     batch.set_tip(block_id, height);
+    if becomes_preferred {
+        batch.set_preferred_header_tip(block_id, height);
+    }
     state.db.commit_durable(batch)?;
 
     state.utxos = staged;
     state.tip = Tip {
         block_id,
         height,
-        cumulative_work,
+        cumulative_work: cumulative_work.clone(),
     };
+    if becomes_preferred {
+        state.header_tip = HeaderTip {
+            block_id,
+            height,
+            cumulative_work,
+        };
+    }
     Ok(AcceptOutcome::Extended)
 }
 
@@ -137,6 +149,7 @@ fn apply_reorg_plan<V: SpendVerifier>(
     let new_tip_id = new_tip.id;
     let new_tip_height = new_tip.index.height;
     let new_tip_work = new_tip.index.cumulative_work.clone();
+    let becomes_preferred = new_tip_work > state.header_tip.cumulative_work;
 
     let mut batch = StorageBatch::new();
     let first_replaced_height = fork_height
@@ -156,14 +169,24 @@ fn apply_reorg_plan<V: SpendVerifier>(
     }
     apply_utxo_delta(&mut batch, delta);
     batch.set_tip(new_tip_id, new_tip_height);
+    if becomes_preferred {
+        batch.set_preferred_header_tip(new_tip_id, new_tip_height);
+    }
     state.db.commit_durable(batch)?;
 
     state.utxos = staged;
     state.tip = Tip {
         block_id: new_tip_id,
         height: new_tip_height,
-        cumulative_work: new_tip_work,
+        cumulative_work: new_tip_work.clone(),
     };
+    if becomes_preferred {
+        state.header_tip = HeaderTip {
+            block_id: new_tip_id,
+            height: new_tip_height,
+            cumulative_work: new_tip_work,
+        };
+    }
     Ok(AcceptOutcome::Reorganized)
 }
 

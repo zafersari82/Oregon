@@ -8,12 +8,13 @@ const STORAGE_RECORD_VERSION: u8 = 1;
 const BLOCK_HEADER_BYTES: usize = 114;
 const MAX_CHAINWORK_BYTES: usize = 40;
 
-#[cfg(test)]
 pub(crate) const SCHEMA_MIGRATION_KEY: &[u8] = b"schema/migration";
 pub(crate) const CONFIG_ANCHOR_ID_KEY: &[u8] = b"config/anchor_id";
 pub(crate) const CONFIG_GENESIS_TIMESTAMP_KEY: &[u8] = b"config/genesis_timestamp";
 pub(crate) const ACTIVE_TIP_ID_KEY: &[u8] = b"active/tip_id";
 pub(crate) const ACTIVE_TIP_HEIGHT_KEY: &[u8] = b"active/tip_height";
+pub(crate) const PREFERRED_HEADER_TIP_ID_KEY: &[u8] = b"headers/tip_id";
+pub(crate) const PREFERRED_HEADER_TIP_HEIGHT_KEY: &[u8] = b"headers/tip_height";
 pub(crate) const HEALTH_STATE_KEY: &[u8] = b"health/state";
 pub(crate) const PRUNE_CURSOR_KEY: &[u8] = b"prune/cursor";
 const ACTIVE_HEIGHT_PREFIX: &[u8; 7] = b"active/";

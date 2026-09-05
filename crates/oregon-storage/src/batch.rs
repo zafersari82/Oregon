@@ -60,6 +60,11 @@ impl StorageBatch {
         self.operations.push(StorageOp::SetTip(block_id, height));
     }
 
+    pub fn set_preferred_header_tip(&mut self, block_id: Hash256, height: u64) {
+        self.operations
+            .push(StorageOp::SetPreferredHeaderTip(block_id, height));
+    }
+
     pub fn set_config_anchor_id(&mut self, block_id: Hash256) {
         self.operations.push(StorageOp::SetConfigAnchorId(block_id));
     }
@@ -90,6 +95,7 @@ pub(crate) enum StorageOp {
     SetActiveHeight(u64, Hash256),
     DeleteActiveHeight(u64),
     SetTip(Hash256, u64),
+    SetPreferredHeaderTip(Hash256, u64),
     SetConfigAnchorId(Hash256),
     SetConfigGenesisTimestamp(u64),
     SetHealth(NodeHealth),

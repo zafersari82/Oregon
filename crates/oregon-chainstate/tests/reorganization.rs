@@ -188,6 +188,12 @@ fn valid_reorg_is_atomic_and_reopens_on_strictly_heavier_candidate() {
     );
     assert_eq!(state.tip().block_id, candidate3_id);
     assert_eq!(state.tip().height, 3);
+    assert_eq!(state.preferred_header_tip().block_id, candidate3_id);
+    assert_eq!(state.preferred_header_tip().height, 3);
+    assert_eq!(
+        state.preferred_header_tip().cumulative_work,
+        state.tip().cumulative_work
+    );
     assert!(state.utxos().get(&old_outpoint).is_none());
     assert!(state.utxos().get(&candidate3_outpoint).is_some());
     assert_eq!(state.session_health(), SessionHealth::Healthy);
@@ -196,12 +202,19 @@ fn valid_reorg_is_atomic_and_reopens_on_strictly_heavier_candidate() {
     let reopened = ChainState::open(dir.path(), config.clone()).unwrap();
     assert_eq!(reopened.tip().block_id, candidate3_id);
     assert_eq!(reopened.tip().height, 3);
+    assert_eq!(reopened.preferred_header_tip().block_id, candidate3_id);
+    assert_eq!(reopened.preferred_header_tip().height, 3);
+    assert_eq!(
+        reopened.preferred_header_tip().cumulative_work,
+        reopened.tip().cumulative_work
+    );
     assert!(reopened.utxos().get(&old_outpoint).is_none());
     assert!(reopened.utxos().get(&candidate3_outpoint).is_some());
     drop(reopened);
 
     let db = OregonDb::open(dir.path()).unwrap();
     assert_eq!(db.active_tip().unwrap(), Some((candidate3_id, 3)));
+    assert_eq!(db.preferred_header_tip().unwrap(), Some((candidate3_id, 3)));
     assert_eq!(db.active_id_at_height(1).unwrap(), Some(candidate1_id));
     assert_eq!(db.active_id_at_height(2).unwrap(), Some(candidate2_id));
     assert_eq!(db.active_id_at_height(3).unwrap(), Some(candidate3_id));

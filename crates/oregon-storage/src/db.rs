@@ -18,19 +18,16 @@ use crate::codec::{
     encode_outpoint_key, encode_utxo_entry,
 };
 use crate::error::StorageError;
-#[cfg(test)]
-use crate::records::SCHEMA_MIGRATION_KEY;
 use crate::records::{
     ACTIVE_TIP_HEIGHT_KEY, ACTIVE_TIP_ID_KEY, BlockIndexRecord, CONFIG_ANCHOR_ID_KEY,
-    CONFIG_GENESIS_TIMESTAMP_KEY, HEALTH_STATE_KEY, NodeHealth, PRUNE_CURSOR_KEY,
-    active_height_key, decode_block_index, decode_node_health, encode_block_index,
-    encode_node_health,
+    CONFIG_GENESIS_TIMESTAMP_KEY, HEALTH_STATE_KEY, NodeHealth, PREFERRED_HEADER_TIP_HEIGHT_KEY,
+    PREFERRED_HEADER_TIP_ID_KEY, PRUNE_CURSOR_KEY, SCHEMA_MIGRATION_KEY, active_height_key,
+    decode_block_index, decode_node_health, encode_block_index, encode_node_health,
 };
 use crate::schema::{
-    SCHEMA_KEY, SCHEMA_VERSION, SchemaVersion, decode_schema_version, encode_schema_version,
+    LEGACY_SCHEMA_VERSION_1_0, SCHEMA_KEY, SCHEMA_VERSION, SchemaVersion, decode_migration_marker,
+    decode_schema_version, encode_migration_marker, encode_schema_version,
 };
-#[cfg(test)]
-use crate::schema::{decode_migration_marker, encode_migration_marker};
 
 pub(crate) const CF_BLOCKS: &str = "blocks";
 pub(crate) const CF_BLOCK_INDEX: &str = "block_index";
@@ -116,23 +113,21 @@ impl OregonDb {
             .get_cf(chain_meta, SCHEMA_KEY)?
             .ok_or_else(|| StorageError::CorruptData("missing schema version".to_owned()))?;
         let current = decode_schema_version(&bytes)?;
-        let target = SchemaVersion { major: 1, minor: 1 };
+        let target = SCHEMA_VERSION;
 
         if current.major != target.major {
             return Err(StorageError::UnsupportedSchema(current));
         }
         if current == target {
             if db.get_cf(chain_meta, SCHEMA_MIGRATION_KEY)?.is_some() {
-                return Err(StorageError::CorruptData(
-                    "completed synthetic migration still has a marker".to_owned(),
-                ));
+                run_synthetic_minor_migration_1_1(&db, chain_meta, interrupt_after_first_step)?;
             }
             return Ok(Self {
                 db,
                 test_hooks: TestHooks::default(),
             });
         }
-        if current != SCHEMA_VERSION {
+        if current != LEGACY_SCHEMA_VERSION_1_0 {
             return Err(StorageError::UnsupportedSchema(current));
         }
 
@@ -161,7 +156,15 @@ impl OregonDb {
         match db.get_cf(chain_meta, SCHEMA_KEY)? {
             Some(bytes) => {
                 let version = decode_schema_version(&bytes)?;
-                if version != SCHEMA_VERSION {
+                if version == LEGACY_SCHEMA_VERSION_1_0 {
+                    run_migration_1_0_to_1_1(&db, chain_meta)?;
+                } else if version == SCHEMA_VERSION {
+                    if db.get_cf(chain_meta, SCHEMA_MIGRATION_KEY)?.is_some() {
+                        return Err(corrupt(
+                            "schema migration marker is present for current schema",
+                        ));
+                    }
+                } else {
                     return Err(StorageError::UnsupportedSchema(version));
                 }
             }
@@ -171,19 +174,22 @@ impl OregonDb {
                         "missing schema version in non-empty database".to_owned(),
                     ));
                 }
-
-                let mut write_options = WriteOptions::default();
-                write_options.set_sync(true);
-                write_options.disable_wal(false);
-                db.put_cf_opt(
+                sync_put(
+                    &db,
                     chain_meta,
                     SCHEMA_KEY,
-                    encode_schema_version(SCHEMA_VERSION),
-                    &write_options,
-                )
-                .map_err(|error| StorageError::DurabilityFailure(error.to_string()))?;
+                    &encode_schema_version(SCHEMA_VERSION),
+                )?;
             }
         }
+
+        read_tip_pair(
+            &db,
+            chain_meta,
+            PREFERRED_HEADER_TIP_ID_KEY,
+            PREFERRED_HEADER_TIP_HEIGHT_KEY,
+            "preferred header tip",
+        )?;
 
         Ok(Self {
             db,
@@ -273,16 +279,24 @@ impl OregonDb {
 
     pub fn active_tip(&self) -> Result<Option<(Hash256, u64)>, StorageError> {
         let meta = self.column_family(CF_CHAIN_META)?;
-        let id = self.db.get_cf(meta, ACTIVE_TIP_ID_KEY)?;
-        let height = self.db.get_cf(meta, ACTIVE_TIP_HEIGHT_KEY)?;
-        match (id, height) {
-            (None, None) => Ok(None),
-            (Some(id), Some(height)) => Ok(Some((
-                decode_hash(&id, "active tip block id")?,
-                decode_u64_le(&height, "active tip height")?,
-            ))),
-            _ => Err(corrupt("active tip metadata is partially present")),
-        }
+        read_tip_pair(
+            &self.db,
+            meta,
+            ACTIVE_TIP_ID_KEY,
+            ACTIVE_TIP_HEIGHT_KEY,
+            "active tip",
+        )
+    }
+
+    pub fn preferred_header_tip(&self) -> Result<Option<(Hash256, u64)>, StorageError> {
+        let meta = self.column_family(CF_CHAIN_META)?;
+        read_tip_pair(
+            &self.db,
+            meta,
+            PREFERRED_HEADER_TIP_ID_KEY,
+            PREFERRED_HEADER_TIP_HEIGHT_KEY,
+            "preferred header tip",
+        )
     }
 
     pub fn config_anchor_id(&self) -> Result<Option<Hash256>, StorageError> {
@@ -396,6 +410,70 @@ impl OregonDb {
     }
 }
 
+fn run_migration_1_0_to_1_1(
+    db: &DB,
+    chain_meta: &rocksdb::ColumnFamily,
+) -> Result<(), StorageError> {
+    let from = LEGACY_SCHEMA_VERSION_1_0;
+    let to = SCHEMA_VERSION;
+    let expected_marker = encode_migration_marker(from, to);
+
+    let marker_present = match db.get_cf(chain_meta, SCHEMA_MIGRATION_KEY)? {
+        Some(bytes) => {
+            let marker = decode_migration_marker(&bytes)?;
+            if marker != (from, to) {
+                return Err(corrupt(
+                    "migration marker does not match storage 1.0 -> 1.1 migration",
+                ));
+            }
+            true
+        }
+        None => false,
+    };
+
+    let active_tip = read_tip_pair(
+        db,
+        chain_meta,
+        ACTIVE_TIP_ID_KEY,
+        ACTIVE_TIP_HEIGHT_KEY,
+        "active tip",
+    )?;
+    let preferred_tip = read_tip_pair(
+        db,
+        chain_meta,
+        PREFERRED_HEADER_TIP_ID_KEY,
+        PREFERRED_HEADER_TIP_HEIGHT_KEY,
+        "preferred header tip",
+    )?;
+
+    if let Some(existing) = preferred_tip.as_ref() {
+        if active_tip.as_ref() != Some(existing) {
+            return Err(corrupt(
+                "preferred header tip does not match legacy active tip during migration",
+            ));
+        }
+    }
+
+    if !marker_present {
+        sync_put(db, chain_meta, SCHEMA_MIGRATION_KEY, &expected_marker)?;
+    }
+
+    let mut final_batch = WriteBatch::default();
+    if preferred_tip.is_none() {
+        if let Some((block_id, height)) = active_tip.as_ref() {
+            final_batch.put_cf(chain_meta, PREFERRED_HEADER_TIP_ID_KEY, block_id.as_bytes());
+            final_batch.put_cf(
+                chain_meta,
+                PREFERRED_HEADER_TIP_HEIGHT_KEY,
+                height.to_le_bytes(),
+            );
+        }
+    }
+    final_batch.put_cf(chain_meta, SCHEMA_KEY, encode_schema_version(to));
+    final_batch.delete_cf(chain_meta, SCHEMA_MIGRATION_KEY);
+    sync_write(db, final_batch)
+}
+
 #[cfg(test)]
 fn run_synthetic_minor_migration_1_1(
     db: &DB,
@@ -406,8 +484,8 @@ fn run_synthetic_minor_migration_1_1(
     const STEP2_KEY: &[u8] = b"test/migration/step2";
     const STEP_VALUE: &[u8] = b"applied";
 
-    let from = SCHEMA_VERSION;
-    let to = SchemaVersion { major: 1, minor: 1 };
+    let from = LEGACY_SCHEMA_VERSION_1_0;
+    let to = SCHEMA_VERSION;
     let expected_marker = encode_migration_marker(from, to);
 
     match db.get_cf(chain_meta, SCHEMA_MIGRATION_KEY)? {
@@ -437,7 +515,6 @@ fn run_synthetic_minor_migration_1_1(
     sync_write(db, final_batch)
 }
 
-#[cfg(test)]
 fn sync_put(
     db: &DB,
     column_family: &rocksdb::ColumnFamily,
@@ -449,7 +526,6 @@ fn sync_put(
     sync_write(db, batch)
 }
 
-#[cfg(test)]
 fn sync_write(db: &DB, batch: WriteBatch) -> Result<(), StorageError> {
     let mut write_options = WriteOptions::default();
     write_options.set_sync(true);
@@ -543,6 +619,18 @@ fn encode_operations(operations: Vec<StorageOp>) -> Result<Vec<EncodedOp>, Stora
                     height.to_le_bytes().to_vec(),
                 ));
             }
+            StorageOp::SetPreferredHeaderTip(block_id, height) => {
+                encoded.push(EncodedOp::put(
+                    CF_CHAIN_META,
+                    PREFERRED_HEADER_TIP_ID_KEY.to_vec(),
+                    block_id.as_bytes().to_vec(),
+                ));
+                encoded.push(EncodedOp::put(
+                    CF_CHAIN_META,
+                    PREFERRED_HEADER_TIP_HEIGHT_KEY.to_vec(),
+                    height.to_le_bytes().to_vec(),
+                ));
+            }
             StorageOp::SetConfigAnchorId(block_id) => encoded.push(EncodedOp::put(
                 CF_CHAIN_META,
                 CONFIG_ANCHOR_ID_KEY.to_vec(),
@@ -566,6 +654,25 @@ fn encode_operations(operations: Vec<StorageOp>) -> Result<Vec<EncodedOp>, Stora
         }
     }
     Ok(encoded)
+}
+
+fn read_tip_pair(
+    db: &DB,
+    chain_meta: &rocksdb::ColumnFamily,
+    id_key: &[u8],
+    height_key: &[u8],
+    context: &str,
+) -> Result<Option<(Hash256, u64)>, StorageError> {
+    let id = db.get_cf(chain_meta, id_key)?;
+    let height = db.get_cf(chain_meta, height_key)?;
+    match (id, height) {
+        (None, None) => Ok(None),
+        (Some(id), Some(height)) => Ok(Some((
+            decode_hash(&id, &format!("{context} block id"))?,
+            decode_u64_le(&height, &format!("{context} height"))?,
+        ))),
+        _ => Err(corrupt(format!("{context} metadata is partially present"))),
+    }
 }
 
 fn decode_hash(bytes: &[u8], context: &str) -> Result<Hash256, StorageError> {
