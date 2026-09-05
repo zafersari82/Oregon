@@ -147,7 +147,7 @@ fn update_delete_and_read_preserve_immutable_snapshot_semantics() {
         Hash256::from_str("ef26ec879a11d1a0e48a1649eeab4ef917783dbee4f6f87aa443b67d626123da")
             .unwrap()
     );
-    assert_eq!(initial_snapshot.root, initial.old_root);
+    assert_eq!(initial_snapshot.root, updated.old_root);
 
     let deleted = apply_write_set(
         &source,
