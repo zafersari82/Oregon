@@ -41,7 +41,8 @@ jobs:
             CLAUDE.md \
             GEMINI.md \
             docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md \
-            docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md; do
+            docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md \
+            docs/superpowers/specs/2026-09-05-execution-architecture-design.md; do
             if [[ ! -s "$required_contract" ]]; then
               echo "Required architecture/agent contract is missing or empty: $required_contract" >&2
               exit 1
@@ -56,6 +57,21 @@ jobs:
             '## 5. Frozen decision D — dual external ingress, single internal execution truth'; do
             if ! rg -Fq "$frozen_heading" "$platform_contract"; then
               echo "Frozen platform architecture decision is missing: $frozen_heading" >&2
+              exit 1
+            fi
+          done
+
+          execution_contract=docs/superpowers/specs/2026-09-05-execution-architecture-design.md
+          for frozen_heading in \
+            '## 9. VM-specific metering with one normalized Oregon weight' \
+            '## 10. Dynamic base fee and priority fee, with no fee burn' \
+            '## 12. UTXO-backed execution OREG' \
+            '## 13. Domain-separated state commitments with one extensible header commitment' \
+            '## 14. Separate EVM and WASM state with controlled cross-VM ABI' \
+            '## 15. Synchronous atomicity and explicit asynchronous messages' \
+            '## 22. Token, NFT, DeFi, privacy, bridge, and AI architecture defaults'; do
+            if ! rg -Fq "$frozen_heading" "$execution_contract"; then
+              echo "Frozen execution architecture decision is missing: $frozen_heading" >&2
               exit 1
             fi
           done
