@@ -13,12 +13,7 @@ fn evm_address(byte: u8) -> ExecutionAddress {
 }
 
 fn schnorr(byte: u8, scope: AuthorizationScope) -> AuthorizationProof {
-    AuthorizationProof::new(
-        scope,
-        AuthorizationScheme::OregonSchnorrV1,
-        vec![byte; 96],
-    )
-    .unwrap()
+    AuthorizationProof::new(scope, AuthorizationScheme::OregonSchnorrV1, vec![byte; 96]).unwrap()
 }
 
 fn native_parts() -> ExecutionEnvelopeV1Parts {
@@ -72,42 +67,71 @@ fn native_signing_commitment_binds_all_authority_bearing_common_fields() {
 
     let mut changed = native_parts();
     changed.valid_after_height = 2;
-    assert_ne!(ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(), base_hash);
+    assert_ne!(
+        ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(),
+        base_hash
+    );
 
     let mut changed = native_parts();
     changed.valid_until_height = 501;
-    assert_ne!(ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(), base_hash);
+    assert_ne!(
+        ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(),
+        base_hash
+    );
 
     let mut changed = native_parts();
     changed.principal = oregon_address(0x12);
-    assert_ne!(ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(), base_hash);
+    assert_ne!(
+        ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(),
+        base_hash
+    );
 
     let mut changed = native_parts();
     changed.fee_caps = FeeCaps::new(51, 5, 10_000).unwrap();
-    assert_ne!(ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(), base_hash);
+    assert_ne!(
+        ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(),
+        base_hash
+    );
 
     let mut changed = native_parts();
     changed.fee_caps = FeeCaps::new(50, 6, 10_000).unwrap();
-    assert_ne!(ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(), base_hash);
+    assert_ne!(
+        ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(),
+        base_hash
+    );
 
     let mut changed = native_parts();
     changed.fee_caps = FeeCaps::new(50, 5, 10_001).unwrap();
-    assert_ne!(ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(), base_hash);
+    assert_ne!(
+        ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(),
+        base_hash
+    );
 
     let mut changed = native_parts();
     changed.domain_payload.push(0xdd);
-    assert_ne!(ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(), base_hash);
+    assert_ne!(
+        ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(),
+        base_hash
+    );
 
     let mut changed = native_parts();
     changed.access_hints = Some(vec![0xcd]);
-    assert_ne!(ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(), base_hash);
+    assert_ne!(
+        ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(),
+        base_hash
+    );
 
     let mut changed = native_parts();
-    changed.authorizations = vec![AuthorizationProof::new(
-        AuthorizationScope::Principal,
-        AuthorizationScheme::OregonThresholdV1,
-        vec![0x99],
-    )
-    .unwrap()];
-    assert_ne!(ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(), base_hash);
+    changed.authorizations = vec![
+        AuthorizationProof::new(
+            AuthorizationScope::Principal,
+            AuthorizationScheme::OregonThresholdV1,
+            vec![0x99],
+        )
+        .unwrap(),
+    ];
+    assert_ne!(
+        ExecutionEnvelopeV1::new(changed).unwrap().signing_hash(),
+        base_hash
+    );
 }
