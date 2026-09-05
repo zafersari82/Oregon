@@ -43,21 +43,13 @@ pub fn empty_hashes(domain: CommitmentDomainId) -> [Hash256; SMT_DEPTH + 1] {
     hashes[SMT_DEPTH] = domain_hash(EMPTY_DOMAIN, &prefix);
 
     for depth in (0..SMT_DEPTH).rev() {
-        hashes[depth] = branch_hash_unchecked(
-            domain,
-            depth as u16,
-            hashes[depth + 1],
-            hashes[depth + 1],
-        );
+        hashes[depth] =
+            branch_hash_unchecked(domain, depth as u16, hashes[depth + 1], hashes[depth + 1]);
     }
     hashes
 }
 
-pub fn leaf_hash(
-    domain: CommitmentDomainId,
-    path_key: Hash256,
-    value_hash: Hash256,
-) -> Hash256 {
+pub fn leaf_hash(domain: CommitmentDomainId, path_key: Hash256, value_hash: Hash256) -> Hash256 {
     let mut payload = Vec::with_capacity(66);
     payload.extend_from_slice(&domain_prefix(domain));
     payload.extend_from_slice(path_key.as_bytes());
@@ -95,6 +87,10 @@ pub fn path_bit(path_key: Hash256, depth: usize) -> Result<bool, StateError> {
     if depth >= SMT_DEPTH {
         return Err(StateError::DepthOutOfRange(depth));
     }
+    Ok(path_bit_unchecked(path_key, depth))
+}
+
+pub(crate) fn path_bit_unchecked(path_key: Hash256, depth: usize) -> bool {
     let byte = path_key.as_bytes()[depth / 8];
-    Ok((byte & (0x80 >> (depth % 8))) != 0)
+    (byte & (0x80 >> (depth % 8))) != 0
 }

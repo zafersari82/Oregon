@@ -17,7 +17,7 @@ AGGREGATE = ROOT / "crates/oregon-primitives/src/state_commitment.rs"
 
 STATE_COMMAND = [
     "cargo", "+1.85.0", "test", "--locked", "-p", "oregon-contract-state",
-    "--test", "smt_vectors", "--test", "security", "--test", "proofs",
+    "--all-targets",
 ]
 AGGREGATE_COMMAND = [
     "cargo", "+1.85.0", "test", "--locked", "-p", "oregon-primitives",
@@ -25,6 +25,82 @@ AGGREGATE_COMMAND = [
 ]
 
 MUTATIONS = [
+    (
+        "state update skips verification of the old value blob",
+        TRANSITION,
+        [(
+            "            load_checked_value(self.source, self.domain, value_hash)?;\n",
+            "            // MUTANT: old value verification intentionally omitted.\n",
+        )],
+        STATE_COMMAND,
+        "same_value_put_rejects_missing_old_value_blob",
+    ),
+    (
+        "proof verifier trusts another decode domain's canonicality",
+        PROOF,
+        [(
+            "            let sibling = proof.siblings[sibling_index];\n"
+            "            if sibling == empty[depth + 1] {\n",
+            "            let sibling = proof.siblings[sibling_index];\n"
+            "            if false && sibling == empty[depth + 1] {\n",
+        )],
+        STATE_COMMAND,
+        "verification_rejects_default_sibling_for_its_own_domain",
+    ),
+    (
+        "internal branch hash omits depth",
+        HASH,
+        [(
+            "    payload.extend_from_slice(&depth.to_le_bytes());\n",
+            "    // MUTANT: depth intentionally omitted.\n",
+        )],
+        STATE_COMMAND,
+        "literal_vectors_pin_path_value_empty_and_one_leaf_roots",
+    ),
+    (
+        "present empty value becomes deletion",
+        TRANSITION,
+        [(
+            "                Some(bytes) => {\n",
+            "                Some(bytes) if bytes.is_empty() => PreparedValue::Delete,\n"
+            "                Some(bytes) => {\n",
+        )],
+        STATE_COMMAND,
+        "present_empty_value_survives_transition_and_proof",
+    ),
+    (
+        "proof decoder accepts redundant default sibling",
+        PROOF,
+        [(
+            "            let sibling = Hash256::from_bytes(hash_bytes);\n"
+            "            if sibling == empty[depth + 1] {\n",
+            "            let sibling = Hash256::from_bytes(hash_bytes);\n"
+            "            if false && sibling == empty[depth + 1] {\n",
+        )],
+        STATE_COMMAND,
+        "proof_decoder_rejects_malformed_and_redundant_default_siblings",
+    ),
+    (
+        "aggregate accepts unsorted and duplicate domain ids",
+        AGGREGATE,
+        [
+            ("            if left == right {\n", "            if false && left == right {\n"),
+            ("            if left > right {\n", "            if false && left > right {\n"),
+        ],
+        AGGREGATE_COMMAND,
+        "aggregate_rejects_empty_malformed_oversized_unsorted_and_duplicate_domains",
+    ),
+    (
+        "proof verification substitutes WASM for supplied domain",
+        PROOF,
+        [(
+            "    let path = path_key(domain, key)?;\n",
+            "    let domain = CommitmentDomainId::Wasm;\n"
+            "    let path = path_key(domain, key)?;\n",
+        )],
+        STATE_COMMAND,
+        "proof_verification_binds_domain_key_value_and_root",
+    ),
     (
         "path-key hash omits commitment domain",
         HASH,
@@ -42,8 +118,8 @@ MUTATIONS = [
         "path traversal becomes LSB-first",
         HASH,
         [(
-            "    Ok((byte & (0x80 >> (depth % 8))) != 0)\n",
-            "    Ok((byte & (0x01 << (depth % 8))) != 0)\n",
+            "    (byte & (0x80 >> (depth % 8))) != 0\n",
+            "    (byte & (0x01 << (depth % 8))) != 0\n",
         )],
         STATE_COMMAND,
         "path_bits_are_msb_first_at_frozen_boundaries",
@@ -161,7 +237,21 @@ def assert_clean(label, command):
         raise SystemExit(f"Clean {label} baseline failed:\n{result.stdout}")
 
 
+def assert_clean_checkout():
+    result = run(["git", "status", "--porcelain", "--untracked-files=all"])
+    if result.returncode != 0 or result.stdout.strip():
+        raise SystemExit("Mutation gate requires a clean checkout:\n" + result.stdout)
+
+
+def assert_restored(originals):
+    for path, original in originals.items():
+        if path.read_bytes() != original:
+            raise SystemExit(f"Mutation source was not restored: {path.relative_to(ROOT)}")
+    assert_clean_checkout()
+
+
 def main():
+    assert_clean_checkout()
     originals = {
         path: path.read_bytes()
         for path in {mutation[1] for mutation in MUTATIONS}
@@ -182,6 +272,7 @@ def main():
             if (
                 result.returncode != 101
                 or f"test {test} ... FAILED" not in result.stdout
+                or "test result: FAILED. 0 passed; 1 failed;" not in result.stdout
                 or "error[E" in result.stdout
             ):
                 raise SystemExit(
@@ -190,9 +281,11 @@ def main():
             print(f"KILLED: {name} — {test}", flush=True)
         finally:
             path.write_bytes(originals[path])
+            assert_restored(originals)
 
     assert_clean("restored contract-state", STATE_COMMAND)
     assert_clean("restored state-commitment", AGGREGATE_COMMAND)
+    assert_restored(originals)
     print(
         f"{len(MUTATIONS)}/{len(MUTATIONS)} mutations killed; restored clean suites passed",
         flush=True,

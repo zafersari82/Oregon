@@ -28,9 +28,7 @@ impl StateNode {
                     return Err(StateError::DepthOutOfRange(*depth as usize));
                 }
                 let empty = empty_hashes(domain);
-                if *left == empty[*depth as usize + 1]
-                    && *right == empty[*depth as usize + 1]
-                {
+                if *left == empty[*depth as usize + 1] && *right == empty[*depth as usize + 1] {
                     return Err(StateError::NonCanonicalEmptyBranch(*depth));
                 }
                 branch_hash(domain, *depth, *left, *right)

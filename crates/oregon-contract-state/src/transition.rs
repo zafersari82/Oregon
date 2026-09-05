@@ -3,8 +3,11 @@ use std::collections::BTreeMap;
 use oregon_primitives::Hash256;
 use oregon_primitives::state_commitment::CommitmentDomainId;
 
+use crate::hash::path_bit_unchecked;
 use crate::source::{StateSource, load_checked_node, load_checked_value};
-use crate::{SMT_DEPTH, StateError, StateNode, empty_hashes, leaf_hash, path_bit, path_key, value_hash};
+use crate::{
+    SMT_DEPTH, StateError, StateNode, empty_hashes, leaf_hash, path_bit, path_key, value_hash,
+};
 
 pub const MAX_STATE_WRITE_SET_ENTRIES: usize = 65_536;
 
@@ -160,8 +163,8 @@ pub fn read_value<S: StateSource + ?Sized>(
     let empty = empty_hashes(snapshot.domain);
     let mut current = snapshot.root;
 
-    for depth in 0..SMT_DEPTH {
-        if current == empty[depth] {
+    for (depth, empty_at_depth) in empty.iter().take(SMT_DEPTH).enumerate() {
+        if current == *empty_at_depth {
             return Ok(None);
         }
         let node = load_checked_node(source, snapshot.domain, current, depth)?;
@@ -282,6 +285,7 @@ impl<S: StateSource + ?Sized> TransitionBuilder<'_, S> {
                     actual: actual_path,
                 });
             }
+            load_checked_value(self.source, self.domain, value_hash)?;
             Some(value_hash)
         };
 
@@ -319,9 +323,4 @@ impl<S: StateSource + ?Sized> TransitionBuilder<'_, S> {
         self.values.entry(hash).or_insert_with(|| value.to_vec());
         Ok(())
     }
-}
-
-fn path_bit_unchecked(path: Hash256, depth: usize) -> bool {
-    let byte = path.as_bytes()[depth / 8];
-    (byte & (0x80 >> (depth % 8))) != 0
 }

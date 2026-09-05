@@ -10,8 +10,7 @@ use crate::{
 pub const SMT_PROOF_VERSION: u16 = 1;
 pub const SMT_PROOF_BITMAP_BYTES: usize = 32;
 pub const MAX_SMT_SIBLINGS: usize = 256;
-pub const MAX_SMT_PROOF_BYTES: usize =
-    2 + SMT_PROOF_BITMAP_BYTES + MAX_SMT_SIBLINGS * 32;
+pub const MAX_SMT_PROOF_BYTES: usize = 2 + SMT_PROOF_BITMAP_BYTES + MAX_SMT_SIBLINGS * 32;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SparseMerkleProofV1 {
@@ -182,7 +181,11 @@ pub fn verify_proof(
                 return Err(StateError::MalformedProof);
             }
             sibling_index -= 1;
-            proof.siblings[sibling_index]
+            let sibling = proof.siblings[sibling_index];
+            if sibling == empty[depth + 1] {
+                return Err(StateError::RedundantDefaultSibling(depth));
+            }
+            sibling
         } else {
             empty[depth + 1]
         };

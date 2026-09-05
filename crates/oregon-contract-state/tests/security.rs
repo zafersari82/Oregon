@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
 use oregon_contract_state::{
-    apply_write_set, empty_hashes, path_bit, path_key, read_value, value_hash, DomainSnapshot,
-    StateError, StateNode, StateTransition, StateWrite, StateWriteSet, MAX_STATE_KEY_BYTES,
-    MAX_STATE_VALUE_BYTES, MAX_STATE_WRITE_SET_ENTRIES, SMT_DEPTH,
+    DomainSnapshot, MAX_STATE_KEY_BYTES, MAX_STATE_VALUE_BYTES, MAX_STATE_WRITE_SET_ENTRIES,
+    SMT_DEPTH, StateError, StateNode, StateTransition, StateWrite, StateWriteSet, apply_write_set,
+    empty_hashes, path_bit, path_key, read_value, value_hash,
 };
-use oregon_primitives::state_commitment::CommitmentDomainId;
 use oregon_primitives::Hash256;
+use oregon_primitives::state_commitment::CommitmentDomainId;
 use proptest::prelude::*;
 
 mod support;

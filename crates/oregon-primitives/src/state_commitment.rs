@@ -128,9 +128,7 @@ pub struct StateCommitmentSetV1 {
 }
 
 impl StateCommitmentSetV1 {
-    pub fn new(
-        descriptors: Vec<StateCommitmentDescriptor>,
-    ) -> Result<Self, StateCommitmentError> {
+    pub fn new(descriptors: Vec<StateCommitmentDescriptor>) -> Result<Self, StateCommitmentError> {
         if descriptors.is_empty() {
             return Err(StateCommitmentError::EmptyCommitmentSet);
         }

@@ -4,11 +4,11 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use oregon_contract_state::{
-    apply_write_set, branch_hash, empty_hashes, leaf_hash, path_bit, path_key, value_hash,
-    DomainSnapshot, StateWrite, StateWriteSet,
+    DomainSnapshot, StateWrite, StateWriteSet, apply_write_set, branch_hash, empty_hashes,
+    leaf_hash, path_bit, path_key, value_hash,
 };
-use oregon_primitives::state_commitment::CommitmentDomainId;
 use oregon_primitives::Hash256;
+use oregon_primitives::state_commitment::CommitmentDomainId;
 use serde::Deserialize;
 
 mod support;

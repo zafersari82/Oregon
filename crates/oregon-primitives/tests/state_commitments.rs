@@ -4,8 +4,8 @@ use std::str::FromStr;
 
 use oregon_primitives::Hash256;
 use oregon_primitives::state_commitment::{
-    CommitmentDomainId, CommitmentSchemeId, MAX_STATE_COMMITMENTS,
-    StateCommitmentDescriptor, StateCommitmentSetV1,
+    CommitmentDomainId, CommitmentSchemeId, MAX_STATE_COMMITMENTS, StateCommitmentDescriptor,
+    StateCommitmentSetV1,
 };
 use serde::Deserialize;
 
@@ -48,7 +48,11 @@ fn vectors() -> VectorFile {
     serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap()
 }
 
-fn descriptor(domain: CommitmentDomainId, scheme: CommitmentSchemeId, byte: u8) -> StateCommitmentDescriptor {
+fn descriptor(
+    domain: CommitmentDomainId,
+    scheme: CommitmentSchemeId,
+    byte: u8,
+) -> StateCommitmentDescriptor {
     StateCommitmentDescriptor::new(domain, scheme, Hash256::from_bytes([byte; 32]))
 }
 
@@ -80,7 +84,10 @@ fn descriptor_is_exactly_36_bytes_and_rejects_non_exact_input() {
     );
     let encoded = descriptor.encode();
     assert_eq!(encoded.len(), 36);
-    assert_eq!(StateCommitmentDescriptor::decode(&encoded).unwrap(), descriptor);
+    assert_eq!(
+        StateCommitmentDescriptor::decode(&encoded).unwrap(),
+        descriptor
+    );
 
     for cut in 0..36 {
         assert!(StateCommitmentDescriptor::decode(&encoded[..cut]).is_err());
@@ -104,7 +111,12 @@ fn aggregate_literal_vectors_round_trip_exactly() {
         let canonical = decode_hex(&vector.canonical_hex);
         let decoded = StateCommitmentSetV1::decode(&canonical)
             .unwrap_or_else(|error| panic!("{} failed to decode: {error}", vector.name));
-        assert_eq!(decoded.encode(), canonical, "{} canonical bytes", vector.name);
+        assert_eq!(
+            decoded.encode(),
+            canonical,
+            "{} canonical bytes",
+            vector.name
+        );
         assert_eq!(
             decoded.root(),
             Hash256::from_str(&vector.aggregate_root_hex).unwrap(),
@@ -143,8 +155,8 @@ fn aggregate_rejects_empty_malformed_oversized_unsorted_and_duplicate_domains() 
         0x22,
     );
 
-    assert!(StateCommitmentSetV1::new(vec![accounting.clone(), wasm.clone()]).is_err());
-    assert!(StateCommitmentSetV1::new(vec![wasm.clone(), wasm.clone()]).is_err());
+    assert!(StateCommitmentSetV1::new(vec![accounting, wasm]).is_err());
+    assert!(StateCommitmentSetV1::new(vec![wasm, wasm]).is_err());
 
     let mut malformed = vec![1, 0];
     malformed.extend_from_slice(&wasm.encode());

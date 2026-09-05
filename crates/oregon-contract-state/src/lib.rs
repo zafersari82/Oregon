@@ -19,6 +19,6 @@ pub use proof::{
 };
 pub use source::StateSource;
 pub use transition::{
-    MAX_STATE_WRITE_SET_ENTRIES, DomainSnapshot, StateTransition, StateWrite, StateWriteSet,
+    DomainSnapshot, MAX_STATE_WRITE_SET_ENTRIES, StateTransition, StateWrite, StateWriteSet,
     apply_write_set, read_value,
 };

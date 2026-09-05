@@ -1,9 +1,9 @@
 use oregon_contract_state::{
-    apply_write_set, empty_hashes, prove, verify_proof, DomainSnapshot, SparseMerkleProofV1,
-    StateError, StateNode, StateWrite, StateWriteSet, MAX_SMT_PROOF_BYTES,
+    DomainSnapshot, MAX_SMT_PROOF_BYTES, SparseMerkleProofV1, StateError, StateNode, StateWrite,
+    StateWriteSet, apply_write_set, empty_hashes, prove, verify_proof,
 };
-use oregon_primitives::state_commitment::CommitmentDomainId;
 use oregon_primitives::Hash256;
+use oregon_primitives::state_commitment::CommitmentDomainId;
 use proptest::prelude::*;
 
 const SINGLE_ALPHA_MEMBERSHIP_HEX: &str =
@@ -237,24 +237,28 @@ fn proof_verification_binds_domain_key_value_and_root() {
         SparseMerkleProofV1::decode(domain, &decode_hex(SINGLE_ALPHA_MEMBERSHIP_HEX)).unwrap();
 
     verify_proof(domain, b"alpha", Some(b"beta"), &proof, snapshot.root).unwrap();
-    assert!(verify_proof(
-        CommitmentDomainId::ExecutionAccounting,
-        b"alpha",
-        Some(b"beta"),
-        &proof,
-        snapshot.root,
-    )
-    .is_err());
+    assert!(
+        verify_proof(
+            CommitmentDomainId::ExecutionAccounting,
+            b"alpha",
+            Some(b"beta"),
+            &proof,
+            snapshot.root,
+        )
+        .is_err()
+    );
     assert!(verify_proof(domain, b"omega", Some(b"beta"), &proof, snapshot.root).is_err());
     assert!(verify_proof(domain, b"alpha", Some(b"gamma"), &proof, snapshot.root).is_err());
-    assert!(verify_proof(
-        domain,
-        b"alpha",
-        Some(b"beta"),
-        &proof,
-        empty_hashes(domain)[0],
-    )
-    .is_err());
+    assert!(
+        verify_proof(
+            domain,
+            b"alpha",
+            Some(b"beta"),
+            &proof,
+            empty_hashes(domain)[0],
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -266,14 +270,16 @@ fn nonmembership_proof_rejects_wrong_context_and_tampering() {
 
     assert!(verify_proof(domain, b"other", None, &proof, snapshot.root).is_err());
     assert!(verify_proof(domain, b"missing", Some(b""), &proof, snapshot.root).is_err());
-    assert!(verify_proof(
-        CommitmentDomainId::ExecutionAccounting,
-        b"missing",
-        None,
-        &proof,
-        snapshot.root,
-    )
-    .is_err());
+    assert!(
+        verify_proof(
+            CommitmentDomainId::ExecutionAccounting,
+            b"missing",
+            None,
+            &proof,
+            snapshot.root,
+        )
+        .is_err()
+    );
     assert!(verify_proof(domain, b"missing", None, &proof, empty_hashes(domain)[0],).is_err());
 
     let mut sibling_tampered = literal.clone();
