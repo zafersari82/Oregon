@@ -118,10 +118,19 @@ pub fn founder_block(config: &ChainConfig) -> Block {
 }
 
 pub fn linear_chain(config: &ChainConfig, length: u64) -> Vec<Block> {
+    linear_chain_with_nonce_offset(config, length, 0)
+}
+
+pub fn linear_chain_with_nonce_offset(
+    config: &ChainConfig,
+    length: u64,
+    nonce_offset: u64,
+) -> Vec<Block> {
     let mut blocks = Vec::with_capacity(length as usize);
     let mut previous = config.anchor_header.block_id();
     for height in 1..=length {
-        let block = block_at_height(config, previous, height);
+        let mut block = block_at_height(config, previous, height);
+        block.header.nonce = block.header.nonce.wrapping_add(nonce_offset);
         previous = block.header.block_id();
         blocks.push(block);
     }
