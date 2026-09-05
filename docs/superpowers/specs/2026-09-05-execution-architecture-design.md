@@ -90,7 +90,7 @@ Oregon will introduce a versioned canonical envelope at an explicit activation b
 The logical V1 envelope contains:
 
 - `envelope_version`
-- `chain_id`
+- one unsigned canonical `chain_id` used by both native Oregon and Ethereum-compatible EVM ingress for that network
 - `execution_domain`
 - `valid_after_height`
 - `valid_until_height`
@@ -107,6 +107,8 @@ All common fields and the domain discriminator are part of the Oregon signing/au
 
 The envelope is a container and dispatch boundary, not a rule owner. Common validity is checked once by `oregon-execution`; payload validity is checked once by the selected authoritative domain.
 
+Ethereum transactions do not natively carry Oregon height-validity fields. Ethereum normalization therefore uses protocol-fixed neutral validity values; the adapter cannot invent a per-transaction mutable expiry that the Ethereum signer did not authorize.
+
 ### 4.1 Canonical transaction identity
 
 Oregon has one canonical internal transaction identifier derived with Oregon's domain-separated hashing from the canonical normalized envelope.
@@ -122,7 +124,7 @@ Native Oregon RPC accepts canonical Oregon envelopes.
 Ethereum-compatible RPC accepts supported standard signed Ethereum transaction formats. The adapter:
 
 1. validates the Ethereum encoding and signature under the configured EVM revision;
-2. validates Ethereum `chainId` against the Oregon EVM chain identifier;
+2. validates Ethereum `chainId` against the Oregon network's canonical `chain_id`;
 3. derives sender/nonce/fee fields exactly from the signed Ethereum transaction;
 4. commits to the exact signed source bytes/hash;
 5. deterministically normalizes the transaction into the Oregon EVM execution domain; and
@@ -142,12 +144,14 @@ The V1 internal form is logically:
 
 The 32-byte payload is interpreted only according to `kind`.
 
-Reserved V1 kinds include:
+V1 kind assignments are reserved as:
 
-- EVM account/contract
-- WASM account/contract
-- Oregon execution identity
-- protocol/system identity
+- `0x01` EVM account/contract
+- `0x02` WASM account/contract
+- `0x03` Oregon execution identity
+- `0x04` protocol/system identity
+
+Unknown kinds fail closed until activated by a protocol version.
 
 UTXO ownership remains defined by UTXO locking/spend semantics; a wallet-facing UTXO address is not silently converted into an account balance.
 
@@ -192,40 +196,44 @@ A testnet transaction cannot be replayed on mainnet merely by changing an RPC en
 
 Block execution semantics are canonical block order. Clients may execute independent transactions in parallel only when they prove the result is exactly equivalent to canonical serial order; optimization may never change consensus semantics.
 
-## 9. VM-specific metering with unified Oregon fee settlement
+## 9. VM-specific metering with one normalized Oregon weight
 
-EVM and WASM keep their native deterministic meters.
+EVM and WASM keep their native deterministic meters, while all activated universal-envelope transactions ultimately map into one normalized Oregon transaction/execution weight used for block resource accounting and the common fee market.
 
-- EVM uses the gas schedule of the explicitly activated EVM revision.
-- WASM uses a versioned Oregon WASM resource schedule covering instructions, memory growth, host calls, cryptographic operations, and state I/O.
+- Every envelope pays a deterministic base weight for canonical bytes, decoding, authorization verification, and common transaction processing.
+- Native UTXO actions add deterministic weight for inputs, outputs, witness/authorization work, and other authoritative native validation work.
+- EVM adds the gas consumed under the explicitly activated EVM revision through a fixed deterministic gas-to-weight mapping.
+- WASM adds weight under a versioned Oregon schedule covering instructions, memory growth, host calls, cryptographic operations, and state I/O.
 
-Each VM converts native consumption into a deterministic normalized `execution_weight`. The conversion schedule is versioned and consensus-visible. EVM V1 uses a fixed deterministic gas-to-weight mapping; WASM V1 uses a fixed integer-only resource-to-weight schedule established by benchmark-backed activation vectors.
+The conversion schedules are versioned and consensus-visible. They use integer arithmetic only.
 
-There is one block-level normalized execution-weight budget and bounded per-transaction budgets. VM-native safety limits remain in addition to the normalized budget. There are no permanently reserved block quotas per VM; unused capacity is not stranded by domain.
+There is one block-level normalized weight budget and bounded per-transaction budgets. VM-native safety limits remain in addition to the normalized budget. There are no permanently reserved block quotas per VM; unused capacity is not stranded by domain.
 
-Exact numeric block/transaction caps are activation parameters and must be frozen by benchmark-backed consensus vectors before the execution milestone is activated. They are not runtime-tunable settings.
+Exact numeric block/transaction caps and initial conversion constants are activation parameters and must be frozen by benchmark-backed consensus vectors before the execution milestone is activated. They are not runtime-tunable settings.
 
 ## 10. Dynamic base fee and priority fee, with no fee burn
 
-Oregon uses a deterministic dynamic base fee plus an optional priority fee for execution-weight-priced transactions.
+After universal-envelope fee activation, Oregon uses one deterministic dynamic base fee plus an optional priority fee over normalized transaction/execution weight. Native UTXO, EVM, and WASM envelope transactions therefore do not create independent fee markets.
 
 Native envelope fee fields support:
 
 - `max_fee_per_weight`
 - `max_priority_fee_per_weight`
-- `max_execution_weight`
+- `max_weight`
 
-The effective price follows the familiar capped form:
+The effective price follows the capped form:
 
 `effective_price = min(max_fee_per_weight, base_fee_per_weight + max_priority_fee_per_weight)`
 
-The base fee for a block is derived only from already-committed prior-block utilization, uses integer arithmetic, has a target utilization, and has a bounded maximum rate of change per block. It never depends on transactions in the block currently being validated.
+The base fee for a block is derived only from already-committed prior-block normalized utilization, uses integer arithmetic, has a target utilization, and has a bounded maximum rate of change per block. It never depends on transactions in the block currently being validated.
 
 **OREG fees are not burned.** Both the charged base-fee component and priority-fee component are assigned to the block producer under consensus rules.
 
 Because non-burned base fees do not inherit Ethereum's burn-based miner-incentive properties, Oregon's activation design must use a bounded adjustment rate and explicit adversarial tests for producer self-fill/base-fee manipulation. This is a security requirement, not permission to change the no-burn decision silently.
 
-Pre-execution structural/authentication failure is invalid and is not an executed fee-paying transaction. Once an included transaction passes pre-execution validation and fee escrow succeeds, execution resource consumption is charged even when contract execution reverts. Unused fee escrow is refunded deterministically.
+Pre-execution structural/authentication failure is invalid and is not an executed fee-paying transaction. Once an included transaction passes pre-execution validation and fee escrow succeeds, consumed normalized weight is charged even when contract execution reverts. Unused fee escrow is refunded deterministically.
+
+Existing M0-M6 native fee behavior remains unchanged until the explicit universal-envelope/fee activation transition.
 
 ## 11. Fee escrow and transaction rollback boundary
 
@@ -238,7 +246,7 @@ The transaction lifecycle is:
 3. reserve the maximum permitted fee from an authoritative payer source;
 4. execute in a transaction-scoped journal;
 5. commit or revert execution state according to the execution outcome;
-6. charge actual resource use from the reserved fee;
+6. charge actual normalized weight from the reserved fee;
 7. refund unused reserve; and
 8. settle block-producer fees.
 
@@ -248,25 +256,24 @@ This prevents contracts from obtaining free computation by intentionally reverti
 
 ## 12. UTXO-backed execution OREG
 
-Native OREG issuance remains owned by the UTXO domain. EVM/WASM account balances do not create a second supply authority.
+Native OREG issuance remains owned by the UTXO domain. EVM/WASM account balances are backed claims and do not create a second supply authority.
 
 Moving OREG into execution creates protocol-reserved native UTXO backing and atomically credits the selected execution account/domain. Moving OREG back debits execution balance and atomically releases equivalent value into normal spendable native UTXO output(s).
 
 Protocol-reserved execution-backing outputs cannot be spent by ordinary key authorization. They are consumed/reorganized only by the authoritative cross-domain reserve transition.
 
-The mandatory supply invariants are:
+The mandatory conservation rules are:
 
-`sum(spendable_native_utxo) + sum(protocol_execution_reserve_utxo) = issued_oreg_not_otherwise_locked_by_consensus`
+- the sum of all native UTXO amounts, including protocol execution-reserve outputs, equals the total issued OREG represented by accepted chain state because Oregon V1 has no fee burn; and
+- the sum of all execution-domain OREG balances equals the sum of protocol execution-reserve UTXO amounts.
 
-and
+Execution balances are claims on reserve backing and are never added a second time when calculating issued supply.
 
-`sum(evm_oreg_balances) + sum(wasm_oreg_balances) + sum(other_approved_execution_oreg_balances) = sum(protocol_execution_reserve_utxo)`
-
-No VM opcode, contract, RPC, bridge, oracle, or administrator can mint OREG.
+No VM opcode, contract, RPC, bridge, oracle, AI subsystem, or administrator can mint OREG.
 
 Transfers of backed OREG between EVM and WASM execution balances are explicit cross-domain transitions and do not change total reserve backing.
 
-Execution fees paid to a native block-producer output atomically reduce execution balances and corresponding protocol reserve backing by the exact paid amount while creating the equal native fee output. No supply is created or destroyed by fee settlement.
+Execution fees paid from execution balance to the block producer atomically reduce execution balance and corresponding protocol reserve backing while creating equal native block-producer UTXO value. The total native UTXO amount remains conserved. No supply is created or destroyed by fee settlement.
 
 ## 13. Domain-separated state commitments with one extensible header commitment
 
@@ -294,10 +301,10 @@ A child root remains independently provable. Light clients and bridges can prove
 
 The commitment descriptor includes a scheme id so a future explicitly activated state-tree scheme can change without inventing a second header format.
 
-### 13.1 Initial domain commitment schemes
+### 13.1 Initial domain commitment policy
 
-- EVM V1 uses Ethereum-compatible account/storage commitment semantics where required for EVM proof compatibility.
-- WASM V1 uses an Oregon domain-separated 256-bit authenticated state commitment with deterministic key encoding.
+- `EVM_COMMITMENT_V1` is selected and frozen at EVM activation with the goal of maximum supported Ethereum proof/tool compatibility. It never follows an upstream Ethereum commitment change automatically.
+- `WASM_COMMITMENT_V1` uses an Oregon domain-separated 256-bit authenticated state commitment with deterministic key encoding.
 - The Oregon aggregate commitment uses Oregon's canonical domain-separated 256-bit hashing rules.
 
 Exact trie/node encoding and proof byte format are implementation-spec details that must be frozen with golden vectors before activation; the `domain_id + scheme_id + root` container is frozen here.
@@ -314,7 +321,7 @@ The common call result is logically:
 - revert with bounded return data; or
 - deterministic trap/error code.
 
-Every call frame has its own journal checkpoint. A failed child call reverts that child frame and descendants. The calling contract may handle a returned failure according to its VM semantics. If failure propagates to the top-level transaction, all revertible execution-state changes are rolled back. Consumed execution fees remain charged.
+Every call frame has its own journal checkpoint. A failed child call reverts that child frame and descendants. The calling contract may handle a returned failure according to its VM semantics. If failure propagates to the top-level transaction, all revertible execution-state changes are rolled back. Consumed fees remain charged.
 
 The cross-VM call stack has a consensus-bounded maximum depth. A cross-VM transition never resets the remaining resource budget, caller identity, or replay context.
 
@@ -326,7 +333,7 @@ Synchronous calls inside one Oregon transaction share the transaction journal an
 
 Operations that depend on information not deterministically available during current-block execution are asynchronous by definition. This includes external bridges, external oracles, remote AI jobs, and other off-chain or cross-chain dependencies.
 
-The generic async core uses a committed outbox/inbox model. A message has a bounded canonical form containing source domain, destination domain, source sequence, emitted height, expiry policy, payload commitment, and message id.
+The generic async core uses a committed outbox/consumption model. A message has a bounded canonical form containing source domain, destination domain, source sequence, emitted height, expiry policy, payload commitment, and message id.
 
 External systems cannot call directly into consensus execution. A later Oregon transaction must present the approved proof/authorization required by the destination protocol domain and explicitly consume the message. Consumption is exactly once and is committed in state.
 
@@ -377,7 +384,7 @@ Every executed envelope produces one canonical Oregon receipt with bounded data.
 - Oregon txid;
 - execution domain;
 - success/revert/trap status;
-- normalized execution weight consumed;
+- normalized weight consumed;
 - fee charged and fee payer;
 - domain state transition commitment/reference;
 - bounded events/log commitments; and
@@ -431,7 +438,41 @@ The schedule versions at least:
 
 Unknown required versions fail closed.
 
-## 22. Security invariants
+## 22. Token, NFT, DeFi, privacy, bridge, and AI architecture defaults
+
+The following defaults prevent future feature work from rewriting the execution core.
+
+### 22.1 Tokens, NFTs, and DeFi
+
+OREG is the only protocol-level native asset and the only protocol-level fee asset in V1.
+
+Fungible tokens, NFTs, AMMs, lending, staking-like application contracts, and other DeFi protocols are implemented as audited smart-contract standards/applications on EVM or WASM, not as new built-in consensus asset types merely for convenience.
+
+EVM compatibility should support established Ethereum token/application interfaces where they fit the activated EVM revision. Oregon-native WASM standards get their own versioned interfaces without changing OREG issuance.
+
+### 22.2 Privacy
+
+Privacy is architected as an opt-in shielded execution/privacy domain, not as a silent replacement of Oregon's transparent native UTXO ledger.
+
+Entering a future privacy domain must lock/commit transparent backing under consensus; exiting must prove authorization/conservation before releasing transparent value. A privacy proof system can hide permitted transaction details but cannot create hidden OREG supply or bypass total-supply conservation.
+
+The exact proof system, disclosure model, viewing-key model, anonymity set, and policy remain a separate security specification.
+
+### 22.3 Bridges
+
+Bridge/interoperability uses the asynchronous message/proof boundary. A bridge cannot become a privileged path that mints native OREG or edits Oregon state by administrator RPC.
+
+Bridge designs should prefer cryptographic/light-client verification when feasible. Any bridge requiring an external validator/quorum/custodian trust assumption must state that assumption explicitly in its own threat model. Oregon PoW has probabilistic settlement, so each bridge specification must define its chainwork/confirmation acceptance policy rather than claiming generic instant finality.
+
+### 22.4 AI and oracles
+
+Nondeterministic AI model inference, arbitrary HTTP requests, and external oracle lookups never execute directly inside validator consensus.
+
+AI/oracle workflows use committed asynchronous jobs/messages. Validators may deterministically verify approved cryptographic proofs, signatures, quorum attestations, or committed results according to a separately approved protocol; they do not independently ask an AI model or website for consensus truth.
+
+This permits AI-agent applications while keeping block validation reproducible.
+
+## 23. Security invariants
 
 Implementation and review must preserve all of these invariants:
 
@@ -450,8 +491,11 @@ Implementation and review must preserve all of these invariants:
 13. No compatibility adapter owns a second transaction, fee, state, or fork-choice truth.
 14. Attacker-controlled counts/lengths are bounded before allocation or expensive verification.
 15. Protocol-version or commitment-scheme changes fail closed when unsupported.
+16. Contract-created tokens/NFTs cannot become native OREG or alter native issued-supply accounting.
+17. Privacy-domain transitions must preserve publicly verifiable OREG conservation even when permitted details are hidden.
+18. AI/oracle results are not consensus facts merely because an external service returned them.
 
-## 23. Required verification before activation
+## 24. Required verification before activation
 
 The execution milestone cannot be accepted without all of the following:
 
@@ -459,6 +503,7 @@ The execution milestone cannot be accepted without all of the following:
 - Ethereum normalization vectors covering supported transaction types and malformed/malleable cases;
 - authorization replay/cross-domain/cross-chain mutation tests;
 - fee escrow/revert/refund vectors;
+- normalized native/EVM/WASM weight vectors;
 - base-fee boundary and producer-manipulation adversarial tests;
 - exact UTXO reserve versus execution-balance conservation tests;
 - state commitment and proof vectors for every active domain/scheme;
@@ -473,21 +518,21 @@ The execution milestone cannot be accepted without all of the following:
 
 The existing workspace format, Clippy, rustdoc/docs, architecture scan, and all inherited M0-M6 gates remain mandatory.
 
-## 24. Explicitly deferred subsystem semantics
+## 25. Explicitly deferred subsystem semantics
 
-This design reserves integration boundaries but deliberately does not invent the following independent security models:
+This design fixes integration direction but deliberately does not invent the following independent security details without their own research/threat models:
 
-- privacy proof system and privacy policy;
-- external bridge trust/proof/finality model;
-- oracle provider/quorum/truth model;
-- AI job/result verification and payment semantics;
-- DeFi application protocols;
-- fungible/NFT token application standards; and
+- exact privacy proof system and disclosure/viewing-key policy;
+- exact external bridge proof/quorum/finality parameters;
+- exact oracle provider/quorum/truth model;
+- exact AI job/result verification and payment protocol;
+- individual DeFi application economics;
+- exact Oregon-native WASM fungible/NFT application standards; and
 - production wallet UX/key-recovery policy.
 
-Each gets its own threat model and versioned specification. They must use the execution/runtime/message/authorization/commitment boundaries defined here rather than rewriting the core.
+Each gets its own versioned specification. They must use the execution/runtime/message/authorization/commitment boundaries defined here rather than rewriting the core.
 
-## 25. Rejected architectures
+## 26. Rejected architectures
 
 The following shortcuts are rejected:
 
@@ -502,18 +547,20 @@ The following shortcuts are rejected:
 - one global nonce forced onto UTXO, EVM, and WASM;
 - 20-byte Ethereum addresses as Oregon's universal internal namespace;
 - synchronous bridge/oracle/AI callbacks into consensus;
+- nondeterministic AI inference inside block validation;
 - floating-point or host-I/O-enabled consensus WASM;
 - implicit `latest` EVM semantics;
-- runtime administrator keys that can change consensus; and
+- runtime administrator keys that can change consensus;
+- built-in protocol token/NFT/DeFi asset types when contracts can own the application rule cleanly; and
 - temporary shims that duplicate authoritative rules instead of using versioned migration.
 
-## 26. Implementation sequencing
+## 27. Implementation sequencing
 
 Implementation is decomposed so each stage can be reviewed and rejected independently without half-activating contracts:
 
 1. execution primitives and inactive universal-envelope/address/authorization types;
 2. logical contract-state and commitment framework;
-3. resource metering, fee escrow, fee-state transition, and execution-backing invariants;
+3. normalized resource metering, fee escrow, fee-state transition, and execution-backing invariants;
 4. shared deterministic runtime/call journal and async message core;
 5. EVM backend plus Ethereum-compatible normalization/RPC adapter;
 6. deterministic WASM backend;
