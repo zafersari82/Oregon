@@ -10,7 +10,8 @@ Updated: 2026-09-05 (UTC). This file records development progress; it is not an 
 - **Active continuation branch:** `work/execution-addresses-2026-09-05`, based on that design, not older main.
 - Work PR: https://github.com/zafersari82/Oregon/pull/10 (draft, depends on design PR #9).
 - **Current plan:** `docs/superpowers/plans/2026-09-05-execution-addresses.md`.
-- Current work: stage 1 address primitive only. Tests and literal vectors are written; implementation and fresh validation are pending.
+- Current work: stage 1 address primitive only. Implementation is present; green workspace CI and mutation verification are pending.
+- Test-first evidence: commit `e7bae512cbf47f17b50d9db85c12dbca3ab874da`, Rust CI run `33970929497`, job `101319185976`, failed exactly with E0432 because the `execution_address` module did not exist. This expected red result precedes implementation.
 - Baseline evidence: Oregon Rust CI run `33967114874` succeeded on design commit `ed67ccb89131970571d93911cf5553be33636e2f`.
 
 ## First action in another conversation

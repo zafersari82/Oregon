@@ -4,6 +4,7 @@ pub mod amount;
 pub mod block;
 pub mod encoding;
 pub mod error;
+pub mod execution_address;
 pub mod hash;
 pub mod merkle;
 pub mod transaction;
