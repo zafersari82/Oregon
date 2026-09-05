@@ -105,3 +105,18 @@ cargo clippy --workspace --all-targets -- -D warnings
 RandomX changes also require the architecture-vector and native full/light parity workflows. Persistence and chainstate changes retain durable-failure, recovery, reorg atomicity, depth-boundary, and pruning coverage. Mempool changes retain admission, graph-limit, eviction, stale-context, reconciliation, and atomicity coverage. M6 protocol/network/peer/sync/node changes retain architecture-boundary scans, real TCP handshake/relay/synchronization coverage, exact queue/in-flight/resource bounds, fork/lying-height resilience, timeout/stall behavior, and required security mutation evidence.
 
 The accepted checkpoint branch is never moved. `main` is updated only by a separate, explicit integration decision after all required checks pass.
+
+## 10. Platform expansion contract
+
+All work that introduces or prepares smart contracts, virtual machines, contract state, token/NFT systems, privacy, bridges, DeFi, or AI/oracle/agent capabilities must also comply with `docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md`.
+
+The following owner-approved platform decisions are frozen architecture constraints, not optional implementation preferences:
+
+1. Oregon is Multi-VM by architecture, with EVM and WASM as the first intended VM families.
+2. Oregon uses a hybrid state model: native OREG remains UTXO-based while contract execution uses a separate account/contract-state domain.
+3. Future platform transactions use one versioned Oregon universal transaction envelope with explicit execution-domain dispatch; the accepted M0-M6 transaction format remains frozen until an approved migration design activates the envelope.
+4. Oregon supports native Oregon ingress and Ethereum-compatible EVM ingress, but both converge on one authoritative Oregon execution truth; Ethereum compatibility may not create a second consensus, mempool, chain state, or fork-choice authority.
+
+These decisions may be changed only through the same versioned design, explicit owner approval, distinguishing tests/vectors, isolated implementation, verification, checkpoint, and separate `main` integration process required for other frozen behavior.
+
+A feature request, compatibility requirement, AI-agent suggestion, dependency choice, or implementation convenience is not authority to reinterpret these rules. If a future subsystem is intentionally unspecified by the Platform Architecture Contract, contributors must design and approve it before implementation rather than inferring behavior from another blockchain or framework.
