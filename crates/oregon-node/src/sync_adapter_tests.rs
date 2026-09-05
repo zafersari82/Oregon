@@ -54,7 +54,12 @@ async fn sync_adapter_reads_authoritative_values_through_bounded_core_commands()
     );
     assert!(view.body_retained(retained).await.unwrap());
     assert_eq!(view.active_id_at_height(6).await.unwrap(), None);
-    assert!(!view.body_retained(Hash256::from_bytes([0x77; 32])).await.unwrap());
+    assert!(
+        !view
+            .body_retained(Hash256::from_bytes([0x77; 32]))
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]

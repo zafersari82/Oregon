@@ -139,9 +139,7 @@ impl CoreHandle {
         receiver.await.map_err(|_| NodeQueueError::Closed)
     }
 
-    pub(crate) async fn read_preferred_header_tip(
-        &self,
-    ) -> Result<(Hash256, u64), NodeQueueError> {
+    pub(crate) async fn read_preferred_header_tip(&self) -> Result<(Hash256, u64), NodeQueueError> {
         let (response, receiver) = oneshot::channel();
         self.try_send(
             CoreCommand::PreferredHeaderTip { response },
@@ -363,8 +361,8 @@ pub(crate) fn spawn_sync_probe_worker(probe: SyncProbeState) -> CoreHandle {
                     let _ = response.send((probe.preferred.block_id, probe.preferred.height));
                 }
                 CoreCommand::ActiveIdAtHeight { height, response } => {
-                    let value = (height == probe.active_at_height.0)
-                        .then_some(probe.active_at_height.1);
+                    let value =
+                        (height == probe.active_at_height.0).then_some(probe.active_at_height.1);
                     let _ = response.send(Ok(value));
                 }
                 CoreCommand::PreferredHeaderIdAtHeight { height, response } => {
