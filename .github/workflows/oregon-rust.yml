@@ -113,7 +113,7 @@ jobs:
       - name: Execution address contracts
         run: cargo +1.85.0 test --locked -p oregon-primitives --test execution_addresses
       - name: Execution envelope contracts
-        run: cargo +1.85.0 test --locked -p oregon-primitives --test execution_envelopes --test execution_envelope_security
+        run: cargo +1.85.0 test --locked -p oregon-primitives --test execution_envelopes --test execution_envelope_security --test execution_envelope_canonical --test execution_envelope_golden_hashes
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Execution address mutation gates
