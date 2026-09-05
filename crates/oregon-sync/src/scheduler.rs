@@ -88,14 +88,18 @@ impl BlockScheduler {
             if self.in_flight.contains_key(&block_id)
                 || self.buffered.contains_key(&block_id)
                 || self.stalled.contains(&block_id)
-                || self.attempts.get(&block_id).is_some_and(|attempts| *attempts >= MAX_BLOCK_ATTEMPTS)
+                || self
+                    .attempts
+                    .get(&block_id)
+                    .is_some_and(|attempts| *attempts >= MAX_BLOCK_ATTEMPTS)
             {
                 continue;
             }
 
-            let Some(peer) = eligible.iter().find(|peer| {
-                self.in_flight_for_peer(peer.peer_id) < MAX_IN_FLIGHT_BLOCKS_PEER
-            }) else {
+            let Some(peer) = eligible
+                .iter()
+                .find(|peer| self.in_flight_for_peer(peer.peer_id) < MAX_IN_FLIGHT_BLOCKS_PEER)
+            else {
                 break;
             };
 
@@ -154,8 +158,13 @@ impl BlockScheduler {
         if self.buffered.len() >= MAX_BUFFERED_BLOCKS {
             return Err(SyncError::BufferFull);
         }
-        self.buffered
-            .insert(block_id, BufferedBlock { source: peer_id, block });
+        self.buffered.insert(
+            block_id,
+            BufferedBlock {
+                source: peer_id,
+                block,
+            },
+        );
 
         let mut actions = Vec::new();
         while self.next_submit < self.targets.len() {

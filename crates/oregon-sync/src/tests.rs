@@ -7,10 +7,9 @@ use oregon_peer::{PeerId, PerformanceSnapshot};
 use oregon_primitives::{Block, BlockHeader, Hash256};
 
 use crate::{
-    BlockScheduler, ChainSyncView, SyncAction, SyncPeer, SyncTip, SyncViewError,
-    MAX_BLOCK_ATTEMPTS, MAX_BUFFERED_BLOCKS, MAX_IN_FLIGHT_BLOCKS_GLOBAL,
-    MAX_IN_FLIGHT_BLOCKS_PEER, build_locator, highest_locator_hit, locator_heights,
-    validate_headers_response,
+    BlockScheduler, ChainSyncView, MAX_BLOCK_ATTEMPTS, MAX_BUFFERED_BLOCKS,
+    MAX_IN_FLIGHT_BLOCKS_GLOBAL, MAX_IN_FLIGHT_BLOCKS_PEER, SyncAction, SyncPeer, SyncTip,
+    SyncViewError, build_locator, highest_locator_hit, locator_heights, validate_headers_response,
 };
 
 fn hash_for_height(height: u64) -> Hash256 {
@@ -135,7 +134,10 @@ fn peer(id: u64, timeouts: u64, latency_ms: u64, sync_eligible: bool) -> SyncPee
 #[test]
 fn locator_uses_ten_linear_entries_then_exponential_steps_and_anchor() {
     let heights = locator_heights(1_000);
-    assert_eq!(&heights[..10], &[1000, 999, 998, 997, 996, 995, 994, 993, 992, 991]);
+    assert_eq!(
+        &heights[..10],
+        &[1000, 999, 998, 997, 996, 995, 994, 993, 992, 991]
+    );
     assert_eq!(&heights[10..13], &[989, 985, 977]);
     assert_eq!(heights.last(), Some(&0));
     assert!(heights.len() <= 64);
@@ -160,7 +162,12 @@ fn highest_locator_hit_prefers_highest_authoritative_path_height() {
     let unknown = Hash256::from_bytes([0xee; 32]);
     let h99 = hash_for_height(99);
     let h90 = hash_for_height(90);
-    let local = vec![(0, hash_for_height(0)), (90, h90), (99, h99), (100, hash_for_height(100))];
+    let local = vec![
+        (0, hash_for_height(0)),
+        (90, h90),
+        (99, h99),
+        (100, hash_for_height(100)),
+    ];
     assert_eq!(
         highest_locator_hit(&[unknown, h90, h99], &local),
         Some((99, h99))
@@ -242,16 +249,34 @@ fn timeout_releases_ownership_and_third_failed_attempt_stalls_target() {
     let mut scheduler = BlockScheduler::new(vec![block_id]).unwrap();
 
     let first = scheduler.schedule(&[peer(1, 0, 10, true), peer(2, 0, 20, true)]);
-    assert!(matches!(first.as_slice(), [SyncAction::RequestBlock { peer_id: PeerId(1), .. }]));
+    assert!(matches!(
+        first.as_slice(),
+        [SyncAction::RequestBlock {
+            peer_id: PeerId(1),
+            ..
+        }]
+    ));
     assert!(scheduler.on_timeout(PeerId(1), block_id).is_empty());
     assert_eq!(scheduler.in_flight_len(), 0);
 
     let second = scheduler.schedule(&[peer(1, 1, 10, true), peer(2, 0, 20, true)]);
-    assert!(matches!(second.as_slice(), [SyncAction::RequestBlock { peer_id: PeerId(2), .. }]));
+    assert!(matches!(
+        second.as_slice(),
+        [SyncAction::RequestBlock {
+            peer_id: PeerId(2),
+            ..
+        }]
+    ));
     assert!(scheduler.on_timeout(PeerId(2), block_id).is_empty());
 
     let third = scheduler.schedule(&[peer(1, 1, 10, true), peer(2, 1, 20, true)]);
-    assert!(matches!(third.as_slice(), [SyncAction::RequestBlock { peer_id: PeerId(1), .. }]));
+    assert!(matches!(
+        third.as_slice(),
+        [SyncAction::RequestBlock {
+            peer_id: PeerId(1),
+            ..
+        }]
+    ));
     assert_eq!(
         scheduler.on_timeout(PeerId(1), block_id),
         vec![SyncAction::Stalled { block_id }]
