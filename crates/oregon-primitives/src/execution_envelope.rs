@@ -422,10 +422,8 @@ fn validate_authorizations(
         return Err(ExecutionEnvelopeError::MissingPrincipalAuthorization);
     }
 
-    if authorizations.len() == 2 {
-        if authorizations[1].scope != AuthorizationScope::FeePayer {
-            return Err(ExecutionEnvelopeError::DuplicateAuthorizationScope);
-        }
+    if authorizations.len() == 2 && authorizations[1].scope != AuthorizationScope::FeePayer {
+        return Err(ExecutionEnvelopeError::DuplicateAuthorizationScope);
     }
 
     let has_fee_payer_authorization = authorizations
