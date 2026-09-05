@@ -1,13 +1,20 @@
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::ThreadId;
 
+use oregon_chainstate::{ChainConfig, ChainState};
+use oregon_consensus::{ConsensusParams, Target};
+use oregon_mempool::MempoolConfig;
+use oregon_network::TcpTransport;
 use oregon_primitives::{BlockHeader, Hash256, Transaction};
+use oregon_sync::ChainSyncView;
 use oregon_utxo::{SpendVerifier, UtxoEntry, UtxoError};
 
-use crate::NodeQueueError;
 use crate::core::{
     HEADER_VALIDATION_SLICE, MAX_CORE_COMMAND_BYTES, MAX_CORE_COMMANDS, spawn_core,
     spawn_probe_worker, test_core_channel,
 };
+use crate::{NodeQueueError, OregonNode};
 
 struct NeverVerify;
 
@@ -20,6 +27,66 @@ impl SpendVerifier for NeverVerify {
     ) -> Result<(), UtxoError> {
         unreachable!("constructor contract does not execute spend verification")
     }
+}
+
+struct TestDir(PathBuf);
+
+impl TestDir {
+    fn scoped(label: &str) -> Self {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "oregon-node-core-{label}-{}-{n}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&path).unwrap();
+        Self(path)
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TestDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn chain_config() -> ChainConfig {
+    let target = Target::from_le_bytes([0xff; 32]).unwrap();
+    let genesis_timestamp = 1_800_000_000;
+    ChainConfig {
+        anchor_header: BlockHeader {
+            version: 1,
+            previous_block: Hash256::from_bytes([0; 32]),
+            transaction_root: Hash256::from_bytes([0x22; 32]),
+            timestamp: genesis_timestamp,
+            difficulty_commitment: target.to_le_bytes(),
+            nonce: 7,
+        },
+        genesis_timestamp,
+        params: ConsensusParams::new(target, target, [0x42; 32]).unwrap(),
+    }
+}
+
+fn valid_headers(config: &ChainConfig, length: u64) -> Vec<BlockHeader> {
+    let mut headers = Vec::with_capacity(length as usize);
+    let mut previous = config.anchor_header.block_id();
+    for height in 1..=length {
+        let header = BlockHeader {
+            version: 1,
+            previous_block: previous,
+            transaction_root: Hash256::from_bytes([height as u8; 32]),
+            timestamp: config.genesis_timestamp + 300 * height,
+            difficulty_commitment: config.params.initial_target.to_le_bytes(),
+            nonce: 1_000 + height,
+        };
+        previous = header.block_id();
+        headers.push(header);
+    }
+    headers
 }
 
 fn header(nonce: u64) -> BlockHeader {
@@ -112,6 +179,31 @@ fn header_validation_slice_accepts_sixteen_and_rejects_seventeen() {
         handle.try_send_headers((0..=HEADER_VALIDATION_SLICE as u64).map(header).collect()),
         Err(NodeQueueError::HeaderBatchTooLarge)
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn node_splits_remote_header_batch_into_core_slices() {
+    let dir = TestDir::scoped("header-slicing");
+    let config = chain_config();
+    let state = ChainState::open(dir.path(), config.clone()).unwrap();
+    let node = OregonNode::new(
+        state,
+        MempoolConfig::default(),
+        NeverVerify,
+        TcpTransport,
+    )
+    .await
+    .unwrap();
+    let headers = valid_headers(&config, HEADER_VALIDATION_SLICE as u64 + 1);
+    let expected_tip = headers.last().unwrap().block_id();
+
+    let results = node.submit_headers(headers).await.unwrap();
+    assert_eq!(results.len(), HEADER_VALIDATION_SLICE + 1);
+    assert!(results.iter().all(Result::is_ok));
+
+    let preferred = node.sync_view().preferred_header_tip().await.unwrap();
+    assert_eq!(preferred.height, (HEADER_VALIDATION_SLICE + 1) as u64);
+    assert_eq!(preferred.block_id, expected_tip);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
