@@ -130,6 +130,8 @@ jobs:
         run: cargo +1.85.0 test --locked -p oregon-primitives --test execution_envelopes --test execution_envelope_security --test execution_envelope_canonical --test execution_envelope_golden_hashes
       - name: State commitment contracts
         run: cargo +1.85.0 test --locked -p oregon-primitives --test state_commitments
+      - name: Contract state SMT contracts (RED shell)
+        run: cargo +1.85.0 test --manifest-path crates/oregon-contract-state/Cargo.toml --test smt_vectors
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Execution address mutation gates

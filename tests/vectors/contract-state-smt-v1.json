@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "domains": [
+    {
+      "name": "wasm",
+      "domain_id": 17,
+      "empty_root_hex": "2e2548d81608fc4b9fac09bca84aa5a16ce1ffae1f88e12dbb5d8e5171f1aa3b",
+      "present_empty_value_hash_hex": "5782df2092eed9a5b4a3229552eabf7f146fc3c60f15fc6aab9b55bbed0ed8c7",
+      "entries": [
+        {
+          "key_hex": "616c706861",
+          "value_hex": "62657461",
+          "path_key_hex": "98961e3d88d81a21ec17b8df6c20f0d45381977882bab997c680c5e4c2acfd3a",
+          "value_hash_hex": "dc2a7fad44d5e402dae916da08dd85ae90af393e15c5daf83d43b95bc793f076",
+          "one_leaf_root_hex": "3f61d102884e3577cccc9523f2178d76ebb597824c4f147669c1969a237b5553"
+        },
+        {
+          "key_hex": "6f6d656761",
+          "value_hex": "7a657461",
+          "path_key_hex": "b7c2ed38090fbcedf1a13134b6c95e5198eb598028134e0a76e5b78031735370",
+          "value_hash_hex": "dad0ae9a25d1bdb927cc7ce10543d1a0c52f2eac29cff048b18b9cc263ef3416"
+        },
+        {
+          "key_hex": "6b3338303733",
+          "value_hex": "7468657461",
+          "path_key_hex": "9896a4d46fd2c81a0e34abea72435598af1c113bac6fa49d8ab56c0bfac79b54",
+          "value_hash_hex": "40c24a054b2f6f5e785de9fc69c969736eacf3d438859f8d91d51ee685b436e4"
+        }
+      ],
+      "state_roots": {
+        "alpha_beta_omega_zeta": "0f44ec4ed4f99c010d6fb82e5f4afaf0513949bf3bddbc8022c56206b02fbb41",
+        "alpha_beta_k38073_theta": "04a7764c5cc1df20cc93fd4ed8dc6dadb27926e7732d810baf821e2d1dfdb6b1",
+        "alpha_beta_omega_zeta_k38073_theta": "ee09454eedb8dd58068cf5d3ba26eaa68e4201a23e1e34cf12bd785806323a1d",
+        "alpha_gamma": "ef26ec879a11d1a0e48a1649eeab4ef917783dbee4f6f87aa443b67d626123da"
+      },
+      "proofs": {
+        "single_alpha_membership_hex": "01000000000000000000000000000000000000000000000000000000000000000000",
+        "empty_missing_nonmembership_hex": "01000000000000000000000000000000000000000000000000000000000000000000",
+        "triple_alpha_membership_hex": "0100200080000000000000000000000000000000000000000000000000000000000054640ff819faf4d395c56a3980c30de67a52dadd432bc1043c6b3ec24b23fa7f3c7fca5980be2aff39ab5ff09f334615a5eebf194d8a07a64aabd2b56786e2f5",
+        "triple_missing_nonmembership_hex": "01003000000000000000000000000000000000000000000000000000000000000000d3f8e15329761de2a7ce80a1c77bad39af30ec5b629d1886719a2d4b3633163204ad4bf658c337319fbe4f3b69076ce52825b8ab98fb5c212c336c8c760ba34d"
+      }
+    },
+    {
+      "name": "execution_accounting",
+      "domain_id": 32,
+      "empty_root_hex": "a868e64b167dfc637e13d528ba91a8452d63aa6008376d00da72ad038fe89576",
+      "present_empty_value_hash_hex": "e24c4d5af5ed3cc4f09941c5b9a3bdebb9956c25348acd1def1b7ef4b9b0d696",
+      "entries": [
+        {
+          "key_hex": "616c706861",
+          "value_hex": "62657461",
+          "path_key_hex": "093f439e85317217a7a73f98e25893fa33a9e853e0d28539d3ddaccf2267c53d",
+          "value_hash_hex": "0259ed8e90d16c1a200d1b187c8c42b017cfc18def9ac1ac8ab73c4bb3b45e21",
+          "one_leaf_root_hex": "12202f56a132acdf98adccbf577e8c1c5704151a7323c3f7f1398bfe8f3ff9a4"
+        }
+      ],
+      "state_roots": {
+        "alpha_gamma": "ffd73a4b3fc3472b2d7b717c05d10368c0b7d3936fb22b4ec511982550208e2e",
+        "alpha_beta_omega_zeta": "16a773e38ee5a9964975bb8d17dd37cca6f4d0d3a8f55019766f6cb1103429a1"
+      }
+    }
+  ]
+}
