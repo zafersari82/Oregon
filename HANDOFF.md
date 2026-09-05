@@ -8,6 +8,7 @@ Updated: 2026-09-05 (UTC). This file records development progress; it is not an 
 - Accepted main when this work began: `bf7675bfe17182f77d4c43e2bcbd0c283709d799` (M0–M6 implementation plus platform architecture contract).
 - Latest approved execution design: `design/execution-architecture-v1-2026-09-05`, source commit `ed67ccb89131970571d93911cf5553be33636e2f`, PR #9. This design is newer than main and remains a separate PR.
 - **Active continuation branch:** `work/execution-addresses-2026-09-05`, based on that design, not older main.
+- Work PR: https://github.com/zafersari82/Oregon/pull/10 (draft, depends on design PR #9).
 - **Current plan:** `docs/superpowers/plans/2026-09-05-execution-addresses.md`.
 - Current work: stage 1 address primitive only. Tests and literal vectors are written; implementation and fresh validation are pending.
 - Baseline evidence: Oregon Rust CI run `33967114874` succeeded on design commit `ed67ccb89131970571d93911cf5553be33636e2f`.

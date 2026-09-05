@@ -129,19 +129,21 @@ proptest! {
     #[test]
     fn arbitrary_evm_addresses_preserve_external_identity(external in any::<[u8; 20]>()) {
         let address = ExecutionAddress::from_evm(external);
+        let bytes = address.to_bytes();
         prop_assert_eq!(address.kind(), ExecutionAddressKind::Evm);
         prop_assert_eq!(address.evm_address(), Some(external));
-        prop_assert_eq!(&address.to_bytes()[1..13], &[0; 12]);
-        prop_assert_eq!(ExecutionAddress::from_slice(&address.to_bytes()), Ok(address));
+        prop_assert_eq!(&bytes[1..13], &[0; 12]);
+        prop_assert_eq!(ExecutionAddress::from_slice(&bytes), Ok(address));
     }
 
     #[test]
     fn non_evm_namespaces_preserve_all_32_bytes(tag in 2u8..=4, payload in any::<[u8; 32]>()) {
         let kind = ExecutionAddressKind::try_from(tag).unwrap();
         let address = ExecutionAddress::new(kind, payload).unwrap();
+        let bytes = address.to_bytes();
         prop_assert_eq!(address.payload(), &payload);
-        prop_assert_eq!(&address.to_bytes()[1..], &payload);
+        prop_assert_eq!(&bytes[1..], &payload);
         prop_assert_eq!(address.evm_address(), None);
-        prop_assert_eq!(ExecutionAddress::from_slice(&address.to_bytes()), Ok(address));
+        prop_assert_eq!(ExecutionAddress::from_slice(&bytes), Ok(address));
     }
 }

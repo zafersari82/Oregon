@@ -28,6 +28,7 @@
 - Modify `crates/oregon-primitives/src/lib.rs` to expose the module only.
 - Create `crates/oregon-primitives/tests/execution_addresses.rs`.
 - Create `tests/vectors/execution-address-v1.json` with independently specified byte vectors.
+- Create `scripts/verify_execution_address_mutations.py`; extend `.github/workflows/oregon-rust.yml` with the focused contract test before the full workspace gate and mutation checks afterward.
 
 **Interfaces:**
 - `ExecutionAddressKind::{Evm, Wasm, Oregon, System}` and `TryFrom<u8>`.
