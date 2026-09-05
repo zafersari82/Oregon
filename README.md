@@ -21,7 +21,7 @@ The accepted M6 baseline includes:
 - headers-first, fork-aware synchronization with bounded per-peer/global block scheduling and timeout reassignment; and
 - node orchestration that keeps ChainState and Mempool authoritative, validates before relay, slices remote header batches, and is exercised by real loopback TCP integration/resilience tests.
 
-Accepted milestone records are under [`docs/checkpoints`](docs/checkpoints). The current engineering contract is [`docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md`](docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md). Owner-approved future platform direction is frozen separately in [`docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md`](docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md). AI coding agents must begin with [`AGENTS.md`](AGENTS.md).
+Accepted milestone records are under [`docs/checkpoints`](docs/checkpoints). The current engineering contract is [`docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md`](docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md). Owner-approved future platform direction is frozen in [`docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md`](docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md), with the detailed execution/state/fee/VM architecture frozen in [`docs/superpowers/specs/2026-09-05-execution-architecture-design.md`](docs/superpowers/specs/2026-09-05-execution-architecture-design.md). AI coding agents must begin with [`AGENTS.md`](AGENTS.md).
 
 ## Monetary design
 
@@ -46,7 +46,7 @@ Oregon now contains a tested P2P transport/session/sync foundation, but it is no
 - a production genesis block, testnet, or mainnet launch configuration; or
 - production founder keys, wallet seeds, or deployment secrets.
 
-The Platform Architecture Contract reserves Multi-VM, hybrid-state, universal-envelope, and dual-ingress direction for future versioned milestones; those capabilities are architecture decisions, not claims of current implementation.
+The architecture contracts reserve Multi-VM, hybrid-state, universal-envelope, dual-ingress, normalized fee/resource, UTXO-backed execution balance, cross-VM, async-message, and future-domain boundaries for versioned milestones. Those capabilities are architecture decisions, not claims of current implementation.
 
 Do not describe the repository as a launched cryptocurrency or production-ready node.
 
