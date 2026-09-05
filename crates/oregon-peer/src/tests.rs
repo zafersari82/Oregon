@@ -1,9 +1,6 @@
-use std::future::pending;
-use std::net::SocketAddr;
 use std::time::Duration;
 
-use async_trait::async_trait;
-use oregon_network::{NetworkError, TransportConnection};
+use oregon_network::{TcpTransport, Transport, TransportListener};
 use oregon_protocol::{FeatureSet, Hash256, Hello, HelloAck, Message};
 
 use crate::budget::{GlobalQueueBudget, PeerQueueBudget};
@@ -255,37 +252,20 @@ fn handshake_rejects_self_wrong_chain_and_ack_mismatch() {
     );
 }
 
-struct PendingConnection {
-    remote_addr: SocketAddr,
-}
-
-#[async_trait]
-impl TransportConnection for PendingConnection {
-    fn remote_addr(&self) -> SocketAddr {
-        self.remote_addr
-    }
-
-    async fn read_message(&mut self) -> Result<Message, NetworkError> {
-        pending().await
-    }
-
-    async fn write_message(&mut self, _message: &Message) -> Result<(), NetworkError> {
-        Ok(())
-    }
-
-    async fn shutdown(&mut self) -> Result<(), NetworkError> {
-        Ok(())
-    }
-}
-
 #[tokio::test(start_paused = true)]
 async fn handshake_timeout_fires_at_exact_ten_second_bound() {
-    let task = tokio::spawn(async move {
-        let mut connection = PendingConnection {
-            remote_addr: "127.0.0.1:19000".parse().unwrap(),
-        };
-        perform_handshake(&mut connection, hello([1; 16], 7)).await
-    });
+    let transport = TcpTransport;
+    let magic = [0x4f, 0x52, 0x45, 0x47];
+    let mut listener = transport
+        .bind("127.0.0.1:0".parse().unwrap(), magic)
+        .await
+        .unwrap();
+    let addr = listener.local_addr();
+    let (client, server) = tokio::join!(transport.connect(addr, magic), listener.accept());
+    let mut client = client.unwrap();
+    let _server = server.unwrap();
+
+    let task = tokio::spawn(async move { perform_handshake(&mut client, hello([1; 16], 7)).await });
     tokio::task::yield_now().await;
     tokio::time::advance(HANDSHAKE_TIMEOUT - Duration::from_millis(1)).await;
     tokio::task::yield_now().await;
