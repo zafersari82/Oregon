@@ -20,6 +20,10 @@ pub(crate) const RANDOMX_FLAG_FULL_MEM: u32 = 4;
 pub(crate) const RANDOMX_FLAG_ARGON2: u32 = 96;
 pub(crate) const RANDOMX_FLAG_V2: u32 = 128;
 
+// SAFETY: these declarations mirror the vendored RandomX C API. Callers must uphold the native
+// ownership and pointer contracts: allocations are checked for null, cache/dataset/VM lifetimes
+// are nested correctly, input/output buffers cover the lengths passed to C, and each native
+// allocation is released exactly once by the safe engine wrappers in `engine.rs`.
 unsafe extern "C" {
     pub(crate) fn randomx_get_flags() -> u32;
     pub(crate) fn randomx_alloc_cache(flags: u32) -> *mut RandomxCache;

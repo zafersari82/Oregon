@@ -11,6 +11,15 @@ on:
       - '.github/workflows/oregon-randomx-arch-vector.yml'
       - 'Cargo.lock'
       - 'Cargo.toml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/oregon-pow/**'
+      - 'crates/oregon-primitives/**'
+      - 'vendor/RandomX'
+      - '.github/workflows/oregon-randomx-arch-vector.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
 
 permissions:
   contents: read
