@@ -23,8 +23,8 @@ mod sync_adapter;
 pub use config::NodeConfig;
 use core::{CoreHandle, spawn_core};
 pub use network::{NodeNetwork, NodeNetworkError};
-use relay::{RelayState, validated_relay};
 pub use relay::ValidatedRelay;
+use relay::{RelayState, validated_relay};
 pub use sync_adapter::NodeSyncView;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
