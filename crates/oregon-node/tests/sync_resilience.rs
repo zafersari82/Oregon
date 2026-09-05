@@ -30,12 +30,12 @@ fn sync_peer(peer_id: PeerId, performance: PerformanceSnapshot) -> SyncPeer {
 
 fn requested_peer(actions: &[SyncAction], expected_block: Hash256) -> PeerId {
     assert_eq!(actions.len(), 1);
-    match actions[0] {
+    match &actions[0] {
         SyncAction::RequestBlock { peer_id, block_id } => {
-            assert_eq!(block_id, expected_block);
-            peer_id
+            assert_eq!(*block_id, expected_block);
+            *peer_id
         }
-        ref other => panic!("expected RequestBlock, got {other:?}"),
+        other => panic!("expected RequestBlock, got {other:?}"),
     }
 }
 
@@ -185,8 +185,12 @@ fn nonresponding_peer_reassigns_at_twenty_seconds_and_third_timeout_stalls() {
         scheduler.on_timeout(peer_one, target),
         vec![SyncAction::Stalled { block_id: target }]
     );
-    assert!(scheduler.schedule(&[
-        sync_peer(peer_one, requests_one.performance()),
-        sync_peer(peer_two, requests_two.performance()),
-    ]).is_empty());
+    assert!(
+        scheduler
+            .schedule(&[
+                sync_peer(peer_one, requests_one.performance()),
+                sync_peer(peer_two, requests_two.performance()),
+            ])
+            .is_empty()
+    );
 }
