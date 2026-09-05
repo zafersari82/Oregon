@@ -1,9 +1,13 @@
+use std::future::pending;
+use std::net::SocketAddr;
 use std::time::Duration;
 
+use async_trait::async_trait;
+use oregon_network::{NetworkError, TransportConnection};
 use oregon_protocol::{FeatureSet, Hash256, Hello, HelloAck, Message};
 
 use crate::budget::{GlobalQueueBudget, PeerQueueBudget};
-use crate::handshake::HandshakeMachine;
+use crate::handshake::{HandshakeMachine, perform_handshake};
 use crate::service::PendingHandshakes;
 use crate::{
     CONTROL_RESERVED_BYTES, CONTROL_RESERVED_FRAMES, Direction, HANDSHAKE_TIMEOUT,
@@ -111,6 +115,70 @@ fn global_queue_byte_cap_is_exact() {
     assert!(extra.try_reserve(QueueClass::Control, 1).unwrap().is_none());
 }
 
+#[tokio::test(start_paused = true)]
+async fn gossip_drops_when_non_control_reservation_is_full() {
+    let peer = PeerQueueBudget::new(GlobalQueueBudget::new());
+    let mut permits = Vec::new();
+    for _ in 0..(MAX_QUEUE_FRAMES_PEER - CONTROL_RESERVED_FRAMES) {
+        permits.push(
+            peer.try_reserve(QueueClass::RequiredData, 1)
+                .unwrap()
+                .expect("non-control frame fits"),
+        );
+    }
+    assert!(peer.reserve(QueueClass::Gossip, 1).await.unwrap().is_none());
+}
+
+#[tokio::test(start_paused = true)]
+async fn required_and_control_enqueue_timeout_at_exact_bound() {
+    let required_peer = PeerQueueBudget::new(GlobalQueueBudget::new());
+    let mut required_permits = Vec::new();
+    for _ in 0..(MAX_QUEUE_FRAMES_PEER - CONTROL_RESERVED_FRAMES) {
+        required_permits.push(
+            required_peer
+                .try_reserve(QueueClass::RequiredData, 1)
+                .unwrap()
+                .expect("non-control frame fits"),
+        );
+    }
+    let required_waiter = {
+        let peer = required_peer.clone();
+        tokio::spawn(async move { peer.reserve(QueueClass::RequiredData, 1).await })
+    };
+    tokio::task::yield_now().await;
+    tokio::time::advance(QUEUE_ENQUEUE_TIMEOUT - Duration::from_millis(1)).await;
+    tokio::task::yield_now().await;
+    assert!(!required_waiter.is_finished());
+    tokio::time::advance(Duration::from_millis(1)).await;
+    tokio::task::yield_now().await;
+    assert_eq!(
+        required_waiter.await.unwrap().unwrap_err(),
+        PeerError::QueueEnqueueTimeout
+    );
+
+    let control_peer = PeerQueueBudget::new(GlobalQueueBudget::new());
+    let mut control_permits = Vec::new();
+    for _ in 0..MAX_QUEUE_FRAMES_PEER {
+        control_permits.push(
+            control_peer
+                .try_reserve(QueueClass::Control, 1)
+                .unwrap()
+                .expect("control frame fits"),
+        );
+    }
+    let control_waiter = {
+        let peer = control_peer.clone();
+        tokio::spawn(async move { peer.reserve(QueueClass::Control, 1).await })
+    };
+    tokio::task::yield_now().await;
+    tokio::time::advance(QUEUE_ENQUEUE_TIMEOUT).await;
+    tokio::task::yield_now().await;
+    assert_eq!(
+        control_waiter.await.unwrap().unwrap_err(),
+        PeerError::QueueEnqueueTimeout
+    );
+}
+
 #[test]
 fn handshake_machine_requires_hello_then_matching_ack() {
     let local = hello([1; 16], 7);
@@ -185,6 +253,46 @@ fn handshake_rejects_self_wrong_chain_and_ack_mismatch() {
             .unwrap_err(),
         PeerError::AckMismatch
     );
+}
+
+struct PendingConnection {
+    remote_addr: SocketAddr,
+}
+
+#[async_trait]
+impl TransportConnection for PendingConnection {
+    fn remote_addr(&self) -> SocketAddr {
+        self.remote_addr
+    }
+
+    async fn read_message(&mut self) -> Result<Message, NetworkError> {
+        pending().await
+    }
+
+    async fn write_message(&mut self, _message: &Message) -> Result<(), NetworkError> {
+        Ok(())
+    }
+
+    async fn shutdown(&mut self) -> Result<(), NetworkError> {
+        Ok(())
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn handshake_timeout_fires_at_exact_ten_second_bound() {
+    let task = tokio::spawn(async move {
+        let mut connection = PendingConnection {
+            remote_addr: "127.0.0.1:19000".parse().unwrap(),
+        };
+        perform_handshake(&mut connection, hello([1; 16], 7)).await
+    });
+    tokio::task::yield_now().await;
+    tokio::time::advance(HANDSHAKE_TIMEOUT - Duration::from_millis(1)).await;
+    tokio::task::yield_now().await;
+    assert!(!task.is_finished());
+    tokio::time::advance(Duration::from_millis(1)).await;
+    tokio::task::yield_now().await;
+    assert_eq!(task.await.unwrap().unwrap_err(), PeerError::HandshakeTimeout);
 }
 
 #[test]
