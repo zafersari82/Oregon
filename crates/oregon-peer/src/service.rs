@@ -229,13 +229,9 @@ impl<T: Transport> PeerService<T> {
             peer.peer_id
         });
         registry.increment(direction);
-        registry.by_nonce.insert(
-            remote_nonce,
-            RegisteredPeer {
-                peer_id,
-                direction,
-            },
-        );
+        registry
+            .by_nonce
+            .insert(remote_nonce, RegisteredPeer { peer_id, direction });
 
         let established = EstablishedPeer {
             peer_id,

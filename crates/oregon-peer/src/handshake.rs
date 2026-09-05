@@ -127,10 +127,12 @@ pub(crate) async fn perform_handshake<C: TransportConnection>(
             remote: machine
                 .remote()
                 .cloned()
-                .ok_or(PeerError::HandshakeViolation("Established without remote Hello"))?,
-            negotiated: machine
-                .negotiated()
-                .ok_or(PeerError::HandshakeViolation("Established without negotiation"))?,
+                .ok_or(PeerError::HandshakeViolation(
+                    "Established without remote Hello",
+                ))?,
+            negotiated: machine.negotiated().ok_or(PeerError::HandshakeViolation(
+                "Established without negotiation",
+            ))?,
         })
     };
 

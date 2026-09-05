@@ -4,8 +4,8 @@ use tokio::sync::Notify;
 use tokio::time::{Instant, timeout_at};
 
 use crate::{
-    CONTROL_RESERVED_BYTES, CONTROL_RESERVED_FRAMES, MAX_QUEUE_BYTES_GLOBAL,
-    MAX_QUEUE_BYTES_PEER, MAX_QUEUE_FRAMES_PEER, PeerError, QUEUE_ENQUEUE_TIMEOUT, QueueClass,
+    CONTROL_RESERVED_BYTES, CONTROL_RESERVED_FRAMES, MAX_QUEUE_BYTES_GLOBAL, MAX_QUEUE_BYTES_PEER,
+    MAX_QUEUE_FRAMES_PEER, PeerError, QUEUE_ENQUEUE_TIMEOUT, QueueClass,
 };
 
 #[derive(Debug, Default)]
@@ -63,7 +63,11 @@ impl PeerQueueBudget {
             };
         }
 
-        let mut global = self.global.state.lock().expect("queue global budget poisoned");
+        let mut global = self
+            .global
+            .state
+            .lock()
+            .expect("queue global budget poisoned");
         let mut peer = self.state.lock().expect("peer queue budget poisoned");
 
         let total_fits = peer.frames < MAX_QUEUE_FRAMES_PEER
@@ -120,7 +124,11 @@ impl PeerQueueBudget {
     }
 
     fn release(&self, class: QueueClass, bytes: usize) {
-        let mut global = self.global.state.lock().expect("queue global budget poisoned");
+        let mut global = self
+            .global
+            .state
+            .lock()
+            .expect("queue global budget poisoned");
         let mut peer = self.state.lock().expect("peer queue budget poisoned");
         peer.frames = peer.frames.saturating_sub(1);
         peer.bytes = peer.bytes.saturating_sub(bytes);

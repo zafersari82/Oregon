@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use oregon_network::TransportConnection;
-use oregon_protocol::{FeatureSet, FRAME_HEADER_BYTES, Hash256, Message, encode_message};
+use oregon_protocol::{FRAME_HEADER_BYTES, FeatureSet, Hash256, Message, encode_message};
 
 use crate::budget::PeerQueueBudget;
 use crate::service::Registration;
@@ -34,8 +34,14 @@ pub enum DisconnectReason {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PeerEvent {
     Established(EstablishedPeer),
-    Message { peer_id: PeerId, message: Message },
-    Disconnected { peer_id: PeerId, reason: DisconnectReason },
+    Message {
+        peer_id: PeerId,
+        message: Message,
+    },
+    Disconnected {
+        peer_id: PeerId,
+        reason: DisconnectReason,
+    },
 }
 
 pub struct PeerSession<C: TransportConnection> {
@@ -68,11 +74,7 @@ impl<C: TransportConnection> PeerSession<C> {
         self.connection.remote_addr()
     }
 
-    pub async fn send(
-        &mut self,
-        message: &Message,
-        class: QueueClass,
-    ) -> Result<bool, PeerError> {
+    pub async fn send(&mut self, message: &Message, class: QueueClass) -> Result<bool, PeerError> {
         let (_, payload) = encode_message(message)?;
         let bytes = FRAME_HEADER_BYTES
             .checked_add(payload.len())
@@ -85,7 +87,10 @@ impl<C: TransportConnection> PeerSession<C> {
     }
 
     pub async fn read_message(&mut self) -> Result<Message, PeerError> {
-        self.connection.read_message().await.map_err(PeerError::from)
+        self.connection
+            .read_message()
+            .await
+            .map_err(PeerError::from)
     }
 
     pub async fn shutdown(&mut self) -> Result<(), PeerError> {

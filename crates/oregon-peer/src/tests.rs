@@ -18,9 +18,7 @@ fn hello(nonce: [u8; 16], chain_byte: u8) -> Hello {
         max_protocol_version: 1,
         chain_id: Hash256::from_bytes([chain_byte; 32]),
         instance_nonce: nonce,
-        offered_features: FeatureSet::HEADERS_SYNC
-            | FeatureSet::BLOCK_RELAY
-            | FeatureSet::TX_RELAY,
+        offered_features: FeatureSet::HEADERS_SYNC | FeatureSet::BLOCK_RELAY | FeatureSet::TX_RELAY,
         required_features: FeatureSet::HEADERS_SYNC,
         best_height: 7,
         best_block_id: Hash256::from_bytes([9; 32]),
@@ -110,12 +108,7 @@ fn global_queue_byte_cap_is_exact() {
         );
     }
     let extra = PeerQueueBudget::new(global);
-    assert!(
-        extra
-            .try_reserve(QueueClass::Control, 1)
-            .unwrap()
-            .is_none()
-    );
+    assert!(extra.try_reserve(QueueClass::Control, 1).unwrap().is_none());
 }
 
 #[test]
@@ -216,7 +209,10 @@ fn pending_handshake_cap_is_exact() {
     for _ in 0..MAX_PENDING_HANDSHAKES {
         guards.push(pending.acquire().unwrap());
     }
-    assert_eq!(pending.acquire().unwrap_err(), PeerError::PendingHandshakeLimit);
+    assert_eq!(
+        pending.acquire().unwrap_err(),
+        PeerError::PendingHandshakeLimit
+    );
     guards.pop();
     assert!(pending.acquire().is_ok());
 }
