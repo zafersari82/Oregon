@@ -59,7 +59,7 @@ fn decode_lower_hex(value: u8) -> Result<u8, PrimitiveError> {
     }
 }
 
-pub(crate) fn domain_hash(domain: &[u8], payload: &[u8]) -> Hash256 {
+pub fn domain_hash(domain: &[u8], payload: &[u8]) -> Hash256 {
     let mut hasher = blake3::Hasher::new();
     hasher.update(domain);
     hasher.update(payload);
