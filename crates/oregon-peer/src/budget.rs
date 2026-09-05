@@ -113,9 +113,8 @@ impl PeerQueueBudget {
         let deadline = Instant::now() + QUEUE_ENQUEUE_TIMEOUT;
         loop {
             let notified = self.global.notify.notified();
-            match self.try_reserve(class, bytes)? {
-                Some(permit) => return Ok(Some(permit)),
-                None => {}
+            if let Some(permit) = self.try_reserve(class, bytes)? {
+                return Ok(Some(permit));
             }
             if timeout_at(deadline, notified).await.is_err() {
                 return Err(PeerError::QueueEnqueueTimeout);
