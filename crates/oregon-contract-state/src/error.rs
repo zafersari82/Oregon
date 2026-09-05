@@ -21,6 +21,8 @@ pub enum StateError {
     UnexpectedLeaf,
     #[error("unexpected branch at leaf depth")]
     UnexpectedBranch,
+    #[error("state leaf path mismatch: expected {expected}, got {actual}")]
+    LeafPathMismatch { expected: Hash256, actual: Hash256 },
     #[error("missing state value {0}")]
     MissingValue(Hash256),
     #[error("state value hash mismatch for {0}")]

@@ -3,6 +3,7 @@
 mod error;
 mod hash;
 mod node;
+mod transition;
 
 pub use error::StateError;
 pub use hash::{
@@ -10,3 +11,7 @@ pub use hash::{
     path_bit, path_key, value_hash,
 };
 pub use node::StateNode;
+pub use transition::{
+    MAX_STATE_WRITE_SET_ENTRIES, DomainSnapshot, StateSource, StateTransition, StateWrite,
+    StateWriteSet, apply_write_set, read_value,
+};
