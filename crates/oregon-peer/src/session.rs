@@ -1,8 +1,7 @@
 use std::net::SocketAddr;
 
-use oregon_network::{TransportConnection};
-use oregon_protocol::{FeatureSet, Message, FRAME_HEADER_BYTES, encode_message};
-use oregon_primitives::Hash256;
+use oregon_network::TransportConnection;
+use oregon_protocol::{FeatureSet, FRAME_HEADER_BYTES, Hash256, Message, encode_message};
 
 use crate::budget::PeerQueueBudget;
 use crate::service::Registration;

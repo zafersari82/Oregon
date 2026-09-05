@@ -1,7 +1,6 @@
 use std::time::Duration;
 
-use oregon_primitives::Hash256;
-use oregon_protocol::{FeatureSet, Hello, HelloAck, Message};
+use oregon_protocol::{FeatureSet, Hash256, Hello, HelloAck, Message};
 
 use crate::budget::{GlobalQueueBudget, PeerQueueBudget};
 use crate::handshake::HandshakeMachine;

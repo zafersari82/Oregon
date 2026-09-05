@@ -19,6 +19,7 @@ pub use message::{
     GetHeaders, Hello, HelloAck, InventoryItem, InventoryKind, Message, decode_message,
     encode_message,
 };
+pub use oregon_primitives::Hash256;
 
 #[cfg(test)]
 mod tests;
