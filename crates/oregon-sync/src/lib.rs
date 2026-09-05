@@ -20,3 +20,5 @@ pub use view::{ChainSyncView, SyncTip};
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod topology_tests;
