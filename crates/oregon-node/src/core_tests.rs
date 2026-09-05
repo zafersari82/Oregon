@@ -1,11 +1,25 @@
 use std::thread::ThreadId;
 
-use oregon_primitives::{BlockHeader, Hash256};
+use oregon_primitives::{BlockHeader, Hash256, Transaction};
+use oregon_utxo::{SpendVerifier, UtxoEntry, UtxoError};
 
 use crate::core::{
     CoreSendError, HEADER_VALIDATION_SLICE, MAX_CORE_COMMAND_BYTES, MAX_CORE_COMMANDS,
-    spawn_probe_worker, test_core_channel,
+    spawn_core, spawn_probe_worker, test_core_channel,
 };
+
+struct NeverVerify;
+
+impl SpendVerifier for NeverVerify {
+    fn verify_spend(
+        &self,
+        _transaction: &Transaction,
+        _input_index: usize,
+        _prevout: &UtxoEntry,
+    ) -> Result<(), UtxoError> {
+        unreachable!("constructor contract does not execute spend verification")
+    }
+}
 
 fn header(nonce: u64) -> BlockHeader {
     BlockHeader {
@@ -16,6 +30,18 @@ fn header(nonce: u64) -> BlockHeader {
         difficulty_commitment: [0xff; 32],
         nonce,
     }
+}
+
+#[test]
+fn production_core_owner_contract_is_declared_without_dead_code_suppression() {
+    let _constructor = spawn_core::<NeverVerify>;
+    let source = include_str!("core.rs");
+    assert!(source.contains("ChainState"));
+    assert!(source.contains("Mempool"));
+    assert!(source.contains("submit_block"));
+    assert!(source.contains("submit_transaction"));
+    assert!(source.contains("spawn_blocking"));
+    assert!(!source.contains("allow(dead_code)"));
 }
 
 #[test]
