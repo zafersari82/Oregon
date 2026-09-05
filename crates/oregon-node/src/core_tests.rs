@@ -27,10 +27,7 @@ fn core_queue_has_exact_sixty_four_command_capacity() {
         handle.try_send_test_bytes(1).unwrap();
     }
     assert_eq!(receiver.len(), MAX_CORE_COMMANDS);
-    assert_eq!(
-        handle.try_send_test_bytes(1),
-        Err(CoreSendError::QueueFull)
-    );
+    assert_eq!(handle.try_send_test_bytes(1), Err(CoreSendError::QueueFull));
 }
 
 #[tokio::test]
@@ -62,10 +59,7 @@ fn failed_queue_send_releases_acquired_byte_permit() {
         handle.available_bytes(),
         MAX_CORE_COMMAND_BYTES - MAX_CORE_COMMANDS
     );
-    assert_eq!(
-        handle.try_send_test_bytes(1),
-        Err(CoreSendError::QueueFull)
-    );
+    assert_eq!(handle.try_send_test_bytes(1), Err(CoreSendError::QueueFull));
     assert_eq!(
         handle.available_bytes(),
         MAX_CORE_COMMAND_BYTES - MAX_CORE_COMMANDS
@@ -82,11 +76,7 @@ fn header_validation_slice_accepts_sixteen_and_rejects_seventeen() {
     assert_eq!(receiver.len(), 1);
 
     assert_eq!(
-        handle.try_send_headers(
-            (0..=HEADER_VALIDATION_SLICE as u64)
-                .map(header)
-                .collect()
-        ),
+        handle.try_send_headers((0..=HEADER_VALIDATION_SLICE as u64).map(header).collect()),
         Err(CoreSendError::HeaderBatchTooLarge)
     );
 }
