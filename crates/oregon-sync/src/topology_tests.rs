@@ -103,6 +103,51 @@ impl ChainSyncView for ForkedView {
     }
 }
 
+struct MaxHeightView;
+
+#[async_trait]
+impl ChainSyncView for MaxHeightView {
+    async fn active_tip(&self) -> Result<SyncTip, SyncViewError> {
+        Ok(SyncTip {
+            block_id: id(0, u64::MAX - 1),
+            height: u64::MAX - 1,
+        })
+    }
+
+    async fn preferred_header_tip(&self) -> Result<SyncTip, SyncViewError> {
+        Ok(SyncTip {
+            block_id: id(b'b', u64::MAX),
+            height: u64::MAX,
+        })
+    }
+
+    async fn active_id_at_height(&self, height: u64) -> Result<Option<Hash256>, SyncViewError> {
+        Ok((height == u64::MAX - 1).then(|| id(0, height)))
+    }
+
+    async fn preferred_header_id_at_height(
+        &self,
+        height: u64,
+    ) -> Result<Option<Hash256>, SyncViewError> {
+        Ok(match height {
+            h if h == u64::MAX - 1 => Some(id(0, h)),
+            h if h == u64::MAX => Some(id(b'b', h)),
+            _ => None,
+        })
+    }
+
+    async fn preferred_header_at_height(
+        &self,
+        _height: u64,
+    ) -> Result<Option<BlockHeader>, SyncViewError> {
+        Ok(None)
+    }
+
+    async fn body_retained(&self, _block_id: Hash256) -> Result<bool, SyncViewError> {
+        Ok(false)
+    }
+}
+
 #[test]
 fn common_height_is_highest_local_active_preferred_id_match() {
     let view = ForkedView::fixture();
@@ -115,5 +160,13 @@ fn missing_body_targets_follow_preferred_fork_and_skip_retained_bodies() {
     assert_eq!(
         block_on(missing_body_targets(&view)).unwrap(),
         vec![id(b'b', 6), id(b'b', 8)]
+    );
+}
+
+#[test]
+fn missing_body_targets_handles_maximum_preferred_height_without_overflow() {
+    assert_eq!(
+        block_on(missing_body_targets(&MaxHeightView)).unwrap(),
+        vec![id(b'b', u64::MAX)]
     );
 }
