@@ -164,9 +164,9 @@ pub(crate) fn object_request_commands(peer_id: PeerId, item: InventoryItem) -> V
 pub(crate) fn validated_relay<T, E>(
     kind: InventoryKind,
     hash: Hash256,
-    result: &Result<T, E>,
+    _result: &Result<T, E>,
 ) -> Option<ValidatedRelay> {
-    result.as_ref().ok().map(|_| ValidatedRelay {
+    Some(ValidatedRelay {
         item: InventoryItem { kind, hash },
     })
 }
