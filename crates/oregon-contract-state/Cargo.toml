@@ -1,8 +1,8 @@
 [package]
 name = "oregon-contract-state"
 version = "0.1.0"
-edition = "2024"
-rust-version = "1.85.0"
+edition.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 oregon-primitives = { path = "../oregon-primitives" }
@@ -12,6 +12,3 @@ thiserror = "2"
 proptest = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
-# Test-first RED shell only. Removed when this crate joins the root workspace.
-[workspace]
