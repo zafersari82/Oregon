@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use oregon_contract_state::{
-    DomainSnapshot, StateError, StateNode, StateSource, StateTransition, StateWrite, StateWriteSet,
-    apply_write_set, empty_hashes, read_value,
+    DomainSnapshot, SMT_DEPTH, StateError, StateNode, StateSource, StateTransition, StateWrite,
+    StateWriteSet, apply_write_set, empty_hashes, path_bit, path_key, read_value, value_hash,
 };
 use oregon_primitives::Hash256;
 use oregon_primitives::state_commitment::CommitmentDomainId;
@@ -50,6 +50,19 @@ fn empty_snapshot(domain: CommitmentDomainId) -> DomainSnapshot {
 
 fn writes(domain: CommitmentDomainId, writes: Vec<StateWrite>) -> StateWriteSet {
     StateWriteSet::new(domain, writes).unwrap()
+}
+
+fn single_alpha_transition(source: &MemorySource) -> StateTransition {
+    let domain = CommitmentDomainId::Wasm;
+    apply_write_set(
+        source,
+        empty_snapshot(domain),
+        &writes(
+            domain,
+            vec![StateWrite::put(b"alpha".to_vec(), b"beta".to_vec())],
+        ),
+    )
+    .unwrap()
 }
 
 #[test]
@@ -108,15 +121,7 @@ fn update_delete_and_read_preserve_immutable_snapshot_semantics() {
     let domain = CommitmentDomainId::Wasm;
     let mut source = MemorySource::default();
 
-    let initial = apply_write_set(
-        &source,
-        empty_snapshot(domain),
-        &writes(
-            domain,
-            vec![StateWrite::put(b"alpha".to_vec(), b"beta".to_vec())],
-        ),
-    )
-    .unwrap();
+    let initial = single_alpha_transition(&source);
     assert_eq!(
         initial.new_root,
         Hash256::from_str("3f61d102884e3577cccc9523f2178d76ebb597824c4f147669c1969a237b5553")
@@ -174,15 +179,7 @@ fn delete_absent_and_same_value_put_are_deterministic_noops() {
     assert!(deleted.nodes.is_empty());
     assert!(deleted.values.is_empty());
 
-    let initial = apply_write_set(
-        &source,
-        empty,
-        &writes(
-            domain,
-            vec![StateWrite::put(b"alpha".to_vec(), b"beta".to_vec())],
-        ),
-    )
-    .unwrap();
+    let initial = single_alpha_transition(&source);
     source.absorb(&initial);
     let snapshot = DomainSnapshot {
         domain,
@@ -246,5 +243,150 @@ fn missing_nonempty_node_is_corruption_not_empty_state() {
     assert!(matches!(
         read_value(&source, snapshot, b"alpha"),
         Err(StateError::MissingNode(hash)) if hash == bogus_root
+    ));
+}
+
+#[test]
+fn wrong_node_hash_fails_closed() {
+    let domain = CommitmentDomainId::Wasm;
+    let empty = empty_hashes(domain);
+    let mut source = MemorySource::default();
+    let requested = Hash256::from_bytes([0x11; 32]);
+    source.nodes.insert(
+        requested,
+        StateNode::Branch {
+            depth: 0,
+            left: empty[1],
+            right: Hash256::from_bytes([0x22; 32]),
+        },
+    );
+
+    let snapshot = DomainSnapshot {
+        domain,
+        root: requested,
+    };
+    assert!(matches!(
+        read_value(&source, snapshot, b"alpha"),
+        Err(StateError::NodeHashMismatch(hash)) if hash == requested
+    ));
+}
+
+#[test]
+fn wrong_branch_depth_fails_closed() {
+    let domain = CommitmentDomainId::Wasm;
+    let empty = empty_hashes(domain);
+    let mut source = MemorySource::default();
+    let node = StateNode::Branch {
+        depth: 1,
+        left: empty[2],
+        right: Hash256::from_bytes([0x33; 32]),
+    };
+    let root = node.hash(domain).unwrap();
+    source.nodes.insert(root, node);
+
+    assert!(matches!(
+        read_value(&source, DomainSnapshot { domain, root }, b"alpha"),
+        Err(StateError::NodeDepthMismatch {
+            expected: 0,
+            actual: 1
+        })
+    ));
+}
+
+#[test]
+fn leaf_at_internal_depth_fails_closed() {
+    let domain = CommitmentDomainId::Wasm;
+    let path = path_key(domain, b"alpha").unwrap();
+    let committed_value = value_hash(domain, b"beta").unwrap();
+    let leaf = StateNode::Leaf {
+        path_key: path,
+        value_hash: committed_value,
+    };
+    let root = leaf.hash(domain).unwrap();
+    let mut source = MemorySource::default();
+    source.nodes.insert(root, leaf);
+
+    assert!(matches!(
+        read_value(&source, DomainSnapshot { domain, root }, b"alpha"),
+        Err(StateError::UnexpectedLeaf)
+    ));
+}
+
+#[test]
+fn branch_at_leaf_depth_fails_closed() {
+    let domain = CommitmentDomainId::Wasm;
+    let empty = empty_hashes(domain);
+    let path = path_key(domain, b"alpha").unwrap();
+    let mut source = MemorySource::default();
+
+    let terminal_branch = StateNode::Branch {
+        depth: 0,
+        left: empty[1],
+        right: Hash256::from_bytes([0x44; 32]),
+    };
+    let mut child = terminal_branch.hash(domain).unwrap();
+    source.nodes.insert(child, terminal_branch);
+
+    for depth in (0..SMT_DEPTH).rev() {
+        let sibling = empty[depth + 1];
+        let node = if path_bit(path, depth).unwrap() {
+            StateNode::Branch {
+                depth: depth as u16,
+                left: sibling,
+                right: child,
+            }
+        } else {
+            StateNode::Branch {
+                depth: depth as u16,
+                left: child,
+                right: sibling,
+            }
+        };
+        child = node.hash(domain).unwrap();
+        source.nodes.insert(child, node);
+    }
+
+    assert!(matches!(
+        read_value(
+            &source,
+            DomainSnapshot {
+                domain,
+                root: child,
+            },
+            b"alpha",
+        ),
+        Err(StateError::UnexpectedBranch)
+    ));
+}
+
+#[test]
+fn missing_and_corrupt_value_blobs_fail_closed() {
+    let domain = CommitmentDomainId::Wasm;
+    let empty_source = MemorySource::default();
+    let transition = single_alpha_transition(&empty_source);
+    let committed_value_hash = *transition.values.keys().next().unwrap();
+
+    let mut source = MemorySource::default();
+    source.nodes.extend(
+        transition
+            .nodes
+            .iter()
+            .map(|(hash, node)| (*hash, node.clone())),
+    );
+    let snapshot = DomainSnapshot {
+        domain,
+        root: transition.new_root,
+    };
+    assert!(matches!(
+        read_value(&source, snapshot, b"alpha"),
+        Err(StateError::MissingValue(hash)) if hash == committed_value_hash
+    ));
+
+    source
+        .values
+        .insert(committed_value_hash, b"tampered".to_vec());
+    assert!(matches!(
+        read_value(&source, snapshot, b"alpha"),
+        Err(StateError::ValueHashMismatch(hash)) if hash == committed_value_hash
     ));
 }
