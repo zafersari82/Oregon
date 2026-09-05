@@ -256,7 +256,7 @@ fn handshake_rejects_self_wrong_chain_and_ack_mismatch() {
 async fn handshake_timeout_fires_at_exact_ten_second_bound() {
     let transport = TcpTransport;
     let magic = [0x4f, 0x52, 0x45, 0x47];
-    let mut listener = transport
+    let listener = transport
         .bind("127.0.0.1:0".parse().unwrap(), magic)
         .await
         .unwrap();
