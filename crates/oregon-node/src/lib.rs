@@ -117,3 +117,5 @@ mod core_tests;
 mod orchestration_tests;
 #[cfg(test)]
 mod relay_tests;
+#[cfg(test)]
+mod sync_adapter_tests;
