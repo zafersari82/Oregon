@@ -36,6 +36,30 @@ jobs:
         run: |
           set -euo pipefail
 
+          for required_contract in \
+            AGENTS.md \
+            CLAUDE.md \
+            GEMINI.md \
+            docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md \
+            docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md; do
+            if [[ ! -s "$required_contract" ]]; then
+              echo "Required architecture/agent contract is missing or empty: $required_contract" >&2
+              exit 1
+            fi
+          done
+
+          platform_contract=docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md
+          for frozen_heading in \
+            '## 2. Frozen decision A — Oregon is Multi-VM by architecture' \
+            '## 3. Frozen decision B — Oregon uses a hybrid state model' \
+            '## 4. Frozen decision C — future platform transactions use one Oregon universal envelope' \
+            '## 5. Frozen decision D — dual external ingress, single internal execution truth'; do
+            if ! rg -Fq "$frozen_heading" "$platform_contract"; then
+              echo "Frozen platform architecture decision is missing: $frozen_heading" >&2
+              exit 1
+            fi
+          done
+
           if rg -n 'DeferredTransition|from_persisted_entries|DuplicatePersistedOutpoint|oregon-task[0-9]|mod task[0-9]' crates README.md; then
             echo 'Forbidden legacy architecture symbol or task-numbered production/test path remains.' >&2
             exit 1
