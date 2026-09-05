@@ -85,25 +85,25 @@ fn per_peer_known_inventory_evicts_oldest_generation_at_exact_cap() {
     for sequence in 0..MAX_KNOWN_INVENTORY_PER_PEER as u64 {
         assert!(relay.note_peer_inventory(peer, inventory(sequence)));
     }
-    assert_eq!(relay.known_inventory_len(peer), MAX_KNOWN_INVENTORY_PER_PEER);
+    assert_eq!(
+        relay.known_inventory_len(peer),
+        MAX_KNOWN_INVENTORY_PER_PEER
+    );
     assert!(relay.peer_knows(peer, inventory(0)));
 
-    assert!(relay.note_peer_inventory(
-        peer,
-        inventory(MAX_KNOWN_INVENTORY_PER_PEER as u64)
-    ));
-    assert_eq!(relay.known_inventory_len(peer), MAX_KNOWN_INVENTORY_PER_PEER);
+    assert!(relay.note_peer_inventory(peer, inventory(MAX_KNOWN_INVENTORY_PER_PEER as u64)));
+    assert_eq!(
+        relay.known_inventory_len(peer),
+        MAX_KNOWN_INVENTORY_PER_PEER
+    );
     assert!(!relay.peer_knows(peer, inventory(0)));
-    assert!(relay.peer_knows(
-        peer,
-        inventory(MAX_KNOWN_INVENTORY_PER_PEER as u64)
-    ));
+    assert!(relay.peer_knows(peer, inventory(MAX_KNOWN_INVENTORY_PER_PEER as u64)));
 
-    assert!(!relay.note_peer_inventory(
-        peer,
-        inventory(MAX_KNOWN_INVENTORY_PER_PEER as u64)
-    ));
-    assert_eq!(relay.known_inventory_len(peer), MAX_KNOWN_INVENTORY_PER_PEER);
+    assert!(!relay.note_peer_inventory(peer, inventory(MAX_KNOWN_INVENTORY_PER_PEER as u64)));
+    assert_eq!(
+        relay.known_inventory_len(peer),
+        MAX_KNOWN_INVENTORY_PER_PEER
+    );
 }
 
 #[test]

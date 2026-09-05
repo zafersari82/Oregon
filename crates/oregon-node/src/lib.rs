@@ -105,7 +105,11 @@ where
         self.relay.relay_inventory(source_peer, peers, item)
     }
 
-    pub fn request_object_commands(&self, peer_id: PeerId, item: InventoryItem) -> Vec<PeerCommand> {
+    pub fn request_object_commands(
+        &self,
+        peer_id: PeerId,
+        item: InventoryItem,
+    ) -> Vec<PeerCommand> {
         relay::object_request_commands(peer_id, item)
     }
 
