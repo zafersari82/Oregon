@@ -1,0 +1,25 @@
+name: M6 Mutation Target
+on:
+  push:
+    branches: [mutation/m6-chain-preference]
+permissions:
+  contents: read
+jobs:
+  target:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: recursive
+      - run: rustup toolchain install 1.85.0 --profile minimal
+      - run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: oregon-rust-${{ runner.os }}-1.85.0-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            oregon-rust-${{ runner.os }}-1.85.0-
+      - run: cargo +1.85.0 test --locked -p oregon-node --test sync_resilience remote_advertised_height_cannot_override_chainstate_preferred_fork_choice
