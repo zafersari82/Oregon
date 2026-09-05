@@ -15,9 +15,11 @@ use thiserror::Error;
 mod core;
 mod orchestration;
 mod relay;
+mod sync_adapter;
 
 use core::{CoreHandle, spawn_core};
 use relay::validated_inventory;
+pub use sync_adapter::NodeSyncView;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum NodeQueueError {
@@ -78,6 +80,10 @@ where
 
     pub fn transport(&self) -> &T {
         &self.transport
+    }
+
+    pub fn sync_view(&self) -> NodeSyncView {
+        NodeSyncView::new(self.core.clone())
     }
 
     pub async fn submit_headers(

@@ -4,9 +4,12 @@ use oregon_chainstate::{
     AcceptOutcome, ChainState, ChainStateError, HeaderImportOutcome, SessionHealth,
 };
 use oregon_mempool::{AdmissionOutcome, ChainBase, Mempool, MempoolConfig, MempoolError};
-use oregon_primitives::{Block, BlockHeader, Transaction};
+use oregon_primitives::{Block, BlockHeader, Hash256, Transaction};
 use oregon_utxo::SpendVerifier;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot};
+
+#[cfg(test)]
+use oregon_sync::SyncTip;
 
 use crate::orchestration::reconcile_after_acceptance;
 use crate::{NodeQueueError, NodeTransactionError};
@@ -14,6 +17,7 @@ use crate::{NodeQueueError, NodeTransactionError};
 pub(crate) const MAX_CORE_COMMANDS: usize = 64;
 pub(crate) const MAX_CORE_COMMAND_BYTES: usize = 8 * 1024 * 1024;
 pub(crate) const HEADER_VALIDATION_SLICE: usize = 16;
+const CORE_READ_COMMAND_BYTES: usize = 1;
 
 #[derive(Clone)]
 pub(crate) struct CoreHandle {
@@ -38,6 +42,28 @@ enum CoreCommand {
     Transaction {
         transaction: Transaction,
         response: oneshot::Sender<Result<AdmissionOutcome, NodeTransactionError>>,
+    },
+    ActiveTip {
+        response: oneshot::Sender<(Hash256, u64)>,
+    },
+    PreferredHeaderTip {
+        response: oneshot::Sender<(Hash256, u64)>,
+    },
+    ActiveIdAtHeight {
+        height: u64,
+        response: oneshot::Sender<Result<Option<Hash256>, ChainStateError>>,
+    },
+    PreferredHeaderIdAtHeight {
+        height: u64,
+        response: oneshot::Sender<Result<Option<Hash256>, ChainStateError>>,
+    },
+    PreferredHeaderAtHeight {
+        height: u64,
+        response: oneshot::Sender<Result<Option<BlockHeader>, ChainStateError>>,
+    },
+    BodyRetained {
+        block_id: Hash256,
+        response: oneshot::Sender<Result<bool, ChainStateError>>,
     },
     #[cfg(test)]
     TestBytes,
@@ -103,6 +129,71 @@ impl CoreHandle {
                 response,
             },
             bytes,
+        )?;
+        receiver.await.map_err(|_| NodeQueueError::Closed)
+    }
+
+    pub(crate) async fn read_active_tip(&self) -> Result<(Hash256, u64), NodeQueueError> {
+        let (response, receiver) = oneshot::channel();
+        self.try_send(CoreCommand::ActiveTip { response }, CORE_READ_COMMAND_BYTES)?;
+        receiver.await.map_err(|_| NodeQueueError::Closed)
+    }
+
+    pub(crate) async fn read_preferred_header_tip(
+        &self,
+    ) -> Result<(Hash256, u64), NodeQueueError> {
+        let (response, receiver) = oneshot::channel();
+        self.try_send(
+            CoreCommand::PreferredHeaderTip { response },
+            CORE_READ_COMMAND_BYTES,
+        )?;
+        receiver.await.map_err(|_| NodeQueueError::Closed)
+    }
+
+    pub(crate) async fn read_active_id_at_height(
+        &self,
+        height: u64,
+    ) -> Result<Result<Option<Hash256>, ChainStateError>, NodeQueueError> {
+        let (response, receiver) = oneshot::channel();
+        self.try_send(
+            CoreCommand::ActiveIdAtHeight { height, response },
+            CORE_READ_COMMAND_BYTES,
+        )?;
+        receiver.await.map_err(|_| NodeQueueError::Closed)
+    }
+
+    pub(crate) async fn read_preferred_header_id_at_height(
+        &self,
+        height: u64,
+    ) -> Result<Result<Option<Hash256>, ChainStateError>, NodeQueueError> {
+        let (response, receiver) = oneshot::channel();
+        self.try_send(
+            CoreCommand::PreferredHeaderIdAtHeight { height, response },
+            CORE_READ_COMMAND_BYTES,
+        )?;
+        receiver.await.map_err(|_| NodeQueueError::Closed)
+    }
+
+    pub(crate) async fn read_preferred_header_at_height(
+        &self,
+        height: u64,
+    ) -> Result<Result<Option<BlockHeader>, ChainStateError>, NodeQueueError> {
+        let (response, receiver) = oneshot::channel();
+        self.try_send(
+            CoreCommand::PreferredHeaderAtHeight { height, response },
+            CORE_READ_COMMAND_BYTES,
+        )?;
+        receiver.await.map_err(|_| NodeQueueError::Closed)
+    }
+
+    pub(crate) async fn read_body_retained(
+        &self,
+        block_id: Hash256,
+    ) -> Result<Result<bool, ChainStateError>, NodeQueueError> {
+        let (response, receiver) = oneshot::channel();
+        self.try_send(
+            CoreCommand::BodyRetained { block_id, response },
+            CORE_READ_COMMAND_BYTES,
         )?;
         receiver.await.map_err(|_| NodeQueueError::Closed)
     }
@@ -201,6 +292,26 @@ fn run_core<V>(
                 };
                 let _ = response.send(result);
             }
+            CoreCommand::ActiveTip { response } => {
+                let tip = state.tip();
+                let _ = response.send((tip.block_id, tip.height));
+            }
+            CoreCommand::PreferredHeaderTip { response } => {
+                let tip = state.preferred_header_tip();
+                let _ = response.send((tip.block_id, tip.height));
+            }
+            CoreCommand::ActiveIdAtHeight { height, response } => {
+                let _ = response.send(state.active_id_at_height(height));
+            }
+            CoreCommand::PreferredHeaderIdAtHeight { height, response } => {
+                let _ = response.send(state.preferred_header_id_at_height(height));
+            }
+            CoreCommand::PreferredHeaderAtHeight { height, response } => {
+                let _ = response.send(state.preferred_header_at_height(height));
+            }
+            CoreCommand::BodyRetained { block_id, response } => {
+                let _ = response.send(state.body_retained(block_id));
+            }
             #[cfg(test)]
             CoreCommand::TestBytes => {}
             #[cfg(test)]
@@ -230,6 +341,59 @@ pub(crate) fn test_core_channel() -> (CoreHandle, mpsc::Receiver<CoreEnvelope>) 
 }
 
 #[cfg(test)]
+pub(crate) struct SyncProbeState {
+    pub(crate) active: SyncTip,
+    pub(crate) preferred: SyncTip,
+    pub(crate) active_at_height: (u64, Hash256),
+    pub(crate) preferred_at_height: (u64, Hash256),
+    pub(crate) preferred_header: (u64, BlockHeader),
+    pub(crate) retained: Hash256,
+}
+
+#[cfg(test)]
+pub(crate) fn spawn_sync_probe_worker(probe: SyncProbeState) -> CoreHandle {
+    let (handle, mut receiver) = test_core_channel();
+    drop(tokio::task::spawn_blocking(move || {
+        while let Some(envelope) = receiver.blocking_recv() {
+            match envelope.command {
+                CoreCommand::ActiveTip { response } => {
+                    let _ = response.send((probe.active.block_id, probe.active.height));
+                }
+                CoreCommand::PreferredHeaderTip { response } => {
+                    let _ = response.send((probe.preferred.block_id, probe.preferred.height));
+                }
+                CoreCommand::ActiveIdAtHeight { height, response } => {
+                    let value = (height == probe.active_at_height.0)
+                        .then_some(probe.active_at_height.1);
+                    let _ = response.send(Ok(value));
+                }
+                CoreCommand::PreferredHeaderIdAtHeight { height, response } => {
+                    let value = (height == probe.preferred_at_height.0)
+                        .then_some(probe.preferred_at_height.1);
+                    let _ = response.send(Ok(value));
+                }
+                CoreCommand::PreferredHeaderAtHeight { height, response } => {
+                    let value = (height == probe.preferred_header.0)
+                        .then(|| probe.preferred_header.1.clone());
+                    let _ = response.send(Ok(value));
+                }
+                CoreCommand::BodyRetained { block_id, response } => {
+                    let _ = response.send(Ok(block_id == probe.retained));
+                }
+                CoreCommand::ProbeThread(response) => {
+                    let _ = response.send(std::thread::current().id());
+                }
+                CoreCommand::Headers { headers, .. } => drop(headers),
+                CoreCommand::Block { block, .. } => drop(block),
+                CoreCommand::Transaction { transaction, .. } => drop(transaction),
+                CoreCommand::TestBytes => {}
+            }
+        }
+    }));
+    handle
+}
+
+#[cfg(test)]
 pub(crate) fn spawn_probe_worker() -> CoreHandle {
     let (handle, mut receiver) = test_core_channel();
     drop(tokio::task::spawn_blocking(move || {
@@ -241,7 +405,13 @@ pub(crate) fn spawn_probe_worker() -> CoreHandle {
                 CoreCommand::Headers { headers, .. } => drop(headers),
                 CoreCommand::Block { block, .. } => drop(block),
                 CoreCommand::Transaction { transaction, .. } => drop(transaction),
-                CoreCommand::TestBytes => {}
+                CoreCommand::ActiveTip { .. }
+                | CoreCommand::PreferredHeaderTip { .. }
+                | CoreCommand::ActiveIdAtHeight { .. }
+                | CoreCommand::PreferredHeaderIdAtHeight { .. }
+                | CoreCommand::PreferredHeaderAtHeight { .. }
+                | CoreCommand::BodyRetained { .. }
+                | CoreCommand::TestBytes => {}
             }
         }
     }));
