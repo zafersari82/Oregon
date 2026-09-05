@@ -1,7 +1,7 @@
 """Prove universal-envelope contract tests kill critical V1 wire mutations.
 
 Run only on a disposable CI checkout. The production source is restored after
- every mutant; mutation source must never be committed or published.
+every mutant; mutation source must never be committed or published.
 """
 
 from pathlib import Path
@@ -13,6 +13,7 @@ SOURCE = ROOT / "crates/oregon-primitives/src/execution_envelope.rs"
 COMMAND = [
     "cargo", "+1.85.0", "test", "--locked", "-p", "oregon-primitives",
     "--test", "execution_envelopes", "--test", "execution_envelope_security",
+    "--test", "execution_envelope_canonical",
 ]
 
 MUTATIONS = [
@@ -58,6 +59,21 @@ MUTATIONS = [
             "",
         )],
         "chain_and_domain_are_bound_into_native_signing_commitment",
+    ),
+    (
+        "authorization scope omitted from native signing commitment",
+        [(
+            "        for authorization in &self.authorizations {\n"
+            "            bytes.push(authorization.scope as u8);\n"
+            "            bytes.extend_from_slice(&(authorization.scheme as u16).to_le_bytes());\n"
+            "        }\n"
+            "        self.encode_payload_and_hints(&mut bytes);\n",
+            "        for authorization in &self.authorizations {\n"
+            "            bytes.extend_from_slice(&(authorization.scheme as u16).to_le_bytes());\n"
+            "        }\n"
+            "        self.encode_payload_and_hints(&mut bytes);\n",
+        )],
+        "signing_bytes_bind_fee_payer_and_authorization_scopes",
     ),
     (
         "proof bytes incorrectly included in native signing commitment",
