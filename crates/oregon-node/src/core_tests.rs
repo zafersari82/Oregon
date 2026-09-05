@@ -186,14 +186,9 @@ async fn node_splits_remote_header_batch_into_core_slices() {
     let dir = TestDir::scoped("header-slicing");
     let config = chain_config();
     let state = ChainState::open(dir.path(), config.clone()).unwrap();
-    let node = OregonNode::new(
-        state,
-        MempoolConfig::default(),
-        NeverVerify,
-        TcpTransport,
-    )
-    .await
-    .unwrap();
+    let node = OregonNode::new(state, MempoolConfig::default(), NeverVerify, TcpTransport)
+        .await
+        .unwrap();
     let headers = valid_headers(&config, HEADER_VALIDATION_SLICE as u64 + 1);
     let expected_tip = headers.last().unwrap().block_id();
 
