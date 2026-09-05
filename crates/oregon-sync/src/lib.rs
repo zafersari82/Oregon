@@ -4,6 +4,7 @@ mod error;
 mod locator;
 mod scheduler;
 mod state;
+mod topology;
 mod view;
 
 pub use error::{SyncError, SyncViewError};
@@ -16,6 +17,7 @@ pub use scheduler::{
     MAX_IN_FLIGHT_BLOCKS_PEER, SyncPeer,
 };
 pub use state::SyncAction;
+pub use topology::{find_common_height, missing_body_targets};
 pub use view::{ChainSyncView, SyncTip};
 
 #[cfg(test)]
