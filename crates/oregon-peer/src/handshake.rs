@@ -83,9 +83,7 @@ impl HandshakeMachine {
             }
             Message::Hello(_) => Err(PeerError::HandshakeViolation("unexpected Hello")),
             Message::HelloAck(_) => Err(PeerError::HandshakeViolation("unexpected HelloAck")),
-            _ if self.state != HandshakeState::Established => Err(PeerError::HandshakeViolation(
-                "application message received before Established",
-            )),
+            _ if self.state != HandshakeState::Established => Ok(None),
             _ => Err(PeerError::HandshakeViolation(
                 "handshake machine used after Established",
             )),
