@@ -23,7 +23,8 @@ mod sync_adapter;
 pub use config::NodeConfig;
 use core::{CoreHandle, spawn_core};
 pub use network::{NodeNetwork, NodeNetworkError};
-use relay::{RelayState, validated_inventory};
+use relay::{RelayState, validated_relay};
+pub use relay::ValidatedRelay;
 pub use sync_adapter::NodeSyncView;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
@@ -49,13 +50,13 @@ pub enum NodeTransactionError {
 #[derive(Debug)]
 pub struct BlockSubmission {
     pub result: Result<AcceptOutcome, ChainStateError>,
-    pub relay_inventory: Option<InventoryItem>,
+    pub relay_authorization: Option<ValidatedRelay>,
 }
 
 #[derive(Debug)]
 pub struct TransactionSubmission {
     pub result: Result<AdmissionOutcome, NodeTransactionError>,
-    pub relay_inventory: Option<InventoryItem>,
+    pub relay_authorization: Option<ValidatedRelay>,
 }
 
 pub struct OregonNode<V, T> {
@@ -101,12 +102,13 @@ where
         &mut self,
         source_peer: Option<PeerId>,
         peers: I,
-        item: InventoryItem,
+        authorization: ValidatedRelay,
     ) -> Vec<PeerCommand>
     where
         I: IntoIterator<Item = PeerId>,
     {
-        self.relay.relay_inventory(source_peer, peers, item)
+        self.relay
+            .relay_inventory(source_peer, peers, &authorization)
     }
 
     pub fn request_object_commands(
@@ -127,10 +129,10 @@ where
     pub async fn submit_block(&self, block: Block) -> Result<BlockSubmission, NodeQueueError> {
         let block_id = block.header.block_id();
         let result = self.core.submit_block(block).await?;
-        let relay_inventory = validated_inventory(InventoryKind::Block, block_id, &result);
+        let relay_authorization = validated_relay(InventoryKind::Block, block_id, &result);
         Ok(BlockSubmission {
             result,
-            relay_inventory,
+            relay_authorization,
         })
     }
 
@@ -140,10 +142,10 @@ where
     ) -> Result<TransactionSubmission, NodeQueueError> {
         let txid = transaction.txid();
         let result = self.core.submit_transaction(transaction).await?;
-        let relay_inventory = validated_inventory(InventoryKind::Transaction, txid, &result);
+        let relay_authorization = validated_relay(InventoryKind::Transaction, txid, &result);
         Ok(TransactionSubmission {
             result,
-            relay_inventory,
+            relay_authorization,
         })
     }
 }
