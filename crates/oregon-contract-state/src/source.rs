@@ -1,7 +1,7 @@
 use oregon_primitives::Hash256;
 use oregon_primitives::state_commitment::CommitmentDomainId;
 
-use crate::{SMT_DEPTH, StateError, StateNode, empty_hashes, value_hash};
+use crate::{SMT_DEPTH, StateError, StateNode, value_hash};
 
 pub trait StateSource {
     fn get_node(&self, node_hash: &Hash256) -> Result<Option<StateNode>, StateError>;
@@ -49,12 +49,4 @@ pub(crate) fn load_checked_value<S: StateSource + ?Sized>(
         return Err(StateError::ValueHashMismatch(committed_value_hash));
     }
     Ok(value)
-}
-
-pub(crate) fn is_default_child(
-    domain: CommitmentDomainId,
-    depth: usize,
-    child: Hash256,
-) -> bool {
-    empty_hashes(domain)[depth + 1] == child
 }
