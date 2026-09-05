@@ -42,7 +42,8 @@ jobs:
             GEMINI.md \
             docs/architecture/OREGON_ENGINEERING_CONSTITUTION.md \
             docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md \
-            docs/superpowers/specs/2026-09-05-execution-architecture-design.md; do
+            docs/superpowers/specs/2026-09-05-execution-architecture-design.md \
+            docs/superpowers/specs/2026-09-05-execution-envelope-wire-v1.md; do
             if [[ ! -s "$required_contract" ]]; then
               echo "Required architecture/agent contract is missing or empty: $required_contract" >&2
               exit 1
@@ -112,11 +113,13 @@ jobs:
       - name: Execution address contracts
         run: cargo +1.85.0 test --locked -p oregon-primitives --test execution_addresses
       - name: Execution envelope contracts
-        run: cargo +1.85.0 test --locked -p oregon-primitives --test execution_envelopes
+        run: cargo +1.85.0 test --locked -p oregon-primitives --test execution_envelopes --test execution_envelope_security
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Execution address mutation gates
         run: python3 scripts/verify_execution_address_mutations.py
+      - name: Execution envelope mutation gates
+        run: python3 scripts/verify_execution_envelope_mutations.py
       - name: Chainstate Rustdoc
         run: cargo +1.85.0 rustdoc --locked -p oregon-chainstate -- -D warnings
       - name: Workspace Docs
