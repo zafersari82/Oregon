@@ -84,11 +84,12 @@ fn timeout_moves_request_to_grace_and_late_response_is_not_an_offense() {
     let mut requests = RequestRegistry::default();
     requests.expect_at(key, now).unwrap();
 
-    assert!(requests.expire_at(now + RESPONSE_START_TIMEOUT - Duration::from_millis(1)).is_empty());
-    assert_eq!(
-        requests.expire_at(now + RESPONSE_START_TIMEOUT),
-        vec![key]
+    assert!(
+        requests
+            .expire_at(now + RESPONSE_START_TIMEOUT - Duration::from_millis(1))
+            .is_empty()
     );
+    assert_eq!(requests.expire_at(now + RESPONSE_START_TIMEOUT), vec![key]);
     assert_eq!(requests.performance().timeout_count, 1);
     assert_eq!(
         requests.classify_key_at(
@@ -134,9 +135,15 @@ fn non_grace_unsolicited_response_is_identified() {
 #[test]
 fn misbehavior_points_and_thresholds_are_exact() {
     let mut score = PeerScore::default();
-    assert_eq!(score.apply(Misbehavior::MalformedFrame), ScoreDecision::Continue);
+    assert_eq!(
+        score.apply(Misbehavior::MalformedFrame),
+        ScoreDecision::Continue
+    );
     assert_eq!(score.points(), 25);
-    assert_eq!(score.apply(Misbehavior::HandshakeViolation), ScoreDecision::StopSync);
+    assert_eq!(
+        score.apply(Misbehavior::HandshakeViolation),
+        ScoreDecision::StopSync
+    );
     assert_eq!(score.points(), 50);
     assert!(!score.sync_eligible());
     assert!(!score.disconnect_required());
@@ -150,7 +157,10 @@ fn misbehavior_points_and_thresholds_are_exact() {
     assert_eq!(individual.points_for(Misbehavior::InvalidBlock), 50);
 
     individual.apply(Misbehavior::InvalidHeader);
-    assert_eq!(individual.apply(Misbehavior::InvalidBlock), ScoreDecision::Disconnect);
+    assert_eq!(
+        individual.apply(Misbehavior::InvalidBlock),
+        ScoreDecision::Disconnect
+    );
     assert_eq!(individual.points(), 100);
     assert!(individual.disconnect_required());
 }
@@ -158,7 +168,10 @@ fn misbehavior_points_and_thresholds_are_exact() {
 #[test]
 fn oversized_frame_disconnects_immediately_without_score_accumulation() {
     let mut score = PeerScore::default();
-    assert_eq!(score.apply(Misbehavior::OversizedFrame), ScoreDecision::Disconnect);
+    assert_eq!(
+        score.apply(Misbehavior::OversizedFrame),
+        ScoreDecision::Disconnect
+    );
     assert_eq!(score.points(), 0);
 }
 
@@ -219,6 +232,12 @@ fn cooldown_normalizes_mapped_ipv4_and_evicts_earliest_expiry() {
         now + Duration::from_secs(2),
     );
     assert_eq!(bounded.len(), MAX_COOLDOWN_ENTRIES);
-    assert!(!bounded.contains_at(IpAddr::V6(Ipv6Addr::from(1u128)), now + Duration::from_secs(2)));
-    assert!(bounded.contains_at(IpAddr::V6(Ipv6Addr::from(2u128)), now + Duration::from_secs(2)));
+    assert!(!bounded.contains_at(
+        IpAddr::V6(Ipv6Addr::from(1u128)),
+        now + Duration::from_secs(2)
+    ));
+    assert!(bounded.contains_at(
+        IpAddr::V6(Ipv6Addr::from(2u128)),
+        now + Duration::from_secs(2)
+    ));
 }

@@ -16,9 +16,7 @@ pub use config::{
     MAX_QUEUE_BYTES_GLOBAL, MAX_QUEUE_BYTES_PEER, MAX_QUEUE_FRAMES_PEER, PeerConfig,
     QUEUE_ENQUEUE_TIMEOUT, QueueClass,
 };
-pub use cooldown::{
-    DISCONNECT_COOLDOWN, MAX_COOLDOWN_ENTRIES, CooldownTable, canonical_ip,
-};
+pub use cooldown::{CooldownTable, DISCONNECT_COOLDOWN, MAX_COOLDOWN_ENTRIES, canonical_ip};
 pub use error::PeerError;
 pub use handshake::{HandshakeState, generate_process_nonce, preferred_direction};
 pub use request::{
