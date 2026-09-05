@@ -132,9 +132,7 @@ pub fn accepted_state(dir: &TestDir, config: &ChainConfig, blocks: &[Block]) -> 
     let mut state = ChainState::open(dir.path(), config.clone()).unwrap();
     for block in blocks {
         assert_eq!(
-            state
-                .accept_block(block.clone(), &AcceptAllSpends)
-                .unwrap(),
+            state.accept_block(block.clone(), &AcceptAllSpends).unwrap(),
             AcceptOutcome::Extended
         );
     }
