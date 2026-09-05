@@ -1,4 +1,4 @@
-"""Prove execution-address rejection tests detect two fail-open mutations.
+"""Prove execution-address tests detect fail-open and namespace mutations.
 
 Run only on a disposable verification checkout. The source file is restored in
 finally even on a failed gate; mutations must never be committed or published.
@@ -17,15 +17,27 @@ COMMAND = [
 MUTATIONS = [
     (
         "unknown-kind acceptance",
-        "_ => Err(ExecutionAddressError::UnknownKind(value)),",
-        "_ => Ok(Self::Wasm),",
+        [("_ => Err(ExecutionAddressError::UnknownKind(value)),", "_ => Ok(Self::Wasm),")],
         "unknown_kinds_are_rejected_instead_of_becoming_another_namespace",
     ),
     (
         "noncanonical EVM padding acceptance",
-        "kind == ExecutionAddressKind::Evm && payload[..12].iter().any(|&byte| byte != 0)",
-        "kind == ExecutionAddressKind::Evm && false",
+        [(
+            "kind == ExecutionAddressKind::Evm && payload[..12].iter().any(|&byte| byte != 0)",
+            "kind == ExecutionAddressKind::Evm && false",
+        )],
         "nonzero_evm_padding_cannot_create_aliases",
+    ),
+    (
+        "coordinated WASM/Oregon namespace reassignment",
+        [
+            ("Wasm = 0x02,\n    Oregon = 0x03,", "Wasm = 0x03,\n    Oregon = 0x02,"),
+            (
+                "0x02 => Ok(Self::Wasm),\n            0x03 => Ok(Self::Oregon),",
+                "0x02 => Ok(Self::Oregon),\n            0x03 => Ok(Self::Wasm),",
+            ),
+        ],
+        "semantic_namespaces_use_their_frozen_wire_tags",
     ),
 ]
 
@@ -43,12 +55,14 @@ def main():
     if baseline.returncode != 0 or "test result: ok." not in baseline.stdout:
         raise SystemExit("Clean address baseline failed:\n" + baseline.stdout)
 
-    for name, old, new, test in MUTATIONS:
+    for name, edits, test in MUTATIONS:
         source = original.decode("utf-8")
-        if source.count(old) != 1:
-            raise SystemExit(f"Mutation site changed: {name}; review the mutation gate")
+        for old, new in edits:
+            if source.count(old) != 1:
+                raise SystemExit(f"Mutation site changed: {name}; review the mutation gate")
+            source = source.replace(old, new, 1)
         try:
-            SOURCE.write_text(source.replace(old, new, 1))
+            SOURCE.write_text(source)
             result = run(COMMAND + [test, "--", "--exact"])
             # A build error, timeout, missing test or unrelated suite failure is
             # not evidence that the intended security assertion killed a mutant.
@@ -65,7 +79,7 @@ def main():
     restored = run(COMMAND)
     if restored.returncode != 0 or "test result: ok." not in restored.stdout:
         raise SystemExit("Restored clean address suite failed:\n" + restored.stdout)
-    print("2/2 mutations killed; restored clean address suite passed", flush=True)
+    print(f"{len(MUTATIONS)}/{len(MUTATIONS)} mutations killed; restored clean address suite passed", flush=True)
 
 
 if __name__ == "__main__":

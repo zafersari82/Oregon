@@ -42,6 +42,23 @@ fn canonical_vectors_preserve_kind_and_every_payload_byte() {
 }
 
 #[test]
+fn semantic_namespaces_use_their_frozen_wire_tags() {
+    for (kind, tag) in [
+        (ExecutionAddressKind::Evm, 0x01),
+        (ExecutionAddressKind::Wasm, 0x02),
+        (ExecutionAddressKind::Oregon, 0x03),
+        (ExecutionAddressKind::System, 0x04),
+    ] {
+        let mut expected = [0; 33];
+        expected[0] = tag;
+        let address = ExecutionAddress::new(kind, [0; 32]).unwrap();
+        assert_eq!(address.to_bytes(), expected);
+        assert_eq!(ExecutionAddressKind::try_from(tag), Ok(kind));
+        assert_eq!(ExecutionAddress::from_slice(&expected), Ok(address));
+    }
+}
+
+#[test]
 fn unknown_kinds_are_rejected_instead_of_becoming_another_namespace() {
     for tag in 0u8..=255 {
         if (1..=4).contains(&tag) {
@@ -116,8 +133,8 @@ fn identical_payloads_in_different_namespaces_remain_distinct() {
 #[test]
 fn evm_mapping_preserves_the_external_twenty_byte_address() {
     let external = [
-        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
-        0xee, 0xff, 0x01, 0x23, 0x45, 0x67,
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee,
+        0xff, 0x01, 0x23, 0x45, 0x67,
     ];
     let expected = decode_hex("0100000000000000000000000000112233445566778899aabbccddeeff01234567");
     let address = ExecutionAddress::from_evm(external);

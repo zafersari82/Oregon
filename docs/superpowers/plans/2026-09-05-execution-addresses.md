@@ -52,7 +52,7 @@ Run `cargo +1.85.0 test --locked -p oregon-primitives --test execution_addresses
 
 - [ ] Implement the specified API using private fields, exact slice-to-array conversion and one constructor validation owner. `from_slice` delegates to `new`; EVM extraction checks the stored kind. Do not silently normalize malformed input.
 - [ ] Run the focused test and inherited workspace/format/Clippy/docs/architecture gates. Preserve exact commit/run IDs.
-- [ ] Check two deliberate security mutations: accepting unknown kinds and allowing nonzero EVM padding. Each must fail a named address rejection test, not merely fail compilation.
+- [ ] Check three deliberate security mutations: accepting unknown kinds, allowing nonzero EVM padding, and coordinated WASM/Oregon tag reassignment. Each must fail its named address contract test, not merely fail compilation.
 - [ ] Commit and publish the clean implementation branch with verified source-tree identity.
 
 ## Task 2: Discoverable continuation record
