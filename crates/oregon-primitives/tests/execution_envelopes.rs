@@ -59,9 +59,8 @@ fn literal_vectors_round_trip_exactly() {
 
     for vector in vectors {
         let bytes = decode_hex(&vector.canonical_hex);
-        let decoded = ExecutionEnvelopeV1::decode(&bytes).unwrap_or_else(|error| {
-            panic!("{} failed to decode: {error:?}", vector.name)
-        });
+        let decoded = ExecutionEnvelopeV1::decode(&bytes)
+            .unwrap_or_else(|error| panic!("{} failed to decode: {error:?}", vector.name));
         assert_eq!(decoded.encode(), bytes, "{}", vector.name);
     }
 }
@@ -132,12 +131,14 @@ fn fee_caps_reject_noncanonical_values() {
 
 #[test]
 fn authorization_outer_lengths_are_exactly_bounded() {
-    assert!(AuthorizationProof::new(
-        AuthorizationScope::Principal,
-        AuthorizationScheme::OregonSchnorrV1,
-        vec![0; 96]
-    )
-    .is_ok());
+    assert!(
+        AuthorizationProof::new(
+            AuthorizationScope::Principal,
+            AuthorizationScheme::OregonSchnorrV1,
+            vec![0; 96]
+        )
+        .is_ok()
+    );
     assert_eq!(
         AuthorizationProof::new(
             AuthorizationScope::Principal,
@@ -146,12 +147,14 @@ fn authorization_outer_lengths_are_exactly_bounded() {
         ),
         Err(ExecutionEnvelopeError::InvalidAuthorizationProofLength)
     );
-    assert!(AuthorizationProof::new(
-        AuthorizationScope::Principal,
-        AuthorizationScheme::EthereumEcdsaV1,
-        vec![0; 65]
-    )
-    .is_ok());
+    assert!(
+        AuthorizationProof::new(
+            AuthorizationScope::Principal,
+            AuthorizationScheme::EthereumEcdsaV1,
+            vec![0; 65]
+        )
+        .is_ok()
+    );
     assert_eq!(
         AuthorizationProof::new(
             AuthorizationScope::Principal,
@@ -160,18 +163,22 @@ fn authorization_outer_lengths_are_exactly_bounded() {
         ),
         Err(ExecutionEnvelopeError::InvalidAuthorizationProofLength)
     );
-    assert!(AuthorizationProof::new(
-        AuthorizationScope::Principal,
-        AuthorizationScheme::OregonThresholdV1,
-        vec![0; 1]
-    )
-    .is_ok());
-    assert!(AuthorizationProof::new(
-        AuthorizationScope::Principal,
-        AuthorizationScheme::OregonThresholdV1,
-        vec![0; MAX_AUTH_PROOF_BYTES]
-    )
-    .is_ok());
+    assert!(
+        AuthorizationProof::new(
+            AuthorizationScope::Principal,
+            AuthorizationScheme::OregonThresholdV1,
+            vec![0; 1]
+        )
+        .is_ok()
+    );
+    assert!(
+        AuthorizationProof::new(
+            AuthorizationScope::Principal,
+            AuthorizationScheme::OregonThresholdV1,
+            vec![0; MAX_AUTH_PROOF_BYTES]
+        )
+        .is_ok()
+    );
     assert_eq!(
         AuthorizationProof::new(
             AuthorizationScope::Principal,
@@ -197,7 +204,9 @@ fn fee_payer_presence_and_scope_rules_are_canonical() {
 
     let mut equal_payer = native_parts(0x20);
     equal_payer.fee_payer = Some(principal);
-    equal_payer.authorizations.push(schnorr(0x30, AuthorizationScope::FeePayer));
+    equal_payer
+        .authorizations
+        .push(schnorr(0x30, AuthorizationScope::FeePayer));
     assert_eq!(
         ExecutionEnvelopeV1::new(equal_payer),
         Err(ExecutionEnvelopeError::FeePayerEqualsPrincipal)
@@ -221,7 +230,9 @@ fn fee_payer_presence_and_scope_rules_are_canonical() {
 
     let mut valid = native_parts(0x20);
     valid.fee_payer = Some(fee_payer);
-    valid.authorizations.push(schnorr(0x30, AuthorizationScope::FeePayer));
+    valid
+        .authorizations
+        .push(schnorr(0x30, AuthorizationScope::FeePayer));
     assert!(ExecutionEnvelopeV1::new(valid).is_ok());
 }
 
@@ -336,7 +347,10 @@ fn decoder_rejects_nonminimal_count_varint_truncation_and_trailing_bytes() {
 
     for length in 0..bytes.len() {
         let truncated = &bytes[..length];
-        assert!(ExecutionEnvelopeV1::decode(truncated).is_err(), "length={length}");
+        assert!(
+            ExecutionEnvelopeV1::decode(truncated).is_err(),
+            "length={length}"
+        );
     }
 
     let mut trailing = bytes.clone();
