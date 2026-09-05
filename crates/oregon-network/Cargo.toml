@@ -9,3 +9,6 @@ oregon-protocol = { path = "../oregon-protocol" }
 async-trait = "0.1"
 thiserror = "2"
 tokio = { version = "1", features = ["io-util", "net", "sync", "time"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "test-util"] }
