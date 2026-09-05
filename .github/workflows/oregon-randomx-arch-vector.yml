@@ -3,7 +3,7 @@ name: Oregon RandomX Architecture Vector
 on:
   workflow_dispatch:
   push:
-    branches: [oregon-v1-m2-randomx-pow-exec, oregon-v1-architecture-unification-2026-09-04]
+    branches: [oregon-v1-m2-randomx-pow-exec, oregon-v1-architecture-unification-2026-09-04, work/execution-envelope-auth-v1-2026-09-05]
     paths:
       - 'crates/oregon-pow/**'
       - 'crates/oregon-primitives/**'
