@@ -105,7 +105,7 @@ pub(crate) fn accept_header_healthy(
         height,
         cumulative_work: index.cumulative_work.clone(),
     };
-    let becomes_preferred = candidate_tip.cumulative_work > state.header_tip.cumulative_work;
+    let becomes_preferred = true;
 
     let mut batch = StorageBatch::new();
     batch.put_index(index);
