@@ -63,26 +63,18 @@ async fn remote_advertised_height_cannot_override_chainstate_preferred_fork_choi
     let mut local_hello = hello(chain_id, 0x71);
     local_hello.best_height = 3;
     local_hello.best_block_id = local_tip;
-    let local_network = NodeNetwork::bind(
-        TcpTransport,
-        node_config(),
-        local_hello,
-        magic(chain_id),
-    )
-    .await
-    .unwrap();
+    let local_network =
+        NodeNetwork::bind(TcpTransport, node_config(), local_hello, magic(chain_id))
+            .await
+            .unwrap();
 
     let mut remote_hello = hello(chain_id, 0x72);
     remote_hello.best_height = 50_000;
     remote_hello.best_block_id = fork_tip;
-    let remote_network = NodeNetwork::bind(
-        TcpTransport,
-        node_config(),
-        remote_hello,
-        magic(chain_id),
-    )
-    .await
-    .unwrap();
+    let remote_network =
+        NodeNetwork::bind(TcpTransport, node_config(), remote_hello, magic(chain_id))
+            .await
+            .unwrap();
 
     let local_addr = local_network.local_addr();
     let (remote_outcome, local_outcome) =
@@ -98,7 +90,10 @@ async fn remote_advertised_height_cannot_override_chainstate_preferred_fork_choi
     assert_eq!(before.block_id, local_tip);
 
     local_session.expect(RequestKey::Headers).unwrap();
-    let fork_headers: Vec<_> = fork_blocks.iter().map(|block| block.header.clone()).collect();
+    let fork_headers: Vec<_> = fork_blocks
+        .iter()
+        .map(|block| block.header.clone())
+        .collect();
     assert!(
         remote_session
             .send(&Message::Headers(fork_headers), QueueClass::RequiredData)
