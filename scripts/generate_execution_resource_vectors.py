@@ -106,10 +106,16 @@ def build():
                            "exhausted": exhausted, "failed": failure})
         meters.append({"name": name, "ratios": ratios, "max_weight": limit,
                        "intrinsic_weight": intrinsic, "events": events})
+    block_budget_cases = [{
+        "parameters": normal,
+        "attempts": [0, 120, 121, 80, 1],
+        "expected": ["invalid_transaction", "ok", "invalid_transaction", "ok", "block_exceeded"],
+    }]
     return {"version": 1, "provenance": "Synthetic non-activation parameters; Python arbitrary-precision integers and fractions.Fraction; regenerate with scripts/generate_execution_resource_vectors.py",
             "conversions": conversions, "fees": fees, "sequences": sequences, "meters": meters,
             "invalid_fee_cases": [{"parameters": normal, "parent_base_fee": 100,
                                    "parent_weight": 201}],
+            "block_budget_cases": block_budget_cases,
             "invalid_schedule_versions": [0, 2]}
 
 

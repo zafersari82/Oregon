@@ -1,4 +1,6 @@
-use oregon_consensus::execution_resources::{FeeParametersV1, ResourceFeeError, next_base_fee};
+use oregon_consensus::execution_resources::{
+    BlockWeightBudget, FeeParametersV1, ResourceFeeError, next_base_fee,
+};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -26,10 +28,18 @@ struct Sequence {
 }
 
 #[derive(Deserialize)]
+struct BlockBudgetCase {
+    parameters: [u64; 6],
+    attempts: Vec<u64>,
+    expected: Vec<String>,
+}
+
+#[derive(Deserialize)]
 struct Vectors {
     fees: Vec<FeeCase>,
     sequences: Vec<Sequence>,
     invalid_fee_cases: Vec<InvalidFeeCase>,
+    block_budget_cases: Vec<BlockBudgetCase>,
     invalid_schedule_versions: Vec<u64>,
 }
 
@@ -88,5 +98,28 @@ fn independent_fee_vectors_and_producer_sequences() {
             FeeParametersV1::new(version as u16, 100, 100, 8, 1, 1_000),
             Err(ResourceFeeError::UnsupportedVersion(version as u16))
         );
+    }
+    assert!(!vectors.block_budget_cases.is_empty());
+    for case in vectors.block_budget_cases {
+        assert_eq!(case.attempts.len(), case.expected.len());
+        let mut budget = BlockWeightBudget::new(&parameters(case.parameters));
+        let mut expected_consumed = 0;
+        for (attempt, expected) in case.attempts.into_iter().zip(case.expected) {
+            let result = budget.include(attempt);
+            match expected.as_str() {
+                "ok" => {
+                    assert_eq!(result, Ok(()));
+                    expected_consumed += attempt;
+                }
+                "invalid_transaction" => {
+                    assert_eq!(result, Err(ResourceFeeError::InvalidTransactionWeight));
+                }
+                "block_exceeded" => {
+                    assert_eq!(result, Err(ResourceFeeError::BlockWeightExceeded));
+                }
+                other => panic!("unknown block-budget vector outcome: {other}"),
+            }
+            assert_eq!(budget.consumed(), expected_consumed);
+        }
     }
 }

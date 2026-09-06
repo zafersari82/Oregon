@@ -1155,6 +1155,32 @@
       "parent_weight": 201
     }
   ],
+  "block_budget_cases": [
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "attempts": [
+        0,
+        120,
+        121,
+        80,
+        1
+      ],
+      "expected": [
+        "invalid_transaction",
+        "ok",
+        "invalid_transaction",
+        "ok",
+        "block_exceeded"
+      ]
+    }
+  ],
   "invalid_schedule_versions": [
     0,
     2
