@@ -143,7 +143,11 @@ impl ExecutionReceiptV1 {
         let mut bytes = [0u8; EXECUTION_RECEIPT_BYTES_V1];
         let mut offset = 0usize;
 
-        write(&mut bytes, &mut offset, &EXECUTION_RECEIPT_VERSION_V1.to_le_bytes());
+        write(
+            &mut bytes,
+            &mut offset,
+            &EXECUTION_RECEIPT_VERSION_V1.to_le_bytes(),
+        );
         write(&mut bytes, &mut offset, self.parts.txid.as_bytes());
         write(
             &mut bytes,
@@ -153,8 +157,16 @@ impl ExecutionReceiptV1 {
         write(&mut bytes, &mut offset, &[self.parts.outcome as u8]);
         write(&mut bytes, &mut offset, &self.parts.trap_code.to_le_bytes());
         write(&mut bytes, &mut offset, &self.parts.fee_payer.to_bytes());
-        write(&mut bytes, &mut offset, &self.parts.actual_weight.to_le_bytes());
-        write(&mut bytes, &mut offset, &self.parts.fee_charged.to_le_bytes());
+        write(
+            &mut bytes,
+            &mut offset,
+            &self.parts.actual_weight.to_le_bytes(),
+        );
+        write(
+            &mut bytes,
+            &mut offset,
+            &self.parts.fee_charged.to_le_bytes(),
+        );
         write(
             &mut bytes,
             &mut offset,
@@ -166,7 +178,11 @@ impl ExecutionReceiptV1 {
             self.parts.state_effect_root.as_bytes(),
         );
         write(&mut bytes, &mut offset, self.parts.events_root.as_bytes());
-        write(&mut bytes, &mut offset, &self.parts.event_count.to_le_bytes());
+        write(
+            &mut bytes,
+            &mut offset,
+            &self.parts.event_count.to_le_bytes(),
+        );
         write(
             &mut bytes,
             &mut offset,
@@ -182,7 +198,11 @@ impl ExecutionReceiptV1 {
             &mut offset,
             self.parts.outbox_effect_root.as_bytes(),
         );
-        write(&mut bytes, &mut offset, &self.parts.outbox_count.to_le_bytes());
+        write(
+            &mut bytes,
+            &mut offset,
+            &self.parts.outbox_count.to_le_bytes(),
+        );
 
         debug_assert_eq!(offset, EXECUTION_RECEIPT_BYTES_V1);
         bytes
@@ -207,8 +227,8 @@ fn validate_structural(parts: &ExecutionReceiptV1Parts) -> Result<(), ExecutionR
         return Err(ExecutionReceiptError::InvalidTrapCode);
     }
 
-    let event_count = usize::try_from(parts.event_count)
-        .map_err(|_| ExecutionReceiptError::TooManyEvents)?;
+    let event_count =
+        usize::try_from(parts.event_count).map_err(|_| ExecutionReceiptError::TooManyEvents)?;
     if event_count > MAX_EXECUTION_EVENTS_V1 {
         return Err(ExecutionReceiptError::TooManyEvents);
     }
@@ -239,11 +259,19 @@ fn write<const N: usize>(target: &mut [u8; N], offset: &mut usize, bytes: &[u8])
 }
 
 fn read_u64(bytes: &[u8], offset: usize) -> u64 {
-    u64::from_le_bytes(bytes[offset..offset + 8].try_into().expect("fixed receipt width"))
+    u64::from_le_bytes(
+        bytes[offset..offset + 8]
+            .try_into()
+            .expect("fixed receipt width"),
+    )
 }
 
 fn read_u32(bytes: &[u8], offset: usize) -> u32 {
-    u32::from_le_bytes(bytes[offset..offset + 4].try_into().expect("fixed receipt width"))
+    u32::from_le_bytes(
+        bytes[offset..offset + 4]
+            .try_into()
+            .expect("fixed receipt width"),
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]

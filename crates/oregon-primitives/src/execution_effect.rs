@@ -1,7 +1,5 @@
 use crate::execution_receipt::ExecutionReceiptError;
-use crate::state_commitment::{
-    CommitmentDomainId, CommitmentSchemeId, MAX_STATE_COMMITMENTS,
-};
+use crate::state_commitment::{CommitmentDomainId, CommitmentSchemeId, MAX_STATE_COMMITMENTS};
 use crate::{Hash256, domain_hash};
 
 const STATE_EFFECT_VERSION_V1: u16 = 1;

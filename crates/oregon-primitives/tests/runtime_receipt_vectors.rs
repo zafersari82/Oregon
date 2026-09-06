@@ -1,3 +1,4 @@
+use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::ExecutionAddress;
 use oregon_primitives::execution_effect::{StateEffectDescriptorV1, state_effect_root};
 use oregon_primitives::execution_envelope::ExecutionDomain;
@@ -10,7 +11,6 @@ use oregon_primitives::fee_settlement::{
     ExecutionOutcome, FeeSettlementReceiptV1, FeeSettlementReceiptV1Parts, FeeSourceKind,
 };
 use oregon_primitives::state_commitment::{CommitmentDomainId, CommitmentSchemeId};
-use oregon_primitives::Hash256;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -91,7 +91,10 @@ fn hash_hex(value: &str) -> Hash256 {
 }
 
 fn corpus() -> Corpus {
-    serde_json::from_str(include_str!("../../../tests/vectors/runtime-coordinator-v1.json")).unwrap()
+    serde_json::from_str(include_str!(
+        "../../../tests/vectors/runtime-coordinator-v1.json"
+    ))
+    .unwrap()
 }
 
 fn fee(context: &ReceiptContext, outcome: ExecutionOutcome) -> FeeSettlementReceiptV1 {
@@ -149,7 +152,8 @@ fn event_roots_match_independent_vectors() {
             .events
             .into_iter()
             .map(|event| {
-                let emitter = ExecutionAddress::from_slice(&decode_hex(&event.emitter_hex)).unwrap();
+                let emitter =
+                    ExecutionAddress::from_slice(&decode_hex(&event.emitter_hex)).unwrap();
                 let topics = event
                     .topics_hex
                     .iter()

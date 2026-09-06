@@ -1,20 +1,18 @@
+use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::execution_effect::{StateEffectDescriptorV1, state_effect_root};
 use oregon_primitives::execution_envelope::ExecutionDomain;
 use oregon_primitives::execution_event::{
-    ExecutionEventV1, MAX_EXECUTION_EVENT_DATA_BYTES_V1, MAX_EXECUTION_EVENT_TOPICS_V1,
-    events_root,
+    ExecutionEventV1, MAX_EXECUTION_EVENT_DATA_BYTES_V1, MAX_EXECUTION_EVENT_TOPICS_V1, events_root,
 };
 use oregon_primitives::execution_receipt::{
-    ExecutionReceiptError, ExecutionReceiptOutcomeV1, ExecutionReceiptV1,
-    ExecutionReceiptV1Parts, EXECUTION_RECEIPT_BYTES_V1, empty_outbox_effect_root,
-    return_data_hash,
+    EXECUTION_RECEIPT_BYTES_V1, ExecutionReceiptError, ExecutionReceiptOutcomeV1,
+    ExecutionReceiptV1, ExecutionReceiptV1Parts, empty_outbox_effect_root, return_data_hash,
 };
 use oregon_primitives::fee_settlement::{
     ExecutionOutcome, FeeSettlementReceiptV1, FeeSettlementReceiptV1Parts, FeeSourceKind,
 };
 use oregon_primitives::state_commitment::{CommitmentDomainId, CommitmentSchemeId};
-use oregon_primitives::Hash256;
 
 fn hash(fill: u8) -> Hash256 {
     Hash256::from_slice(&[fill; 32]).unwrap()
@@ -162,22 +160,16 @@ fn evm_effect_cannot_masquerade_as_oregon_smt() {
 #[test]
 fn trapped_receipt_requires_nonzero_trap_code() {
     let fee = fee(ExecutionOutcome::Reverted);
-    let err = ExecutionReceiptV1::new(
-        receipt_parts(ExecutionReceiptOutcomeV1::Trapped, 0),
-        &fee,
-    )
-    .unwrap_err();
+    let err = ExecutionReceiptV1::new(receipt_parts(ExecutionReceiptOutcomeV1::Trapped, 0), &fee)
+        .unwrap_err();
     assert_eq!(err, ExecutionReceiptError::InvalidTrapCode);
 }
 
 #[test]
 fn non_trapped_receipt_requires_zero_trap_code() {
     let fee = fee(ExecutionOutcome::Committed);
-    let err = ExecutionReceiptV1::new(
-        receipt_parts(ExecutionReceiptOutcomeV1::Committed, 1),
-        &fee,
-    )
-    .unwrap_err();
+    let err = ExecutionReceiptV1::new(receipt_parts(ExecutionReceiptOutcomeV1::Committed, 1), &fee)
+        .unwrap_err();
     assert_eq!(err, ExecutionReceiptError::InvalidTrapCode);
 }
 
@@ -193,11 +185,9 @@ fn execution_receipt_cross_checks_fee_truth() {
 #[test]
 fn execution_receipt_is_exactly_259_bytes_and_round_trips() {
     let fee = fee(ExecutionOutcome::Committed);
-    let receipt = ExecutionReceiptV1::new(
-        receipt_parts(ExecutionReceiptOutcomeV1::Committed, 0),
-        &fee,
-    )
-    .unwrap();
+    let receipt =
+        ExecutionReceiptV1::new(receipt_parts(ExecutionReceiptOutcomeV1::Committed, 0), &fee)
+            .unwrap();
     let encoded = receipt.encode();
     assert_eq!(encoded.len(), EXECUTION_RECEIPT_BYTES_V1);
     let decoded = ExecutionReceiptV1::decode(&encoded).unwrap();

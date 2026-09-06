@@ -49,9 +49,8 @@ impl ExecutionEventV1 {
     }
 
     pub fn encode(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(
-            2 + 33 + 1 + self.topics.len() * 32 + 4 + self.data.len(),
-        );
+        let mut bytes =
+            Vec::with_capacity(2 + 33 + 1 + self.topics.len() * 32 + 4 + self.data.len());
         bytes.extend_from_slice(&EVENT_VERSION_V1.to_le_bytes());
         bytes.extend_from_slice(&self.emitter.to_bytes());
         bytes.push(self.topics.len() as u8);
