@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+#[cfg(test)]
+mod coordinator;
 mod fees;
 mod journal;
 mod weight;
