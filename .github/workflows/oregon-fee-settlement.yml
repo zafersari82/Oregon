@@ -1,0 +1,55 @@
+name: Oregon Fee Settlement Vectors
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, work/fee-settlement-reserve-v1-2026-09-06]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/oregon-primitives/**'
+      - 'crates/oregon-execution/**'
+      - 'crates/oregon-consensus/**'
+      - 'crates/oregon-contract-state/**'
+      - 'crates/oregon-utxo/**'
+      - 'tests/vectors/fee-settlement-v1.json'
+      - 'scripts/generate_fee_settlement_vectors.py'
+      - 'scripts/verify_fee_settlement_mutations.py'
+      - 'docs/superpowers/specs/2026-09-06-fee-settlement-reserve-v1.md'
+      - '.github/workflows/oregon-fee-settlement.yml'
+      - '.github/workflows/oregon-rust.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+
+permissions:
+  contents: read
+
+jobs:
+  vectors:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+      - name: Install Rust 1.85.0
+        run: rustup toolchain install 1.85.0 --profile minimal
+      - name: Verify independent Stage 3B vectors
+        run: python3 scripts/generate_fee_settlement_vectors.py --check
+      - name: Verify canonical receipt and reserve identifiers
+        run: cargo +1.85.0 test --locked -p oregon-primitives --test fee_settlement --test execution_reserve --test fee_settlement_vectors
+      - name: Verify escrow settlement arithmetic
+        run: cargo +1.85.0 test --locked -p oregon-execution --test fees --test fee_vectors
+      - name: Verify producer settlement boundaries
+        run: cargo +1.85.0 test --locked -p oregon-consensus --test execution_fee_coinbase --test execution_fee_vectors
+      - name: Verify fee-state commitments
+        run: cargo +1.85.0 test --locked -p oregon-contract-state --test fee_state
+      - name: Verify reserve transition vectors
+        run: |
+          cargo +1.85.0 test --locked -p oregon-utxo --lib reserve::tests
+          cargo +1.85.0 test --locked -p oregon-utxo --test reserve_vectors
