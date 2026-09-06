@@ -7,7 +7,11 @@ const VECTORS: &str = include_str!("../../../tests/vectors/fee-settlement-v1.jso
 
 fn case_slice<'a>(name: &str, next: Option<&str>) -> &'a str {
     let marker = format!("\"name\": \"{name}\"");
-    assert_eq!(VECTORS.matches(&marker).count(), 1, "unique reserve vector {name}");
+    assert_eq!(
+        VECTORS.matches(&marker).count(),
+        1,
+        "unique reserve vector {name}"
+    );
     let start = VECTORS.find(&marker).unwrap();
     let tail = &VECTORS[start..];
     let end = match next {
@@ -15,7 +19,9 @@ fn case_slice<'a>(name: &str, next: Option<&str>) -> &'a str {
             let next_marker = format!("\"name\": \"{next_name}\"");
             tail.find(&next_marker).expect("next reserve vector")
         }
-        None => tail.find("\"producer_cases\"").expect("producer vector section"),
+        None => tail
+            .find("\"producer_cases\"")
+            .expect("producer vector section"),
     };
     &tail[..end]
 }
