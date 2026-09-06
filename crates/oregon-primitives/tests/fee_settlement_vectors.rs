@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
+use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::execution_reserve::{reserve_outpoint_txid, reserve_transition_id};
 use oregon_primitives::fee_settlement::{ExecutionOutcome, FeeSettlementReceiptV1, FeeSourceKind};
-use oregon_primitives::Hash256;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -65,8 +65,14 @@ fn independent_receipt_vector_pins_exact_bytes_identity_and_fields() {
     assert_eq!(receipt.receipt_id(), hash(&case.receipt_id));
     assert_eq!(receipt.txid(), hash(&case.txid));
     assert_eq!(receipt.escrow_id(), hash(&case.escrow_id));
-    assert_eq!(receipt.source_kind(), FeeSourceKind::try_from(case.source_kind).unwrap());
-    assert_eq!(receipt.outcome(), ExecutionOutcome::try_from(case.outcome).unwrap());
+    assert_eq!(
+        receipt.source_kind(),
+        FeeSourceKind::try_from(case.source_kind).unwrap()
+    );
+    assert_eq!(
+        receipt.outcome(),
+        ExecutionOutcome::try_from(case.outcome).unwrap()
+    );
     assert_eq!(receipt.actual_weight(), case.actual_weight);
 
     let payload: [u8; 32] = bytes(&case.payer_payload).try_into().unwrap();
