@@ -3,6 +3,7 @@
 
 from hashlib import sha256
 from pathlib import Path
+import json
 import shutil
 import subprocess
 import tempfile
@@ -14,6 +15,7 @@ FINALIZE = ROOT / "crates/oregon-execution/src/journal/finalize.rs"
 IO = ROOT / "crates/oregon-execution/src/journal/io.rs"
 LIFECYCLE = ROOT / "crates/oregon-execution/src/journal/lifecycle.rs"
 WRITE = ROOT / "crates/oregon-execution/src/journal/write.rs"
+VECTOR_CORPUS = ROOT / "tests/vectors/journal-v1.json"
 
 
 def run(command, cwd=ROOT):
@@ -60,6 +62,51 @@ def require_baseline(cwd=ROOT):
         if result.returncode != 0:
             print(result.stdout)
             raise SystemExit(f"clean Stage 4A test baseline failed: {target}")
+
+
+def require_vector_negative_control():
+    """A changed expected root must be rejected by both oracle and Rust consumer."""
+    with tempfile.TemporaryDirectory(prefix="oregon-journal-vector-negative-") as directory:
+        disposable = Path(directory) / "repo"
+        shutil.copytree(
+            ROOT,
+            disposable,
+            ignore=shutil.ignore_patterns("target", ".git", ".worktrees"),
+        )
+        corpus = disposable / VECTOR_CORPUS.relative_to(ROOT)
+        original = corpus.read_text()
+        original_hash = sha256(corpus.read_bytes()).hexdigest()
+        document = json.loads(original)
+        old_root = document["cases"][0]["expected_domains"][0]["new_root_hex"]
+        replacement = ("0" if old_root[0] != "0" else "1") + old_root[1:]
+        document["cases"][0]["expected_domains"][0]["new_root_hex"] = replacement
+        corpus.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n")
+
+        try:
+            generator = run(
+                ["python3", "scripts/generate_journal_vectors.py", "--check"],
+                disposable,
+            )
+            if generator.returncode == 0:
+                raise SystemExit("independent journal oracle accepted a changed expected root")
+
+            result = cargo_test("journal_vectors", cwd=disposable)
+            expected_failure = (
+                result.returncode == 101
+                and "test independent_journal_vectors_match_runtime_trace_results ... FAILED"
+                in result.stdout
+                and "could not compile" not in result.stdout
+            )
+            if not expected_failure:
+                print(result.stdout)
+                raise SystemExit("Rust journal vector consumer accepted a changed expected root")
+            print("REJECTED: changed expected journal root [oracle + Rust consumer]")
+        finally:
+            corpus.write_text(original)
+
+        restored_hash = sha256(corpus.read_bytes()).hexdigest()
+        if restored_hash != original_hash:
+            raise SystemExit("journal vector negative-control restoration failed")
 
 
 MUTATIONS = [
@@ -209,6 +256,7 @@ MUTATIONS = [
 def main():
     require_clean()
     require_baseline()
+    require_vector_negative_control()
     killed = 0
 
     with tempfile.TemporaryDirectory(prefix="oregon-journal-mutants-") as directory:
