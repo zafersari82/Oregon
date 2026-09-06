@@ -1,6 +1,7 @@
 mod common;
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Write as _;
 
 use common::{MemorySource, empty_snapshot, seed_snapshot};
 use oregon_contract_state::{DomainSnapshot, StateWrite, read_value};
@@ -77,6 +78,14 @@ fn decode_hex(value: &str) -> Vec<u8> {
         .chunks_exact(2)
         .map(|pair| (decode_nibble(pair[0]) << 4) | decode_nibble(pair[1]))
         .collect()
+}
+
+fn encode_hex(value: &[u8]) -> String {
+    let mut encoded = String::with_capacity(value.len() * 2);
+    for byte in value {
+        write!(&mut encoded, "{byte:02x}").expect("writing to a String cannot fail");
+    }
+    encoded
 }
 
 fn parse_hash(value: &str) -> Hash256 {
@@ -271,9 +280,7 @@ fn independent_journal_vectors_match_runtime_trace_results() {
                     "{}: final value differs for domain {:#06x}, key {}",
                     case.name,
                     expected.domain_id,
-                    key.iter()
-                        .map(|byte| format!("{byte:02x}"))
-                        .collect::<String>()
+                    encode_hex(key)
                 );
             }
         }
