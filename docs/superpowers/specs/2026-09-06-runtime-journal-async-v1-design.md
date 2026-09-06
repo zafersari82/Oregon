@@ -1,6 +1,6 @@
 # Oregon Runtime, Journal and Async Core V1 — Stage 4 Design
 
-**Status:** Proposed design for owner review; no implementation or activation approval is asserted.
+**Status:** Owner-approved Stage 4A design and Stage 4 decomposition. Stage 4B/4C still require their detailed designs; no main integration or activation approval is asserted.
 
 **Date:** 2026-09-06 UTC.
 
@@ -12,7 +12,7 @@
 
 This proposal follows Execution Architecture V1 section 27, step 4. The Engineering Constitution, Platform Architecture Contract, Execution Architecture V1, Stage 2 state design, and Stage 3A/3B designs remain normative. Nothing here replaces their accepted encodings, fees, reserve equations, ownership rules or activation boundaries.
 
-The owner requested continuation after Stage 3B closure. Stage 3B has been integrated. This document makes the next architectural decisions reviewable before implementation; it does not label new Stage 4 choices as already accepted.
+The owner requested continuation after Stage 3B closure. Stage 3B has been integrated. On 2026-09-06 the owner answered “evet” to the explicit request to begin Stage 4A with the design in PR #18. This records approval of the decomposition and Stage 4A semantics; it does not approve unspecified Stage 4B/4C wire/ABI details, main integration or activation.
 
 The objective is one deterministic execution journal with explicit rollback and fee boundaries, a VM-neutral host boundary, and a later generic asynchronous message core. These are three separately verifiable implementation slices. Stage 4A below is the first implementation scope; sections describing 4B/4C constrain their future designs but do not authorize unspecified wire formats or production adapters.
 
@@ -187,4 +187,4 @@ Full exact-head workspace/all-target tests, architecture/dependency scan, inheri
 
 The first implementation plan should touch `oregon-execution` journal modules/tests and its downward state dependency, independent vectors/mutation scripts and CI wiring. Stage 2 algorithms remain unchanged unless a demonstrated defect requires a separately scoped repair. Names follow durable responsibilities (`journal`, `frame`, `transition` as needed), never task numbers.
 
-Before implementation: review this proposed decomposition and 4A frame/resource/error semantics, then write the 4A test-first implementation plan. The 4B/4C contracts above are direction and explicitly identified future decisions; they are not a substitute for those slices' exact ABI/wire designs. No main integration or activation is included in approval of a design or implementation plan.
+The decomposition and 4A frame/resource/error semantics are owner-approved. The next execution record is the Stage 4A test-first implementation plan. The 4B/4C contracts above are direction and explicitly identified future decisions; they are not a substitute for those slices' exact ABI/wire designs. No main integration or activation is included in approval of a design or implementation plan.
