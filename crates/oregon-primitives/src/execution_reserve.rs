@@ -15,8 +15,5 @@ pub fn reserve_transition_id(canonical_transition_bytes: &[u8]) -> Hash256 {
 }
 
 pub fn reserve_outpoint_txid(transition_id: Hash256) -> Hash256 {
-    domain_hash(
-        b"OREGON/RESERVE/OUTPOINT/V1\0",
-        transition_id.as_bytes(),
-    )
+    domain_hash(b"OREGON/RESERVE/OUTPOINT/V1\0", transition_id.as_bytes())
 }
