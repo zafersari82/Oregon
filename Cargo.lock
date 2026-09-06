@@ -496,6 +496,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "oregon-runtime"
+version = "0.1.0"
+dependencies = [
+ "oregon-primitives",
+ "thiserror",
+]
+
+[[package]]
 name = "oregon-protocol"
 version = "0.1.0"
 dependencies = [
