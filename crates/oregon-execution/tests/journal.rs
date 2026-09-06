@@ -28,13 +28,9 @@ fn nested_commit_remains_revertible_by_its_parent() {
     let source = MemorySource::default();
     let domain = CommitmentDomainId::Wasm;
     let snapshots = [empty_snapshot(domain)];
-    let mut journal = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut journal =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
 
     journal.put(domain, b"key", b"parent").unwrap();
     journal.begin_frame().unwrap();
@@ -44,7 +40,10 @@ fn nested_commit_remains_revertible_by_its_parent() {
     journal.commit_frame().unwrap();
     journal.revert_frame().unwrap();
 
-    assert_eq!(journal.read(domain, b"key").unwrap(), Some(b"parent".to_vec()));
+    assert_eq!(
+        journal.read(domain, b"key").unwrap(),
+        Some(b"parent".to_vec())
+    );
 }
 
 #[test]
@@ -57,15 +56,14 @@ fn reads_follow_overlay_visibility_and_keep_siblings_isolated() {
         vec![StateWrite::put(b"base".to_vec(), b"persisted".to_vec())],
     );
     let snapshots = [snapshot];
-    let mut journal = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut journal =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
 
-    assert_eq!(journal.read(domain, b"base").unwrap(), Some(b"persisted".to_vec()));
+    assert_eq!(
+        journal.read(domain, b"base").unwrap(),
+        Some(b"persisted".to_vec())
+    );
     journal.put(domain, b"root", b"r").unwrap();
     journal.begin_frame().unwrap();
     assert_eq!(journal.read(domain, b"root").unwrap(), Some(b"r".to_vec()));
@@ -82,13 +80,9 @@ fn deletion_and_present_empty_are_distinct_and_last_write_wins() {
     let source = MemorySource::default();
     let domain = CommitmentDomainId::Wasm;
     let snapshots = [empty_snapshot(domain)];
-    let mut journal = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut journal =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
 
     journal.put(domain, b"key", b"first").unwrap();
     journal.delete(domain, b"key").unwrap();
@@ -96,7 +90,10 @@ fn deletion_and_present_empty_are_distinct_and_last_write_wins() {
     journal.put(domain, b"key", b"").unwrap();
     assert_eq!(journal.read(domain, b"key").unwrap(), Some(Vec::new()));
     journal.put(domain, b"key", b"final").unwrap();
-    assert_eq!(journal.read(domain, b"key").unwrap(), Some(b"final".to_vec()));
+    assert_eq!(
+        journal.read(domain, b"key").unwrap(),
+        Some(b"final".to_vec())
+    );
 }
 
 #[test]
@@ -105,23 +102,15 @@ fn equivalent_legal_traces_produce_the_same_root() {
     let domain = CommitmentDomainId::Wasm;
     let snapshots = [empty_snapshot(domain)];
 
-    let mut direct = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut direct =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
     direct.put(domain, b"key", b"value").unwrap();
     let direct = direct.finalize(JournalIntentV1::Committed).unwrap();
 
-    let mut nested = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut nested =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
     nested.begin_frame().unwrap();
     nested.put(domain, b"key", b"temporary").unwrap();
     nested.put(domain, b"key", b"value").unwrap();
@@ -146,7 +135,9 @@ fn constructor_rejects_invalid_snapshot_sets_before_use() {
     let wasm = empty_snapshot(CommitmentDomainId::Wasm);
     assert!(matches!(
         ExecutionJournalV1::new(&source, context(), &[wasm, wasm], limits),
-        Err(JournalError::DuplicateSnapshotDomain(CommitmentDomainId::Wasm))
+        Err(JournalError::DuplicateSnapshotDomain(
+            CommitmentDomainId::Wasm
+        ))
     ));
 
     for domain in [CommitmentDomainId::NativeUtxo, CommitmentDomainId::Evm] {
@@ -175,19 +166,23 @@ fn constructor_rejects_invalid_snapshot_sets_before_use() {
 fn root_lifecycle_and_unconfigured_domains_fail_closed() {
     let source = MemorySource::default();
     let snapshots = [empty_snapshot(CommitmentDomainId::Wasm)];
-    let mut journal = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut journal =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
 
-    assert!(matches!(journal.commit_frame(), Err(JournalError::RootFrameLifecycle)));
-    assert!(matches!(journal.revert_frame(), Err(JournalError::RootFrameLifecycle)));
+    assert!(matches!(
+        journal.commit_frame(),
+        Err(JournalError::RootFrameLifecycle)
+    ));
+    assert!(matches!(
+        journal.revert_frame(),
+        Err(JournalError::RootFrameLifecycle)
+    ));
     assert!(matches!(
         journal.read(CommitmentDomainId::AsyncOutbox, b"x"),
-        Err(JournalError::UnconfiguredDomain(CommitmentDomainId::AsyncOutbox))
+        Err(JournalError::UnconfiguredDomain(
+            CommitmentDomainId::AsyncOutbox
+        ))
     ));
 
     journal.begin_frame().unwrap();
@@ -215,11 +210,17 @@ fn structural_limits_are_exact_and_frame_count_is_not_refunded() {
     let mut journal = ExecutionJournalV1::new(&source, context(), &snapshots, limits).unwrap();
 
     journal.begin_frame().unwrap();
-    assert!(matches!(journal.begin_frame(), Err(JournalError::DepthLimitExceeded)));
+    assert!(matches!(
+        journal.begin_frame(),
+        Err(JournalError::DepthLimitExceeded)
+    ));
     journal.revert_frame().unwrap();
     journal.begin_frame().unwrap();
     journal.revert_frame().unwrap();
-    assert!(matches!(journal.begin_frame(), Err(JournalError::FrameLimitExceeded)));
+    assert!(matches!(
+        journal.begin_frame(),
+        Err(JournalError::FrameLimitExceeded)
+    ));
 }
 
 #[test]
@@ -251,13 +252,9 @@ fn key_and_value_bounds_reject_one_over_without_changing_state() {
     let source = MemorySource::default();
     let domain = CommitmentDomainId::Wasm;
     let snapshots = [empty_snapshot(domain)];
-    let mut journal = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut journal =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
 
     let max_key = vec![b'k'; MAX_STATE_KEY_BYTES];
     journal.put(domain, &max_key, b"").unwrap();
@@ -288,13 +285,9 @@ fn assert_corrupt_old_value_rejected(final_write: StateWrite) {
     let old_hash = value_hash(domain, b"old").unwrap();
     source.values.remove(&old_hash);
     let snapshots = [snapshot];
-    let mut journal = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut journal =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
     match final_write.value() {
         Some(value) => journal.put(domain, final_write.key(), value).unwrap(),
         None => journal.delete(domain, final_write.key()).unwrap(),
@@ -330,15 +323,15 @@ fn later_domain_failure_returns_no_partial_bundle_and_mutates_no_source() {
     source.values.insert(corrupt_hash, b"tampered".to_vec());
     let before = source.clone();
     let snapshots = [wasm, fee];
-    let mut journal = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
-    journal.put(CommitmentDomainId::Wasm, b"w", b"new-w").unwrap();
-    journal.put(CommitmentDomainId::FeeState, b"f", b"new-f").unwrap();
+    let mut journal =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
+    journal
+        .put(CommitmentDomainId::Wasm, b"w", b"new-w")
+        .unwrap();
+    journal
+        .put(CommitmentDomainId::FeeState, b"f", b"new-f")
+        .unwrap();
 
     assert!(matches!(
         journal.finalize(JournalIntentV1::Committed),
@@ -358,19 +351,18 @@ fn committed_results_are_unpublished_and_reverted_results_are_empty() {
     );
     let snapshots = [snapshot];
 
-    let mut committed = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut committed =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
     committed.put(domain, b"key", b"new").unwrap();
     let result = committed.finalize(JournalIntentV1::Committed).unwrap();
     assert_eq!(result.context, context());
     assert_eq!(result.roots.len(), 1);
     assert_eq!(result.transitions.len(), 1);
-    assert_eq!(read_value(&source, snapshot, b"key").unwrap(), Some(b"old".to_vec()));
+    assert_eq!(
+        read_value(&source, snapshot, b"key").unwrap(),
+        Some(b"old".to_vec())
+    );
 
     let mut published = source.clone();
     for transition in &result.transitions {
@@ -380,15 +372,14 @@ fn committed_results_are_unpublished_and_reverted_results_are_empty() {
         domain,
         root: result.roots[0].new_root,
     };
-    assert_eq!(read_value(&published, new_snapshot, b"key").unwrap(), Some(b"new".to_vec()));
+    assert_eq!(
+        read_value(&published, new_snapshot, b"key").unwrap(),
+        Some(b"new".to_vec())
+    );
 
-    let mut reverted = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut reverted =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
     reverted.put(domain, b"key", b"discarded").unwrap();
     let reverted = reverted.finalize(JournalIntentV1::Reverted).unwrap();
     assert!(reverted.transitions.is_empty());

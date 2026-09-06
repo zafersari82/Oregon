@@ -4,9 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use common::{MemorySource, empty_snapshot, seed_snapshot};
 use oregon_contract_state::{DomainSnapshot, StateWrite, read_value};
-use oregon_execution::{
-    ExecutionJournalV1, JournalContextV1, JournalIntentV1, JournalLimitsV1,
-};
+use oregon_execution::{ExecutionJournalV1, JournalContextV1, JournalIntentV1, JournalLimitsV1};
 use oregon_primitives::Hash256;
 use oregon_primitives::state_commitment::CommitmentDomainId;
 use serde::Deserialize;
@@ -127,8 +125,7 @@ fn independent_journal_vectors_match_runtime_trace_results() {
     for case in &vectors.cases {
         let mut source = MemorySource::default();
         let mut snapshots = Vec::with_capacity(case.domains.len());
-        let mut observed_keys: BTreeMap<CommitmentDomainId, BTreeSet<Vec<u8>>> =
-            BTreeMap::new();
+        let mut observed_keys: BTreeMap<CommitmentDomainId, BTreeSet<Vec<u8>>> = BTreeMap::new();
 
         for configured in &case.domains {
             let domain = parse_domain(configured.domain_id);
@@ -136,10 +133,7 @@ fn independent_journal_vectors_match_runtime_trace_results() {
             for item in &configured.base_entries {
                 let key = decode_hex(&item.key_hex);
                 let value = decode_hex(&item.value_hex);
-                observed_keys
-                    .entry(domain)
-                    .or_default()
-                    .insert(key.clone());
+                observed_keys.entry(domain).or_default().insert(key.clone());
                 writes.push(StateWrite::put(key, value));
             }
 
@@ -162,13 +156,9 @@ fn independent_journal_vectors_match_runtime_trace_results() {
             snapshots.push(snapshot);
         }
 
-        let mut journal = ExecutionJournalV1::new(
-            &source,
-            context,
-            &snapshots,
-            JournalLimitsV1::default(),
-        )
-        .expect("vector journal construction succeeds");
+        let mut journal =
+            ExecutionJournalV1::new(&source, context, &snapshots, JournalLimitsV1::default())
+                .expect("vector journal construction succeeds");
 
         for operation in &case.operations {
             match operation.op.as_str() {
@@ -184,19 +174,13 @@ fn independent_journal_vectors_match_runtime_trace_results() {
                             .as_deref()
                             .expect("put operation has value_hex"),
                     );
-                    observed_keys
-                        .entry(domain)
-                        .or_default()
-                        .insert(key.clone());
+                    observed_keys.entry(domain).or_default().insert(key.clone());
                     journal.put(domain, &key, &value).expect("put succeeds");
                 }
                 "delete" => {
                     let domain = required_domain(operation);
                     let key = required_key(operation);
-                    observed_keys
-                        .entry(domain)
-                        .or_default()
-                        .insert(key.clone());
+                    observed_keys.entry(domain).or_default().insert(key.clone());
                     journal.delete(domain, &key).expect("delete succeeds");
                 }
                 other => panic!("unknown journal vector operation: {other}"),
@@ -282,8 +266,7 @@ fn independent_journal_vectors_match_runtime_trace_results() {
             };
             for key in observed_keys.get(&domain).into_iter().flatten() {
                 assert_eq!(
-                    read_value(&published, snapshot, key)
-                        .expect("published vector read succeeds"),
+                    read_value(&published, snapshot, key).expect("published vector read succeeds"),
                     final_state.get(key).cloned(),
                     "{}: final value differs for domain {:#06x}, key {}",
                     case.name,

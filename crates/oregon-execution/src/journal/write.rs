@@ -18,7 +18,10 @@ impl<'a, S: StateSource + ?Sized> ExecutionJournalV1<'a, S> {
             Self::validate_value(value)?;
         }
 
-        let top = self.frames.last().ok_or(JournalError::AccountingInvariant)?;
+        let top = self
+            .frames
+            .last()
+            .ok_or(JournalError::AccountingInvariant)?;
         let existing = top
             .writes
             .get(&domain)

@@ -39,11 +39,7 @@ impl<'a, S: StateSource + ?Sized> ExecutionJournalV1<'a, S> {
         self.stage_write(domain, key, Some(value))
     }
 
-    pub fn delete(
-        &mut self,
-        domain: CommitmentDomainId,
-        key: &[u8],
-    ) -> Result<(), JournalError> {
+    pub fn delete(&mut self, domain: CommitmentDomainId, key: &[u8]) -> Result<(), JournalError> {
         self.stage_write(domain, key, None)
     }
 }

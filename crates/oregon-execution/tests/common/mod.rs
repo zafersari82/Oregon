@@ -54,7 +54,8 @@ pub fn seed_snapshot(
 ) -> DomainSnapshot {
     let base = empty_snapshot(domain);
     let write_set = StateWriteSet::new(domain, writes).expect("fixture write set is valid");
-    let transition = apply_write_set(source, base, &write_set).expect("fixture transition is valid");
+    let transition =
+        apply_write_set(source, base, &write_set).expect("fixture transition is valid");
     source.absorb(&transition);
     DomainSnapshot {
         domain,

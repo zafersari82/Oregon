@@ -33,7 +33,10 @@ impl<'a, S: StateSource + ?Sized> ExecutionJournalV1<'a, S> {
             return Err(JournalError::RootFrameLifecycle);
         }
 
-        let child = self.frames.last().ok_or(JournalError::AccountingInvariant)?;
+        let child = self
+            .frames
+            .last()
+            .ok_or(JournalError::AccountingInvariant)?;
         let next_live_entries = self
             .live_entries
             .checked_sub(child.entries)

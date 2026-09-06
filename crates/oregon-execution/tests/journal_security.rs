@@ -2,9 +2,7 @@ mod common;
 
 use common::{MemorySource, seed_snapshot};
 use oregon_contract_state::{StateError, StateWrite, value_hash};
-use oregon_execution::{
-    ExecutionJournalV1, JournalContextV1, JournalError, JournalLimitsV1,
-};
+use oregon_execution::{ExecutionJournalV1, JournalContextV1, JournalError, JournalLimitsV1};
 use oregon_primitives::Hash256;
 use oregon_primitives::state_commitment::CommitmentDomainId;
 
@@ -27,13 +25,9 @@ fn delete_shadows_persisted_base_value() {
         vec![StateWrite::put(b"key".to_vec(), b"persisted".to_vec())],
     );
     let snapshots = [snapshot];
-    let mut journal = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let mut journal =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
 
     assert_eq!(
         journal.read(domain, b"key").unwrap(),
@@ -56,13 +50,9 @@ fn base_reads_reject_corrupt_authoritative_values() {
     source.values.insert(expected_hash, b"tampered".to_vec());
 
     let snapshots = [snapshot];
-    let journal = ExecutionJournalV1::new(
-        &source,
-        context(),
-        &snapshots,
-        JournalLimitsV1::default(),
-    )
-    .unwrap();
+    let journal =
+        ExecutionJournalV1::new(&source, context(), &snapshots, JournalLimitsV1::default())
+            .unwrap();
 
     assert!(matches!(
         journal.read(domain, b"key"),

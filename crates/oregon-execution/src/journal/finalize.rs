@@ -2,9 +2,7 @@ use oregon_contract_state::{StateSource, StateWrite, StateWriteSet, apply_write_
 
 use super::ExecutionJournalV1;
 use super::frame::JournalValue;
-use super::types::{
-    JournalDomainRootsV1, JournalError, JournalIntentV1, JournalResultV1,
-};
+use super::types::{JournalDomainRootsV1, JournalError, JournalIntentV1, JournalResultV1};
 
 impl<'a, S: StateSource + ?Sized> ExecutionJournalV1<'a, S> {
     pub fn finalize(self, intent: JournalIntentV1) -> Result<JournalResultV1, JournalError> {
