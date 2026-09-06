@@ -47,6 +47,10 @@ pub(super) enum CoordinatorTerminalV1 {
 pub(super) enum CoordinatorError {
     #[error("coordinator limits must be positive and within Stage 4B structural ceilings")]
     InvalidLimits,
+    #[error("unsupported host charge schedule version {0}")]
+    UnsupportedHostChargeScheduleVersion(u16),
+    #[error("host charge arithmetic overflowed the V1 u64 weight boundary")]
+    HostChargeOverflow,
     #[error("the root effect frame cannot be ended through child lifecycle operations")]
     RootFrameLifecycle,
     #[error("coordinator call depth limit exceeded")]
