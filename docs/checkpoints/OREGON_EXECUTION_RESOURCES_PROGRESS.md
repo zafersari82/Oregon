@@ -9,6 +9,7 @@ Recorded: 2026-09-06 UTC. This is an inactive Stage 3A implementation checkpoint
 - Stage 3A plan: `docs/superpowers/plans/2026-09-06-execution-resources-v1.md`.
 - Implementation branch: `work/execution-resources-v1-2026-09-06`.
 - Stacked draft PR: [#15](https://github.com/zafersari82/Oregon/pull/15), based on PR #14's branch.
+- Final verified descendant: `0db212148fae4ad612c38d0e62b58e61aab668a0`.
 - Main remains `bf7675bfe17182f77d4c43e2bcbd0c283709d799` and is unchanged.
 
 The design and plan select a cumulative rational normalized meter, parent-only bounded dynamic base fee, and shared block/transaction budgets. They explicitly split Stage 3B fee funding/escrow, fee-state commitments, authenticated reserve transitions and UTXO backing into a later versioned design. No current M0–M6 encoding, monetary rule, UTXO transition, storage schema, mempool, networking, RPC, VM or activation path is changed.
@@ -19,7 +20,7 @@ The design and plan select a cumulative rational normalized meter, parent-only b
 - Conversion is integer-only, uses `u128` products, rounds cumulative conversion upward, rejects `u64` narrowing overflow, and never allows a child meter or refund to reset consumed weight.
 - Meter limits are shared across Native/EVM/WASM/common work. Exact budget use succeeds; an overrun exhausts the meter, sets consumption to the authorized maximum, and remains sticky for later calls.
 - `oregon-consensus::execution_resources` owns validated V1 fee parameters, parent-only base-fee arithmetic, bounded price movement, and atomic block-weight inclusion. Fee bounds use the existing supply envelope.
-- Independent Python-generated literal vectors cover wide ratios/products, mixed domains, split/combined charges, exact and over limits, fee boundaries and producer sequences. The vector generator has a check-only mode and does not call Rust.
+- Independent Python-generated literal vectors cover wide ratios/products, mixed domains, split/combined charges, exact and over limits, fee boundaries, producer sequences, and block-budget boundary/rejection transitions. The vector generator has a check-only mode and does not call Rust.
 - Rust vector consumers and focused behavior tests are included. The resource workflow is configured for x86_64 and ARM; inherited Rust CI includes the new design, crate boundaries, focused tests and mutation gate.
 
 ## Verification evidence
@@ -32,8 +33,10 @@ Fresh local evidence available on the implementation worktree:
 - `cargo +1.85.0 check --locked -p oregon-consensus --tests` with the local CMake command unavailable and `CMAKE=/bin/true`: type-check success only; it is not a linked consensus test result.
 - A real local consensus test run was blocked because this environment lacks CMake/RandomX build tooling. CI installs native build dependencies and is the acceptance source for linked consensus tests and full workspace gates.
 - Python vector `--check`, Python syntax compilation, workflow YAML parsing, `git diff --check` and the inherited architecture scan all passed locally.
+- Final Oregon Rust CI run `34024604462`, job `101463226708`, exact head `0db212148fae4ad612c38d0e62b58e61aab668a0`: SUCCESS. Architecture, focused contracts, full workspace/all-target tests, 3/3 address, 9/9 envelope, 17/17 Stage 2, and 13/13 Stage 3A resource mutations passed; rustdoc, docs, format and warnings-denied Clippy passed.
+- Final Execution Resource Vector workflow `34024604471`: x86_64 job `101463226755` and ARM job `101463226655` SUCCESS at the same exact head. Independent reference vectors and linked consensus/resource tests passed on both runners.
 
-The final acceptance checkpoint must cite the exact descendant head and its own Rust CI, focused resource workflow, full workspace, rustfmt, Clippy, docs, architecture scan and all named Stage 3A mutations. No green ancestor can substitute for that run.
+The exact-head CI evidence above is the Stage 3A verification record. No green ancestor was used as a substitute.
 
 ## Required Stage 3B continuation
 
