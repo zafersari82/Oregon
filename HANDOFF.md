@@ -1,57 +1,48 @@
 # Oregon — current continuation record
 
-Updated: 2026-09-06 UTC. Stage 3B fee settlement and native reserve conservation is implemented and exact-head verified on its isolated branch. It remains **inactive** and is not integrated into `main`.
+Updated: 2026-09-06 UTC. Stage 3B is integrated into main. Stage 4 has a proposed design on a separate branch; no Stage 4 code or protocol activation is claimed.
 
 ## Resume here
 
 - Repository: `zafersari82/Oregon`.
-- Current `main`: `a07eb04be910ff1312a0c2a08aa66affa4fd75b5` — verified Stage 3A integration baseline.
-- Stage 3B branch: `work/fee-settlement-reserve-v1-2026-09-06`.
-- Draft PR: #17, `Stage 3B: fee settlement and reserve foundation`.
-- Stage 3B design: `docs/superpowers/specs/2026-09-06-fee-settlement-reserve-v1.md`.
-- Stage 3B plan: `docs/superpowers/plans/2026-09-06-fee-settlement-reserve-v1.md`.
-- Stage 3B checkpoint: `docs/checkpoints/OREGON_FEE_SETTLEMENT_RESERVE_PROGRESS.md`.
-- Exact verified implementation source: `670fa62c078882f40d82d05ad25d894b5eaf8bf6`.
-- Exact verified implementation tree: `370cc3743626c1be7fd172e60bee4a321f82ab36`.
+- Main integration: `fe762f7a5670d94a486423327e3a525cec24afb5` via merged PR #17.
+- Main integration tree: `cebbc2370e094052872570069c0a149a4581eb99`.
+- Active design branch: `design/runtime-journal-async-v1-2026-09-06`.
+- Proposed design: `docs/superpowers/specs/2026-09-06-runtime-journal-async-v1-design.md`.
+- Integration evidence: `docs/checkpoints/OREGON_STAGE3B_MAIN_INTEGRATION.md`.
+- Stage 3B implementation checkpoint: `docs/checkpoints/OREGON_FEE_SETTLEMENT_RESERVE_PROGRESS.md`.
 
-Before editing, inspect PR #17 and its current head. The implementation source above passed the complete Stage 3B acceptance gate; any later documentation/PR-closure head must also pass its own exact-head CI. Do not substitute the ancestor result for a changed tree.
+Read AGENTS.md and all applicable normative architecture/design documents before editing. Inspect the current main, design-branch head, PR and exact-head CI; this record cannot override them.
 
-## Completed foundations
+## Completed work
 
-| Work | Source / checkpoint |
-| --- | --- |
-| M0–M6 accepted node baseline | existing main history |
-| Execution Architecture V1 | PR #9 / architecture spec |
-| Typed execution addresses | `docs/checkpoints/OREGON_EXECUTION_ADDRESS_PROGRESS.md` |
-| Universal envelope/auth structure | `docs/checkpoints/OREGON_EXECUTION_ENVELOPE_PROGRESS.md` |
-| Logical contract state and commitments | `docs/checkpoints/OREGON_CONTRACT_STATE_PROGRESS.md` |
-| Stage 3A resource metering/base fee/budgets | `docs/checkpoints/OREGON_EXECUTION_RESOURCES_PROGRESS.md` |
-| Stage 3B fee escrow/settlement + native reserve foundation | `docs/checkpoints/OREGON_FEE_SETTLEMENT_RESERVE_PROGRESS.md` |
+M0–M6, execution addresses, universal-envelope/auth structure, logical contract state, Stage 3A resource metering/base fees, and Stage 3B escrow/settlement/reserve foundations are integrated. Do not repeat them or merge PR #17 again.
 
-Do not repeat completed M0–M6, Stage 1, Stage 2, Stage 3A or Stage 3B foundation work.
+The Stage 3B closure source is `d7b6773f842f35bcd44f485315e17b1cc2703078`; its own Rust CI #720 (`34039808168`, job `101504386721`) and Stage 3B x86_64/ARM vectors #12 (`34039808176`, jobs `101504386743` / `101504386825`) passed. Its resource and RandomX vector/parity workflows passed as well. The actual merge has exactly the same tree. Its separate main CI evidence is recorded in the integration note.
 
-## Stage 3B verification record
+Historical checkpoints describe their own recording-time main and pending-integration boundaries. They remain historical evidence, not instructions to revert the current main.
 
-Exact source `670fa62c078882f40d82d05ad25d894b5eaf8bf6` passed:
+## Proposed next scope
 
-- Oregon Rust CI run `34039255482` (#718), job `101502890618`: full workspace/all-target tests, architecture and focused contracts, address 3/3, envelope 9/9, contract-state 17/17, resource 13/13 and Stage 3B fee-settlement 14/14 mutation gates, rustdoc/docs, format and warnings-denied Clippy — SUCCESS.
-- Oregon Fee Settlement Vectors run `34039255396` (#10): x86_64 job `101502890461` and ARM job `101502890592` — SUCCESS.
-- Exact-head Execution Resource, RandomX architecture and RandomX full/light workflows were also SUCCESS.
+The Stage 4 proposal splits the next subsystem into independently verified slices:
 
-The independent Stage 3B oracle regenerates and byte-compares the committed literal vectors without invoking Rust.
+1. **4A:** bounded frame journal over existing Oregon SMT snapshots, nested commit/revert, checked reads and atomic unpublished finalization.
+2. **4B:** deterministic runtime/call ABI and transaction/fee/receipt composition, retaining one shared meter and authoritative source validation.
+3. **4C:** bounded async message/outbox/consumption lifecycle; exact wire/expiry/delivery semantics need their own detailed design before implementation.
 
-## Preserved inactive boundaries
+The current document is a **proposal for review**, not an owner-approved Stage 4 specification. The first next action is review of the decomposition and 4A semantics, followed by the 4A test-first implementation plan. Do not infer approval of future ABI bytes, bridge/oracle/AI trust or activation parameters from this proposal.
 
-Stage 3B does not change current transaction/header encoding, current active UTXO/coinbase validation, RocksDB schema, mempool/network behavior or node orchestration. Reserve transition/apply/undo helpers and the execution-fee-aware producer validator remain separate inactive APIs with no active block-path caller.
+## Preserved boundaries and implementation cautions
 
-No VM backend, runtime/journal integration, durable execution chainstate, wallet/RPC production path or protocol activation is claimed. No fee burn was introduced; the frozen architecture continues to require one execution truth and exact 1:1 native backing when execution becomes active.
+- Stage 3B integration is not activation: current block/transaction/UTXO/storage/mempool/network/node paths are unchanged.
+- `FundingCapabilityV1::new` validates data; it does not verify a live payer source. A future coordinator must obtain authority from source validation.
+- Existing `WeightMeter` exhaustion is sticky and charges the maximum. Child rollback cannot reset it or cumulative conversion counters.
+- EVM commitment semantics remain separate; never send EVM roots through the Oregon SMT journal.
+- No generic VM-facing unrestricted system-domain write or non-revertible write API is permitted.
+- Main integration remains a separate decision for each future slice. Never force-push or move accepted checkpoint refs.
 
-## Immediate continuation sequence
+## Verification and continuation discipline
 
-1. Verify the documentation-only Stage 3B closure head on PR #17.
-2. Update the PR body with exact closure evidence and keep the PR stopped before `main`.
-3. Main integration remains a separate explicit owner decision; never force-push accepted/shared refs.
-4. After authorized integration, start a new isolated, versioned design for the **runtime/journal/async execution core**. Define journal authority, committed/reverted/non-revertible fee boundaries, synchronous nested execution, explicit asynchronous messages, receipts/undo, deterministic failure semantics, and durable/reorg composition before implementation.
-5. EVM ingress/backend, WASM backend, cross-VM operations, unified execution mempool/block integration, durable chainstate activation and protocol activation remain subsequent stages.
+This branch changes documentation only. Verify its own PR CI before calling its documentation closure complete; do not substitute Stage 3B/main results. Local documentation checks do not count as running Rust tests. The local checkout used for this proposal had no Cargo executable; GitHub CI is the Rust verification source.
 
-The owner prefers autonomous progress without repeated low-level approval prompts, but frozen architecture changes and main integrations still follow their explicit-decision boundary.
+Keep the proposed design and this record in the repository so another conversation can continue without relying on chat memory. After review, record the actual approval and implementation plan explicitly; do not relabel the proposal as accepted merely because it exists in git.
