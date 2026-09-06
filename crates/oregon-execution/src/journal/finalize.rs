@@ -4,7 +4,7 @@ use super::ExecutionJournalV1;
 use super::frame::JournalValue;
 use super::types::{JournalDomainRootsV1, JournalError, JournalIntentV1, JournalResultV1};
 
-impl<'a, S: StateSource + ?Sized> ExecutionJournalV1<'a, S> {
+impl<S: StateSource + ?Sized> ExecutionJournalV1<'_, S> {
     pub fn finalize(self, intent: JournalIntentV1) -> Result<JournalResultV1, JournalError> {
         if self.frames.len() != 1 {
             return Err(JournalError::OpenChildFrames);
