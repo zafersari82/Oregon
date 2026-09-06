@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "provenance": "Independent Stage 3B oracle. Pure-Python one-chunk BLAKE3 is self-tested against the official empty and abc digests; no Rust code is invoked. All integer arithmetic uses Python arbitrary-precision integers.",
+  "fee_cases": [
+    {
+      "name": "basic",
+      "base_fee_per_weight": 10,
+      "max_fee_per_weight": 20,
+      "max_priority_fee_per_weight": 5,
+      "max_weight": 100,
+      "actual_weight": 40,
+      "max_escrow": 2000,
+      "effective_price": 15,
+      "charged": 600,
+      "base_component": 400,
+      "priority_component": 200,
+      "refund": 1400
+    },
+    {
+      "name": "priority_capped",
+      "base_fee_per_weight": 10,
+      "max_fee_per_weight": 12,
+      "max_priority_fee_per_weight": 5,
+      "max_weight": 100,
+      "actual_weight": 40,
+      "max_escrow": 1200,
+      "effective_price": 12,
+      "charged": 480,
+      "base_component": 400,
+      "priority_component": 80,
+      "refund": 720
+    },
+    {
+      "name": "exact_max_weight",
+      "base_fee_per_weight": 3,
+      "max_fee_per_weight": 7,
+      "max_priority_fee_per_weight": 2,
+      "max_weight": 11,
+      "actual_weight": 11,
+      "max_escrow": 77,
+      "effective_price": 5,
+      "charged": 55,
+      "base_component": 33,
+      "priority_component": 22,
+      "refund": 22
+    },
+    {
+      "name": "resource_exhausted",
+      "base_fee_per_weight": 2,
+      "max_fee_per_weight": 9,
+      "max_priority_fee_per_weight": 3,
+      "max_weight": 64,
+      "actual_weight": 64,
+      "max_escrow": 576,
+      "effective_price": 5,
+      "charged": 320,
+      "base_component": 128,
+      "priority_component": 192,
+      "refund": 256
+    }
+  ],
+  "settlement_case": {
+    "txid": "4444444444444444444444444444444444444444444444444444444444444444",
+    "payer_kind": 3,
+    "payer_payload": "5555555555555555555555555555555555555555555555555555555555555555",
+    "source_kind": 2,
+    "source_commitment": "6666666666666666666666666666666666666666666666666666666666666666",
+    "available_amount": 2000,
+    "source_sequence": 7,
+    "authorization_commitment": "7777777777777777777777777777777777777777777777777777777777777777",
+    "capability_preimage_hex": "0100020355555555555555555555555555555555555555555555555555555555555555556666666666666666666666666666666666666666666666666666666666666666d00700000000000007000000000000007777777777777777777777777777777777777777777777777777777777777777",
+    "capability_id": "78c900b85e319f9e95b1bc53be195f27bbaee432fd9febdc1ec831650b584d65",
+    "terms": {
+      "base_fee_per_weight": 10,
+      "max_fee_per_weight": 20,
+      "max_priority_fee_per_weight": 5,
+      "max_weight": 100,
+      "max_escrow": 2000
+    },
+    "escrow_preimage_hex": "010044444444444444444444444444444444444444444444444444444444444444440355555555555555555555555555555555555555555555555555555555555555550278c900b85e319f9e95b1bc53be195f27bbaee432fd9febdc1ec831650b584d650a00000000000000140000000000000005000000000000006400000000000000d007000000000000",
+    "escrow_id": "efc93ea731b58afa704d98e41c90a27b6dc8bb0d1f22eaf78e33c8bdc4d12a36",
+    "outcome": 1,
+    "actual_weight": 40,
+    "receipt_hex": "01004444444444444444444444444444444444444444444444444444444444444444efc93ea731b58afa704d98e41c90a27b6dc8bb0d1f22eaf78e33c8bdc4d12a3603555555555555555555555555555555555555555555555555555555555555555502010a0000000000000014000000000000000500000000000000640000000000000028000000000000000f000000000000009001000000000000c80000000000000058020000000000007805000000000000",
+    "receipt_id": "2da70526a11683130b961bd607e932809434e980b38023b6f5184ad18208a0d7"
+  },
+  "reserve_cases": [
+    {
+      "name": "zero_deposit",
+      "chain_id": 7,
+      "height": 100,
+      "parent_block_hash": "1010101010101010101010101010101010101010101010101010101010101010",
+      "previous": null,
+      "native_deposit_total": 40,
+      "execution_withdrawal_total": 0,
+      "execution_fee_total": 0,
+      "new_execution_balance_total": 40,
+      "producer_coinbase_txid": "2020202020202020202020202020202020202020202020202020202020202020",
+      "canonical_transition_hex": "0100070000000000000064000000000000001010101010101010101010101010101010101010101010101010101010101010000000000000000000280000000000000000000000000000000000000000000000000028000000000000002020202020202020202020202020202020202020202020202020202020202020",
+      "transition_id": "512b6e312282debf9af37490a63ae16138442cb7fbd9ccdb65686791ec6ee457",
+      "reserve_outpoint_txid": "f2392701bfc42c8893e7da1c1dbd6bd95b1ee18ce036dbb58d726a1bc0a1cc42",
+      "reserve_outpoint_index": 0
+    },
+    {
+      "name": "rebalance",
+      "chain_id": 7,
+      "height": 100,
+      "parent_block_hash": "1010101010101010101010101010101010101010101010101010101010101010",
+      "previous": {
+        "txid": "9090909090909090909090909090909090909090909090909090909090909090",
+        "index": 0,
+        "amount": 100
+      },
+      "native_deposit_total": 50,
+      "execution_withdrawal_total": 20,
+      "execution_fee_total": 30,
+      "new_execution_balance_total": 100,
+      "producer_coinbase_txid": "2020202020202020202020202020202020202020202020202020202020202020",
+      "canonical_transition_hex": "0100070000000000000064000000000000001010101010101010101010101010101010101010101010101010101010101010019090909090909090909090909090909090909090909090909090909090909090000000006400000000000000320000000000000014000000000000001e0000000000000064000000000000002020202020202020202020202020202020202020202020202020202020202020",
+      "transition_id": "6f336d1bdd8aca05d6c7597c3530625c9c1a7fdf0ec05e7fd375b57b2a982449",
+      "reserve_outpoint_txid": "fe2c7c19ce58e139ff9718bbacc3ffc5a5880191f8f6898d510755025a9f196e",
+      "reserve_outpoint_index": 0
+    },
+    {
+      "name": "zero_result",
+      "chain_id": 7,
+      "height": 100,
+      "parent_block_hash": "1010101010101010101010101010101010101010101010101010101010101010",
+      "previous": {
+        "txid": "9090909090909090909090909090909090909090909090909090909090909090",
+        "index": 0,
+        "amount": 100
+      },
+      "native_deposit_total": 0,
+      "execution_withdrawal_total": 80,
+      "execution_fee_total": 20,
+      "new_execution_balance_total": 0,
+      "producer_coinbase_txid": "2020202020202020202020202020202020202020202020202020202020202020",
+      "canonical_transition_hex": "010007000000000000006400000000000000101010101010101010101010101010101010101010101010101010101010101001909090909090909090909090909090909090909090909090909090909090909000000000640000000000000000000000000000005000000000000000140000000000000000000000000000002020202020202020202020202020202020202020202020202020202020202020",
+      "transition_id": "f91622ddb19436d682d0ff0cef0da524b3de3da8e566eadaad14f73ed4fef6e8",
+      "reserve_outpoint_txid": null,
+      "reserve_outpoint_index": null
+    }
+  ],
+  "producer_cases": [
+    {
+      "name": "valid",
+      "height": 2,
+      "native_fees": 100,
+      "execution_fees": 50,
+      "outputs": [
+        {"value": 237500100, "locking_program_hex": "51"},
+        {"value": 50, "locking_program_hex": "52"}
+      ],
+      "expected": "ok"
+    },
+    {
+      "name": "missing_execution_payout",
+      "height": 2,
+      "native_fees": 100,
+      "execution_fees": 50,
+      "outputs": [
+        {"value": 237500150, "locking_program_hex": "51"}
+      ],
+      "expected": "invalid_coinbase"
+    },
+    {
+      "name": "reserve_program_payout",
+      "height": 2,
+      "native_fees": 100,
+      "execution_fees": 50,
+      "outputs": [
+        {"value": 237500100, "locking_program_hex": "51"},
+        {"value": 50, "locking_program_hex": "4f5245474f4e2f455845432f524553455256452f563100"}
+      ],
+      "expected": "invalid_coinbase"
+    },
+    {
+      "name": "zero_execution_fee",
+      "height": 2,
+      "native_fees": 100,
+      "execution_fees": 0,
+      "outputs": [
+        {"value": 237500100, "locking_program_hex": "51"}
+      ],
+      "expected": "ok"
+    },
+    {
+      "name": "fee_underclaim",
+      "height": 2,
+      "native_fees": 100,
+      "execution_fees": 50,
+      "outputs": [
+        {"value": 99, "locking_program_hex": "51"},
+        {"value": 50, "locking_program_hex": "52"}
+      ],
+      "expected": "invalid_coinbase"
+    },
+    {
+      "name": "double_count_guard",
+      "height": 2,
+      "native_fees": 100,
+      "execution_fees": 50,
+      "outputs": [
+        {"value": 237500150, "locking_program_hex": "51"},
+        {"value": 50, "locking_program_hex": "52"}
+      ],
+      "expected": "coinbase_overclaim"
+    }
+  ]
+}
