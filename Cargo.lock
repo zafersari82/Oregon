@@ -419,6 +419,7 @@ version = "0.1.0"
 dependencies = [
  "oregon-contract-state",
  "oregon-primitives",
+ "oregon-runtime",
  "proptest",
  "serde",
  "serde_json",
