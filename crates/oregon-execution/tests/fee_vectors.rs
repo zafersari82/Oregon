@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use oregon_execution::fees::{EscrowBookV1, FeeTermsV1, FundingCapabilityV1};
+use oregon_execution::{EscrowBookV1, FeeTermsV1, FundingCapabilityV1};
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::fee_settlement::{ExecutionOutcome, FeeSourceKind};
 use oregon_primitives::Hash256;
