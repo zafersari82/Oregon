@@ -8,7 +8,3 @@ rust-version.workspace = true
 oregon-consensus = { path = "../oregon-consensus" }
 oregon-primitives = { path = "../oregon-primitives" }
 thiserror = "2.0.20"
-
-[dev-dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
