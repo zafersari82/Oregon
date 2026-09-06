@@ -1,6 +1,6 @@
 # Oregon Reserve Conservation Proof V1
 
-**Status:** proposed verification design; owner review required before implementation.
+**Status:** owner-approved verification design on 2026-09-06; implementation authorized.
 
 **Date:** 2026-09-06 UTC.
 
@@ -22,9 +22,11 @@ This slice changes no production transition, amount rule, dependency, API, wire
 encoding or activation. It does not continue the open Stage 4B PR #20, whose
 runtime work remains separate. It does not claim conservation is already proven.
 
-The owner-requested roadmap authorizes preparation of this design. It does not
-record approval of this particular abstraction or verifier pin. Implementation
-begins after that specific decision is recorded, following `AGENTS.md`.
+The owner explicitly approved this plan after review of design commit `7743aaa`.
+That approval covers this abstraction and verifier selection; implementation may
+proceed under `AGENTS.md`. See `docs/architecture/OREGON_OWNER_DIRECTION.md` for
+the approval record and continuing assurance objective. Main integration remains
+a separate decision.
 
 ## 2. Authoritative owners
 

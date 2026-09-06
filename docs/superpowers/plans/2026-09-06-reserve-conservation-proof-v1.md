@@ -1,6 +1,6 @@
 # Oregon Reserve Conservation Proof V1 — Implementation Plan
 
-**Status:** proposed; implementation awaits approval of the companion design.
+**Status:** owner-approved on 2026-09-06; start with proof-tool bootstrap.
 
 **Base:** `dd7cdcb566273c39d5a38cf0c0036058b08a7d89`.
 
@@ -17,7 +17,8 @@
   `fc2cc1564de69eee1482a445bb0c08b49b667ab0`; main's trust-roadmap order is unchanged.
 - [x] Verify the Kani 0.67.0 tag against its repository source and inspect its
   installation, toolchain, backend and solver documentation.
-- [ ] Record owner approval of this model boundary and pinned verifier.
+- [x] Record owner approval of this model boundary and pinned verifier in
+  `docs/architecture/OREGON_OWNER_DIRECTION.md`.
 
 This design review ran without a local Rust toolchain. No local Rust, Kani,
 mutation or newly authored proof execution is claimed by these checked items.

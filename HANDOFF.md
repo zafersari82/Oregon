@@ -4,6 +4,16 @@ Updated: 2026-09-06 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ## Resume here
 
+- Current local work branch: `work/reserve-conservation-proof-v1-2026-09-06`.
+- Owner approved Reserve Conservation Proof V1 after reviewing design commit
+  `7743aaa`; implementation is authorized. Do not request the same approval again.
+- Read `docs/architecture/OREGON_OWNER_DIRECTION.md` for the persistent engineering
+  objective, future subsystem assurance needs and limits of this reserve proof.
+- Current next action: bootstrap the pinned verifier and tool digests, then follow
+  the approved test-first plan. No Kani proof has been run or accepted yet.
+- Publication limitation: the design push failed because GitHub write authentication
+  was unavailable. These continuation changes are local until a push succeeds.
+
 - Repository: `zafersari82/Oregon`.
 - Stage 3B main integration: `fe762f7a5670d94a486423327e3a525cec24afb5`.
 - Stage 4A main integration: `dee4ca6ea3b6dc75e4920ab56a44e2b5da8aa0a3`.
@@ -70,17 +80,17 @@ The accepted Stage 4B/4C architecture remains valid but is not the default immed
 
 ## Preserved cautions
 
-### Pending reserve-proof design
+### Approved reserve-proof design
 
 The branch `design/reserve-conservation-proof-v1-2026-09-06` prepares Workstream A
 from main `dd7cdcb566273c39d5a38cf0c0036058b08a7d89`:
 
 - Design: `docs/superpowers/specs/2026-09-06-reserve-conservation-proof-v1.md`.
 - Plan: `docs/superpowers/plans/2026-09-06-reserve-conservation-proof-v1.md`.
-- State: proposed bounded-model proof with Kani 0.67.0 and production differential
-  tests; no proof implementation, result or owner approval is claimed.
-- Next action: review/approve the concrete verifier/model boundary, then execute
-  the test-first plan on its own implementation branch.
+- State: owner-approved bounded-model proof with Kani 0.67.0 and production
+  differential tests; no proof implementation or result is claimed.
+- Next action: execute the approved test-first plan on
+  `work/reserve-conservation-proof-v1-2026-09-06`, starting with verifier bootstrap.
 
 Open draft PR #20 remains separate Stage 4B work at
 `fc2cc1564de69eee1482a445bb0c08b49b667ab0`; it does not supersede main's default
