@@ -4,6 +4,7 @@ mod frame;
 mod io;
 mod lifecycle;
 mod types;
+mod write;
 
 use std::collections::BTreeMap;
 
