@@ -1,71 +1,47 @@
 # Oregon — current continuation record
 
-Updated: 2026-09-05 (UTC). This file records development progress; it is not an activation or main-integration approval.
+Updated: 2026-09-06 UTC. Progress record only; no activation or main-integration approval.
 
-## Where to resume
+## Resume here
 
 - Repository: https://github.com/zafersari82/Oregon
-- Accepted main for this execution work: `bf7675bfe17182f77d4c43e2bcbd0c283709d799` (M0–M6 implementation plus platform architecture contract).
-- Owner-approved execution architecture: `design/execution-architecture-v1-2026-09-05`, source commit `ed67ccb89131970571d93911cf5553be33636e2f`, PR #9.
-- Verified address checkpoint/source: `8057ba2a030a8e79c10a240d48675be758c4d875`, branch `work/execution-addresses-2026-09-05`, PR #10.
-- Byte-exact envelope wire design: `design/execution-envelope-wire-v1-2026-09-05`, source commit `dd473f0277df1f82d51390332a5473a708031be0`, PR #11.
-- **Active continuation branch:** `work/execution-envelope-auth-v1-2026-09-05`, PR #12.
-- Wire spec: `docs/superpowers/specs/2026-09-05-execution-envelope-wire-v1.md`.
-- Completed implementation plan: `docs/superpowers/plans/2026-09-05-execution-envelope-wire-v1.md`.
-- Address checkpoint: `docs/checkpoints/OREGON_EXECUTION_ADDRESS_PROGRESS.md`.
-- Envelope/auth checkpoint: `docs/checkpoints/OREGON_EXECUTION_ENVELOPE_PROGRESS.md`.
+- Accepted main: `bf7675bfe17182f77d4c43e2bcbd0c283709d799` (M0–M6 plus platform architecture contract).
+- Execution architecture: `ed67ccb89131970571d93911cf5553be33636e2f`, PR #9.
+- Verified address checkpoint: `8057ba2a030a8e79c10a240d48675be758c4d875`, PR #10.
+- Verified Stage 1 envelope/auth final head: `b97f9d3af9e2c9c4011750cfb69cce8fd9117a8a`, PR #12; byte design PR #11.
+- Stage 2 design: `8a3f2c51f7c4ed7078fa808b2223f3b6af4ef3a7`, PR #13.
+- **Active continuation branch: `work/contract-state-v1-2026-09-05`, draft PR #14.**
+- **Verified Stage 2 implementation: `6bfc3364c71674c2bc3dd20e2b66a4fcabaac19f`.**
+- Verified tree: `682a1fc617dad937efbaa3b24ae5c7d861674ad6`.
+- Checkpoint: `docs/checkpoints/OREGON_CONTRACT_STATE_PROGRESS.md`.
+- Completed plan/spec: `docs/superpowers/{plans,specs}/2026-09-05-contract-state-commitments-v1.md`.
 
-## Current verified implementation source
+## Completed work
 
-Inactive universal-envelope and authorization outer-wire code is complete at implementation source commit `df62a75dfbde80dbea72e599ffbbccf0fb8fe1e0`, tree `47faba5451bc929804137f33de77b3973dabb0d2`.
+Stage 1 address/envelope/auth primitives and Stage 2 logical contract state/commitments are complete and inactive. Stage 2 includes canonical child/aggregate commitments, immutable SMT transitions/snapshots, checked reads and compressed membership/non-membership proofs.
 
-Authoritative GitHub Actions verification for that code source:
+The continuation audit fixed old-value corruption bypass during deletion/replacement/no-op and cross-decode-domain proof canonicality bypass. Shared rule ownership, resource boundaries, snapshot tests, independent accounting/all-domain vectors and every required mutation target are covered.
 
-- Oregon Rust CI run `33980111067`, job `101343713813`: SUCCESS.
-- Architecture scan: SUCCESS.
-- Execution address contracts: SUCCESS.
-- Execution envelope contracts: SUCCESS.
-- Full workspace/all-target tests: SUCCESS.
-- Inherited execution-address mutations: 3/3 killed.
-- Execution-envelope mutations: 9/9 killed.
-- Chainstate rustdoc: SUCCESS.
-- Workspace docs: SUCCESS.
-- `cargo fmt --check`: SUCCESS.
-- Clippy with `-D warnings`: SUCCESS.
+Verified implementation evidence:
 
-The envelope implementation remains **inactive**. It does not route through current `Transaction::encode/decode/txid`, blocks, mempool, chainstate, RPC, wallet, EVM, WASM or native UTXO execution.
+- Oregon Rust CI `33990488016`, job `101371722660`: SUCCESS, including full workspace, architecture, docs, rustfmt and Clippy.
+- Address mutations 3/3, envelope mutations 9/9, state mutations 17/17: killed with clean restoration.
+- RandomX architecture `33990488002`: x86 and ARM SUCCESS.
+- RandomX full/light parity `33990487993`: x86 and ARM SUCCESS.
+- Focused local tests: 39 contract-state + 5 commitment tests passed.
 
-## First action in another conversation
+This handoff/checkpoint successor removes the two temporary RandomX trigger entries; code/tests/vectors remain identical to the verified implementation. Always inspect the current branch's own final Rust CI and PR #14 before treating its current head as verified. An earlier green ancestor does not prove changed descendant code.
 
-Fetch the current head of `work/execution-envelope-auth-v1-2026-09-05` (or a later successor branch named by this file), then read this handoff, `AGENTS.md`, the Engineering Constitution, Platform Architecture Contract, Execution Architecture V1, the address checkpoint and the envelope checkpoint before editing.
+## Exact next action
 
-Do not repeat M0–M6, typed-address work, or envelope/auth outer-wire work. Do not restart their architecture selection. Preserve the repository's versioned design/test/checkpoint process.
+Read `AGENTS.md`, the Engineering Constitution, Platform Architecture Contract, Execution Architecture V1, this handoff and the Stage 2 checkpoint. Fetch current branch HEAD before editing.
 
-## Verification environment
+Start Execution Architecture V1 §27 **Stage 3 with a versioned design** for normalized resource weight, fee escrow/settlement, fee-state transitions and native UTXO reserve conservation. Define authoritative owners, deterministic arithmetic/overflow rules, rollback versus non-revertible fee boundaries, backing invariants, required vectors and adversarial tests before implementation. Preserve no fee burn, one fee/execution truth and 1:1 native backing. Activation constants require their specified benchmark/vector evidence.
 
-GitHub Actions is authoritative for Rust verification. Every code-bearing descendant must own its own exact-head verification before being called verified. A green ancestor does not prove changed descendant code.
+Do not repeat M0–M6, Stage 1, Stage 2 design selection or completed Stage 2 implementation. The owner requests autonomous progress without repeated low-level approval prompts; that does not authorize changing frozen architecture or integrating main.
 
-## Remaining execution sequence
+## Remaining sequence and boundaries
 
-Execution Architecture V1 §27 remains authoritative:
+Later work is Stage 3 accounting/weight/fees, runtime/journal/async core, EVM ingress/backend, WASM backend, cross-VM operations, unified mempool/block execution, durable chainstate/reorg/recovery, then separate activation and integration decisions.
 
-1. Inactive execution primitives: **typed address complete; universal envelope + authorization outer wire complete.**
-2. **Logical contract state and versioned commitments — next.**
-3. Resource weight, fee escrow/state transition and UTXO reserve conservation.
-4. Deterministic runtime, call journal and asynchronous message core.
-5. EVM backend and Ethereum normalization/ingress.
-6. Deterministic WASM backend.
-7. Cross-VM calls and execution balance transfers.
-8. Unified mempool and block execution.
-9. Durable chainstate/reorg/recovery integration, complete vectors and mutations.
-10. Separate activation/checkpoint and main integration decisions.
-
-### Exact next action
-
-Start Stage 2 by writing a versioned design for **logical contract state and versioned commitments** before implementation. The design must freeze ownership and exact commitment boundaries for EVM state, WASM state, execution reserve/accounting state, asynchronous-message state, and the extensible header commitment without changing current accepted block/header bytes prematurely.
-
-The Stage 2 design must explicitly cover deterministic state-root algorithms/interfaces, domain separation, empty-state roots, versioning/upgrades, proof/commitment boundaries, persistence ownership, reorg/recovery behavior, resource bounds, and how future EVM/WASM backends consume the same authoritative committed state. Do not infer unspecified consensus bytes from Ethereum merely for compatibility.
-
-## Persistence and authority
-
-Keep completed work, exact source SHAs/trees, verification evidence, limitations and next action in this file and checkpoints. Never force-push accepted/shared checkpoint refs and never integrate `main` without the separate integration decision required by the repository.
+Current header/transaction bytes, RocksDB schema, UTXO and monetary rules, active M0–M6 behavior and main remain unchanged. No wallet/RPC, public network or active contracts are claimed. Never force-push accepted/shared checkpoint refs. Keep exact sources, verification evidence, limitations and next action in the repository.

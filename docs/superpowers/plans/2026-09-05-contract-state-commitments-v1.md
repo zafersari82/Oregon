@@ -1,6 +1,6 @@
 # Contract State and Commitments V1 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build the inactive Oregon Stage 2 logical contract-state commitment foundation: typed child commitments, aggregate root, a deterministic 256-bit Sparse Merkle Tree, immutable snapshots/transitions, canonical write sets, and compressed membership/non-membership proofs.
 
@@ -87,7 +87,7 @@ use oregon_primitives::state_commitment::{
 };
 ```
 
-- [ ] **Step 1: Add literal descriptor/aggregate vector file before implementation.** Store canonical hex for at least one WASM descriptor, one execution-accounting descriptor, a two-descriptor set, and independent expected aggregate-root hex. Expected values must be produced independently from the production implementation and then copied literally into JSON.
+- [x] **Step 1: Add literal descriptor/aggregate vector file before implementation.** Store canonical hex for at least one WASM descriptor, one execution-accounting descriptor, a two-descriptor set, and independent expected aggregate-root hex. Expected values must be produced independently from the production implementation and then copied literally into JSON.
 
 JSON schema:
 
@@ -109,7 +109,7 @@ JSON schema:
 
 The angle-bracket notation above describes the JSON field format; the committed vector file must contain concrete lowercase hex and no placeholder tokens.
 
-- [ ] **Step 2: Write failing discriminant tests.** Pin every domain/scheme numeric value and reject unsupported ids with `TryFrom<u16>`.
+- [x] **Step 2: Write failing discriminant tests.** Pin every domain/scheme numeric value and reject unsupported ids with `TryFrom<u16>`.
 
 Representative test contract:
 
@@ -123,19 +123,19 @@ fn commitment_ids_are_frozen_and_unknown_ids_fail_closed() {
 }
 ```
 
-- [ ] **Step 3: Write failing descriptor codec tests.** Require exact 36-byte encoding, truncation rejection at every byte boundary, unknown ids rejection, and trailing-byte rejection.
+- [x] **Step 3: Write failing descriptor codec tests.** Require exact 36-byte encoding, truncation rejection at every byte boundary, unknown ids rejection, and trailing-byte rejection.
 
-- [ ] **Step 4: Write failing aggregate canonicality tests.** Require one to 32 descriptors, strict domain ordering, duplicate-domain rejection, malformed `(len - 2) % 36 != 0` rejection, version exactly `1`, and literal vector roundtrip.
+- [x] **Step 4: Write failing aggregate canonicality tests.** Require one to 32 descriptors, strict domain ordering, duplicate-domain rejection, malformed `(len - 2) % 36 != 0` rejection, version exactly `1`, and literal vector roundtrip.
 
-- [ ] **Step 5: Write failing aggregate identity tests.** Mutate only domain id, scheme id, or child root and require a different aggregate root. Reverse descriptor order and require constructor/decode rejection rather than silent sorting at decode time.
+- [x] **Step 5: Write failing aggregate identity tests.** Mutate only domain id, scheme id, or child root and require a different aggregate root. Reverse descriptor order and require constructor/decode rejection rather than silent sorting at decode time.
 
-- [ ] **Step 6: Wire a focused `State commitment contracts` CI step** running:
+- [x] **Step 6: Wire a focused `State commitment contracts` CI step** running:
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-primitives --test state_commitments
 ```
 
-- [ ] **Step 7: Publish expected-red commit.** Expected failure is unresolved `oregon_primitives::state_commitment`; inherited execution-address/envelope focused tests must remain green. Record exact SHA/run/job.
+- [x] **Step 7: Publish expected-red commit.** Expected failure is unresolved `oregon_primitives::state_commitment`; inherited execution-address/envelope focused tests must remain green. Record exact SHA/run/job.
 
 ---
 
@@ -194,33 +194,33 @@ impl StateCommitmentSetV1 {
 }
 ```
 
-- [ ] **Step 1: Expose existing canonical hash helper, unchanged.** Change only visibility from `pub(crate)` to `pub` and re-export it from `lib.rs`:
+- [x] **Step 1: Expose existing canonical hash helper, unchanged.** Change only visibility from `pub(crate)` to `pub` and re-export it from `lib.rs`:
 
 ```rust
 pub fn domain_hash(domain: &[u8], payload: &[u8]) -> Hash256 { /* existing body unchanged */ }
 ```
 
-- [ ] **Step 2: Implement closed ids and conversions.** `From<enum> for u16` and `TryFrom<u16>` must use explicit match arms; unsupported values return typed `UnknownCommitmentDomain(u16)` / `UnknownCommitmentScheme(u16)`.
+- [x] **Step 2: Implement closed ids and conversions.** `From<enum> for u16` and `TryFrom<u16>` must use explicit match arms; unsupported values return typed `UnknownCommitmentDomain(u16)` / `UnknownCommitmentScheme(u16)`.
 
-- [ ] **Step 3: Implement descriptor codec.** Encode `domain LE || scheme LE || root`; decode exactly 36 bytes using `Decoder`; require `finish()`.
+- [x] **Step 3: Implement descriptor codec.** Encode `domain LE || scheme LE || root`; decode exactly 36 bytes using `Decoder`; require `finish()`.
 
-- [ ] **Step 4: Implement aggregate constructor validation.** Reject empty, >32, non-strict domain order and duplicate domain. `new` does not silently sort; callers must supply canonical order.
+- [x] **Step 4: Implement aggregate constructor validation.** Reject empty, >32, non-strict domain order and duplicate domain. `new` does not silently sort; callers must supply canonical order.
 
-- [ ] **Step 5: Implement aggregate codec/root.** Encoding is `1u16 LE` plus descriptors with no count. Root is:
+- [x] **Step 5: Implement aggregate codec/root.** Encoding is `1u16 LE` plus descriptors with no count. Root is:
 
 ```rust
 const AGGREGATE_DOMAIN: &[u8] = b"OREGON/STATE/AGGREGATE/V1\0";
 domain_hash(AGGREGATE_DOMAIN, &self.encode())
 ```
 
-- [ ] **Step 6: Run focused green and all `oregon-primitives` tests.**
+- [x] **Step 6: Run focused green and all `oregon-primitives` tests.**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-primitives --test state_commitments
 cargo +1.85.0 test --locked -p oregon-primitives --all-targets
 ```
 
-- [ ] **Step 7: Commit the primitive implementation** without touching `block.rs` or `transaction.rs`.
+- [x] **Step 7: Commit the primitive implementation** without touching `block.rs` or `transaction.rs`.
 
 ---
 
@@ -253,9 +253,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ```
 
-- [ ] **Step 1: Add only the crate shell and workspace member.** `lib.rs` contains `#![forbid(unsafe_code)]` but none of the expected SMT modules yet.
+- [x] **Step 1: Add only the crate shell and workspace member.** `lib.rs` contains `#![forbid(unsafe_code)]` but none of the expected SMT modules yet.
 
-- [ ] **Step 2: Add literal independent SMT vector JSON before implementation.** Include at minimum WASM and execution-accounting domains with concrete key/path/value/empty-root/one-leaf/two-leaf/update/delete hashes and concrete proof bytes. No runtime generation of expected values.
+- [x] **Step 2: Add literal independent SMT vector JSON before implementation.** Include at minimum WASM and execution-accounting domains with concrete key/path/value/empty-root/one-leaf/two-leaf/update/delete hashes and concrete proof bytes. No runtime generation of expected values.
 
 Required JSON fields per case include concrete lowercase hex for:
 
@@ -270,19 +270,19 @@ Required JSON fields per case include concrete lowercase hex for:
 }
 ```
 
-- [ ] **Step 3: Write failing SMT hash/root contracts** importing the APIs defined in Task 4. Pin MSB-first path behavior including bit 0, bit 7, bit 8 and bit 255.
+- [x] **Step 3: Write failing SMT hash/root contracts** importing the APIs defined in Task 4. Pin MSB-first path behavior including bit 0, bit 7, bit 8 and bit 255.
 
-- [ ] **Step 4: Pin `Some([])` versus absence.** Require empty byte value to create a populated leaf/root different from the domain empty root.
+- [x] **Step 4: Pin `Some([])` versus absence.** Require empty byte value to create a populated leaf/root different from the domain empty root.
 
-- [ ] **Step 5: Pin cross-domain separation.** Identical raw key/value under WASM and execution-accounting ids must produce different path keys, value hashes and roots.
+- [x] **Step 5: Pin cross-domain separation.** Identical raw key/value under WASM and execution-accounting ids must produce different path keys, value hashes and roots.
 
-- [ ] **Step 6: Add focused CI step:**
+- [x] **Step 6: Add focused CI step:**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-contract-state --test smt_vectors
 ```
 
-- [ ] **Step 7: Publish expected-red checkpoint.** Expected failure is unresolved contract-state hash/node API, not Cargo/workspace configuration failure. Record exact SHA/run/job.
+- [x] **Step 7: Publish expected-red checkpoint.** Expected failure is unresolved contract-state hash/node API, not Cargo/workspace configuration failure. Record exact SHA/run/job.
 
 ---
 
@@ -318,11 +318,11 @@ impl StateNode {
 }
 ```
 
-- [ ] **Step 1: Implement typed errors** including `KeyTooLarge`, `ValueTooLarge`, `DepthOutOfRange`, `NonCanonicalEmptyBranch`, `MissingNode`, `NodeHashMismatch`, `NodeDepthMismatch`, `UnexpectedLeaf`, `UnexpectedBranch`, `MissingValue`, `ValueHashMismatch`, `DuplicatePath`, `WriteSetTooLarge`, `ProofTooLarge`, `MalformedProof`, `RedundantDefaultSibling`, `InvalidProof`, `DomainMismatch` and wrapped primitive errors where needed.
+- [x] **Step 1: Implement typed errors** including `KeyTooLarge`, `ValueTooLarge`, `DepthOutOfRange`, `NonCanonicalEmptyBranch`, `MissingNode`, `NodeHashMismatch`, `NodeDepthMismatch`, `UnexpectedLeaf`, `UnexpectedBranch`, `MissingValue`, `ValueHashMismatch`, `DuplicatePath`, `WriteSetTooLarge`, `ProofTooLarge`, `MalformedProof`, `RedundantDefaultSibling`, `InvalidProof`, `DomainMismatch` and wrapped primitive errors where needed.
 
-- [ ] **Step 2: Implement path/value hashes exactly.** Payload starts with `u16::from(domain).to_le_bytes()` and then canonical bytes.
+- [x] **Step 2: Implement path/value hashes exactly.** Payload starts with `u16::from(domain).to_le_bytes()` and then canonical bytes.
 
-- [ ] **Step 3: Implement MSB-first path bit.** Exact logic:
+- [x] **Step 3: Implement MSB-first path bit.** Exact logic:
 
 ```rust
 let byte = path_key.as_bytes()[depth / 8];
@@ -331,13 +331,13 @@ Ok((byte & (0x80 >> (depth % 8))) != 0)
 
 Reject `depth >= 256`.
 
-- [ ] **Step 4: Implement the 257-entry empty ladder.** Compute `empty[256]`, then loop `(0..256).rev()` and include `depth as u16` in every branch hash.
+- [x] **Step 4: Implement the 257-entry empty ladder.** Compute `empty[256]`, then loop `(0..256).rev()` and include `depth as u16` in every branch hash.
 
-- [ ] **Step 5: Implement immutable leaf/branch hashes.** Reject branch depth >255 and explicit both-default branch construction in the canonical node constructor/helper.
+- [x] **Step 5: Implement immutable leaf/branch hashes.** Reject branch depth >255 and explicit both-default branch construction in the canonical node constructor/helper.
 
-- [ ] **Step 6: Run `smt_vectors` green** and crate unit tests; compare literal hashes exactly.
+- [x] **Step 6: Run `smt_vectors` green** and crate unit tests; compare literal hashes exactly.
 
-- [ ] **Step 7: Commit hash/node foundation.**
+- [x] **Step 7: Commit hash/node foundation.**
 
 ---
 
@@ -345,7 +345,7 @@ Reject `depth >= 256`.
 
 **Files:**
 - Create: `crates/oregon-contract-state/src/source.rs`
-- Create: `crates/oregon-contract-state/src/write_set.rs`
+- Implemented with the normalization types in `crates/oregon-contract-state/src/transition.rs`
 - Create: `crates/oregon-contract-state/src/transition.rs`
 - Create: `crates/oregon-contract-state/tests/security.rs`
 - Modify: `crates/oregon-contract-state/src/lib.rs`
@@ -400,15 +400,15 @@ pub fn apply_write_set<S: StateSource>(
 ) -> Result<StateTransition, StateError>;
 ```
 
-- [ ] **Step 1: Implement `StateWriteSet::new`.** Validate before allocation growth, derive path keys, sort ascending path bytes, reject duplicate path keys and >65,536 writes. Keep raw canonical key/value with derived path key internally.
+- [x] **Step 1: Implement `StateWriteSet::new`.** Validate before allocation growth, derive path keys, sort ascending path bytes, reject duplicate path keys and >65,536 writes. Keep raw canonical key/value with derived path key internally.
 
-- [ ] **Step 2: Add tests for input-order independence and duplicates.** Same unique writes in reversed/random order must produce identical normalized order/root; same path twice must return `DuplicatePath`.
+- [x] **Step 2: Add tests for input-order independence and duplicates.** Same unique writes in reversed/random order must produce identical normalized order/root; same path twice must return `DuplicatePath`.
 
-- [ ] **Step 3: Implement validated node loading.** For a non-default hash, `StateSource` must return a node; recompute its domain hash and compare requested hash; branch depth must equal traversal depth. Missing/hash/depth/type mismatch returns typed corruption error.
+- [x] **Step 3: Implement validated node loading.** For a non-default hash, `StateSource` must return a node; recompute its domain hash and compare requested hash; branch depth must equal traversal depth. Missing/hash/depth/type mismatch returns typed corruption error.
 
-- [ ] **Step 4: Implement `read_value`.** Traverse exactly 256 MSB-first levels. If an internal root equals the deterministic empty hash for that depth, return `None` without source access. At a populated leaf verify path key, retrieve value blob and re-hash it before returning bytes.
+- [x] **Step 4: Implement `read_value`.** Traverse exactly 256 MSB-first levels. If an internal root equals the deterministic empty hash for that depth, return `None` without source access. At a populated leaf verify path key, retrieve value blob and re-hash it before returning bytes.
 
-- [ ] **Step 5: Implement deterministic recursive batch update rather than N independent full-path updates.** Internal helper shape:
+- [x] **Step 5: Implement deterministic recursive batch update rather than N independent full-path updates.** Internal helper shape:
 
 ```rust
 fn apply_subtree<S: StateSource>(
@@ -423,13 +423,13 @@ fn apply_subtree<S: StateSource>(
 
 At each depth, split the already path-sorted slice into contiguous `0` and `1` groups, recurse only into touched groups, reuse untouched child hashes, collapse both-default children to `empty[depth]`, and insert only final newly reachable branch/leaf records into the transition BTreeMaps.
 
-- [ ] **Step 6: Define leaf behavior.** At depth 256 there is exactly one normalized path. Delete of empty is no-op; put computes value hash + leaf; delete populated returns empty; same-value put keeps the same root. Existing non-empty leaf record must hash correctly and match the requested path.
+- [x] **Step 6: Define leaf behavior.** At depth 256 there is exactly one normalized path. Delete of empty is no-op; put computes value hash + leaf; delete populated returns empty; same-value put keeps the same root. Existing non-empty leaf record must hash correctly and match the requested path.
 
-- [ ] **Step 7: Add corruption/security tests.** Missing branch, wrong node hash, wrong depth, leaf at internal depth, branch at leaf depth, missing value and value-hash mismatch must all fail closed.
+- [x] **Step 7: Add corruption/security tests.** Missing branch, wrong node hash, wrong depth, leaf at internal depth, branch at leaf depth, missing value and value-hash mismatch must all fail closed.
 
-- [ ] **Step 8: Add root transition vectors.** Pin one leaf, two diverging paths, long shared prefix, update, delete-back-to-empty, delete absent, and order independence against literal JSON roots.
+- [x] **Step 8: Add root transition vectors.** Pin one leaf, two diverging paths, long shared prefix, update, delete-back-to-empty, delete absent, and order independence against literal JSON roots.
 
-- [ ] **Step 9: Commit transition engine.** No storage schema or chainstate edits.
+- [x] **Step 9: Commit transition engine.** No storage schema or chainstate edits.
 
 ---
 
@@ -472,19 +472,19 @@ pub fn verify_proof(
 ) -> Result<(), StateError>;
 ```
 
-- [ ] **Step 1: Write failing literal proof tests before implementation.** Pin concrete membership and non-membership proof bytes from JSON, including a proof with no explicit siblings and one with multiple explicit siblings.
+- [x] **Step 1: Write failing literal proof tests before implementation.** Pin concrete membership and non-membership proof bytes from JSON, including a proof with no explicit siblings and one with multiple explicit siblings.
 
-- [ ] **Step 2: Implement wire decode.** Require `len >= 34`, `len <= 8226`, version exactly 1, `(len - 34) % 32 == 0`, and explicit sibling count exactly equals bitmap popcount. Bitmap depth bits are MSB-first and siblings are stored in increasing depth order.
+- [x] **Step 2: Implement wire decode.** Require `len >= 34`, `len <= 8226`, version exactly 1, `(len - 34) % 32 == 0`, and explicit sibling count exactly equals bitmap popcount. Bitmap depth bits are MSB-first and siblings are stored in increasing depth order.
 
-- [ ] **Step 3: Enforce canonical domain-specific compression during decode.** Walk set bits in increasing depth order and reject an explicit sibling equal to that domain's `empty[depth + 1]` as `RedundantDefaultSibling`.
+- [x] **Step 3: Enforce canonical domain-specific compression during decode.** Walk set bits in increasing depth order and reject an explicit sibling equal to that domain's `empty[depth + 1]` as `RedundantDefaultSibling`.
 
-- [ ] **Step 4: Implement verification.** Derive membership leaf or empty leaf, reconstruct from depth 255 down to 0, select left/right by MSB path bit, use explicit sibling for set bit or domain default for clear bit, and require exact expected root. Return `InvalidProof` on mismatch.
+- [x] **Step 4: Implement verification.** Derive membership leaf or empty leaf, reconstruct from depth 255 down to 0, select left/right by MSB path bit, use explicit sibling for set bit or domain default for clear bit, and require exact expected root. Return `InvalidProof` on mismatch.
 
-- [ ] **Step 5: Implement proof construction.** Traverse from root; collect each depth's sibling; omit deterministic default siblings; when an internal subtree is empty, finish remaining depths with omitted defaults without source reads. For membership verify leaf and value blob; for non-membership end at deterministic empty.
+- [x] **Step 5: Implement proof construction.** Traverse from root; collect each depth's sibling; omit deterministic default siblings; when an internal subtree is empty, finish remaining depths with omitted defaults without source reads. For membership verify leaf and value blob; for non-membership end at deterministic empty.
 
-- [ ] **Step 6: Add wrong-context tests.** Wrong domain, key, value, root, sibling, bitmap, truncation, trailing bytes and redundant default sibling all fail.
+- [x] **Step 6: Add wrong-context tests.** Wrong domain, key, value, root, sibling, bitmap, truncation, trailing bytes and redundant default sibling all fail.
 
-- [ ] **Step 7: Run proof + SMT + security tests green** and commit.
+- [x] **Step 7: Run proof + SMT + security tests green** and commit.
 
 ---
 
@@ -509,29 +509,29 @@ Use the same safety pattern as the existing execution-address/envelope mutation 
 - restore changed source in `finally`;
 - verify clean source after each mutant and after the run.
 
-- [ ] **Step 1: Add mutant 1 — omit `domain_id` from path-key hash.** Target cross-domain separation test.
+- [x] **Step 1: Add mutant 1 — omit `domain_id` from path-key hash.** Target cross-domain separation test.
 
-- [ ] **Step 2: Add mutant 2 — use LSB-first path bit.** Target frozen bit-order/root vector test.
+- [x] **Step 2: Add mutant 2 — use LSB-first path bit.** Target frozen bit-order/root vector test.
 
-- [ ] **Step 3: Add mutant 3 — omit depth from branch hash.** Target depth-commitment/golden-root test.
+- [x] **Step 3: Add mutant 3 — omit depth from branch hash.** Target depth-commitment/golden-root test.
 
-- [ ] **Step 4: Add mutant 4 — map `Some([])` to absence.** Target present-empty-value test.
+- [x] **Step 4: Add mutant 4 — map `Some([])` to absence.** Target present-empty-value test.
 
-- [ ] **Step 5: Add mutant 5 — allow duplicate path key.** Target canonical write-set test.
+- [x] **Step 5: Add mutant 5 — allow duplicate path key.** Target canonical write-set test.
 
-- [ ] **Step 6: Add mutant 6 — missing non-empty node becomes empty.** Target corruption fail-closed test.
+- [x] **Step 6: Add mutant 6 — missing non-empty node becomes empty.** Target corruption fail-closed test.
 
-- [ ] **Step 7: Add mutant 7 — accept redundant default proof sibling.** Target canonical proof test.
+- [x] **Step 7: Add mutant 7 — accept redundant default proof sibling.** Target canonical proof test.
 
-- [ ] **Step 8: Add mutant 8 — omit scheme id from aggregate identity/encoding.** Target scheme-binding aggregate test.
+- [x] **Step 8: Add mutant 8 — omit scheme id from aggregate identity/encoding.** Target scheme-binding aggregate test.
 
-- [ ] **Step 9: Add mutant 9 — accept unsorted/duplicate descriptor set.** Target aggregate canonicality test.
+- [x] **Step 9: Add mutant 9 — accept unsorted/duplicate descriptor set.** Target aggregate canonicality test.
 
-- [ ] **Step 10: Add mutant 10 — proof verification ignores domain.** Target wrong-domain proof test.
+- [x] **Step 10: Add mutant 10 — proof verification ignores domain.** Target wrong-domain proof test.
 
-- [ ] **Step 11: Add hostile-input/proptest cases.** Random proof bytes up to 8,500 bytes and random small keys/values must never panic; oversized buffers fail before expensive traversal/copy.
+- [x] **Step 11: Add hostile-input/proptest cases.** Random proof bytes up to 8,500 bytes and random small keys/values must never panic; oversized buffers fail before expensive traversal/copy.
 
-- [ ] **Step 12: Wire CI order.** Focused primitive commitment and contract-state tests run before full workspace; mutation gate runs after full workspace green.
+- [x] **Step 12: Wire CI order.** Focused primitive commitment and contract-state tests run before full workspace; mutation gate runs after full workspace green.
 
 Command for the mutation step:
 
@@ -539,7 +539,7 @@ Command for the mutation step:
 python3 scripts/verify_contract_state_mutations.py
 ```
 
-- [ ] **Step 13: Require `10/10` mutation kills** before checkpointing.
+- [x] **Step 13: Require `10/10` mutation kills** before checkpointing.
 
 ---
 
@@ -550,7 +550,7 @@ python3 scripts/verify_contract_state_mutations.py
 - Modify: `HANDOFF.md`
 - Complete checkboxes in this plan only after evidence exists.
 
-- [ ] **Step 1: Run focused exact-head contracts.**
+- [x] **Step 1: Run focused exact-head contracts.**
 
 ```bash
 cargo +1.85.0 test --locked -p oregon-primitives --test state_commitments
@@ -559,13 +559,13 @@ cargo +1.85.0 test --locked -p oregon-contract-state --test proofs
 cargo +1.85.0 test --locked -p oregon-contract-state --test security
 ```
 
-- [ ] **Step 2: Run full inherited Oregon Rust gates on the exact implementation head.** Required success: architecture scan, execution address/envelope contracts, new state contracts, full workspace `--all-targets`, address mutations 3/3, envelope mutations 9/9, state mutations 10/10, chainstate rustdoc, workspace docs, rustfmt and Clippy `-D warnings`.
+- [x] **Step 2: Run full inherited Oregon Rust gates on the exact implementation head.** Required success: architecture scan, execution address/envelope contracts, new state contracts, full workspace `--all-targets`, address mutations 3/3, envelope mutations 9/9, state mutations 10/10, chainstate rustdoc, workspace docs, rustfmt and Clippy `-D warnings`.
 
-- [ ] **Step 3: Run inherited RandomX architecture/full-light parity on the exact code state where `oregon-primitives` changed.** Require x86 and ARM success. If the stacked PR topology does not naturally trigger them, use the existing temporary branch-trigger technique, record the successful checkpoint SHA/run ids, then remove temporary trigger entries and re-run final Oregon Rust CI on the clean descendant head.
+- [x] **Step 3: Run inherited RandomX architecture/full-light parity on the exact code state where `oregon-primitives` changed.** Require x86 and ARM success. If the stacked PR topology does not naturally trigger them, use the existing temporary branch-trigger technique, record the successful checkpoint SHA/run ids, then remove temporary trigger entries and re-run final Oregon Rust CI on the clean descendant head.
 
-- [ ] **Step 4: Verify non-activation diff.** PR/file diff must not include current `block.rs`, `transaction.rs`, `oregon-storage` schema/db/batch changes, `oregon-chainstate` behavior changes, mempool, node, RPC or VM execution.
+- [x] **Step 4: Verify non-activation diff.** PR/file diff must not include current `block.rs`, `transaction.rs`, `oregon-storage` schema/db/batch changes, `oregon-chainstate` behavior changes, mempool, node, RPC or VM execution.
 
-- [ ] **Step 5: Write checkpoint evidence.** Record:
+- [x] **Step 5: Write checkpoint evidence.** Record:
   - accepted main `bf7675bfe17182f77d4c43e2bcbd0c283709d799`;
   - Stage 1 clean head `b97f9d3af9e2c9c4011750cfb69cce8fd9117a8a`;
   - Stage 2 design/spec commit;
@@ -576,11 +576,11 @@ cargo +1.85.0 test --locked -p oregon-contract-state --test security
   - inherited RandomX run ids;
   - non-activation limitations.
 
-- [ ] **Step 6: Update `HANDOFF.md`.** Mark Stage 2 complete only after the final clean descendant head is green. Exact next action becomes Execution Architecture §27 Stage 3: normalized resource weight, fee escrow/state transition and UTXO reserve conservation. Do not repeat Stage 1 or Stage 2 work.
+- [x] **Step 6: Update `HANDOFF.md`.** Mark Stage 2 complete only after the final clean descendant head is green. Exact next action becomes Execution Architecture §27 Stage 3: normalized resource weight, fee escrow/state transition and UTXO reserve conservation. Do not repeat Stage 1 or Stage 2 work.
 
-- [ ] **Step 7: Verify remote identity.** Fetch branch ref, final commit/tree, checkpoint file, handoff, PR state and exact workflow results from GitHub before reporting saved/verified.
+- [x] **Step 7: Verify remote identity.** Fetch branch ref, final commit/tree, checkpoint file, handoff, PR state and exact workflow results from GitHub before reporting saved/verified.
 
-- [ ] **Step 8: Keep integration separate.** Stage 2 PR remains stacked/draft as appropriate; do not merge `main` as part of this task.
+- [x] **Step 8: Keep integration separate.** Stage 2 PR remains stacked/draft as appropriate; do not merge `main` as part of this task.
 
 ## Self-review
 
@@ -589,3 +589,9 @@ cargo +1.85.0 test --locked -p oregon-contract-state --test security
 - Type consistency: `CommitmentDomainId`, `CommitmentSchemeId`, `DomainSnapshot`, `StateNode`, `StateSource`, `StateWriteSet`, `StateTransition`, `SparseMerkleProofV1` and function signatures are defined once and reused consistently.
 - Placeholder scan: implementation steps contain no unresolved implementation TODO/TBD. Literal vector creation explicitly requires concrete independent values before test publication.
 - Activation check: no current block/header/transaction/storage/chainstate path is modified by this plan.
+
+## Completion record — 2026-09-06 UTC
+
+Tasks 1–8 are delivered at verified implementation `6bfc3364c71674c2bc3dd20e2b66a4fcabaac19f`. The canonical evidence and two audit repairs are recorded in `docs/checkpoints/OREGON_CONTRACT_STATE_PROGRESS.md`. All ten required security mutants are covered by the 17-target gate. Normalization types remain beside their sole transition consumer in `transition.rs`; no separate write-set implementation is duplicated. Accepted M0–M6 behavior and the Stage 2 spec are unchanged.
+
+The checkpoint/temporary-trigger cleanup successor contains only documentation and CI-trigger changes; its own final Rust CI must be green before the current branch head is reported verified. Main integration remains separate.
