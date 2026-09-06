@@ -8,6 +8,7 @@ rust-version.workspace = true
 thiserror = "2"
 
 [dev-dependencies]
+oregon-primitives = { path = "../oregon-primitives" }
 proptest = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
