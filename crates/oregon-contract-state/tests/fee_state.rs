@@ -1,8 +1,8 @@
 use oregon_contract_state::{
     DomainSnapshot, FEE_BASE_FEE_PER_WEIGHT_KEY_V1, FEE_BLOCK_WEIGHT_USED_KEY_V1,
     FEE_EXECUTION_FEE_TOTAL_KEY_V1, FEE_HEIGHT_KEY_V1, FEE_PRODUCER_COINBASE_TXID_KEY_V1,
-    FEE_RESERVE_TRANSITION_ID_KEY_V1, FeeStateValuesV1, StateWrite, StateWriteSet,
-    apply_write_set, empty_hashes, read_value,
+    FEE_RESERVE_TRANSITION_ID_KEY_V1, FeeStateValuesV1, StateWrite, StateWriteSet, apply_write_set,
+    empty_hashes, read_value,
 };
 use oregon_primitives::Hash256;
 use oregon_primitives::state_commitment::CommitmentDomainId;
