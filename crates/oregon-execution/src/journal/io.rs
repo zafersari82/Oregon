@@ -5,7 +5,7 @@ use super::ExecutionJournalV1;
 use super::frame::JournalValue;
 use super::types::JournalError;
 
-impl<'a, S: StateSource + ?Sized> ExecutionJournalV1<'a, S> {
+impl<S: StateSource + ?Sized> ExecutionJournalV1<'_, S> {
     pub fn read(
         &self,
         domain: CommitmentDomainId,
