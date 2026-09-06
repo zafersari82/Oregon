@@ -25,7 +25,10 @@ impl FeeStateValuesV1 {
         StateWriteSet::new(
             CommitmentDomainId::FeeState,
             vec![
-                StateWrite::put(FEE_HEIGHT_KEY_V1.to_vec(), self.height.to_le_bytes().to_vec()),
+                StateWrite::put(
+                    FEE_HEIGHT_KEY_V1.to_vec(),
+                    self.height.to_le_bytes().to_vec(),
+                ),
                 StateWrite::put(
                     FEE_BASE_FEE_PER_WEIGHT_KEY_V1.to_vec(),
                     self.base_fee_per_weight.to_le_bytes().to_vec(),
