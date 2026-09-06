@@ -10,6 +10,13 @@ struct FeeCase {
 }
 
 #[derive(Deserialize)]
+struct InvalidFeeCase {
+    parameters: [u64; 6],
+    parent_base_fee: u64,
+    parent_weight: u64,
+}
+
+#[derive(Deserialize)]
 struct Sequence {
     name: String,
     parameters: [u64; 6],
@@ -22,7 +29,7 @@ struct Sequence {
 struct Vectors {
     fees: Vec<FeeCase>,
     sequences: Vec<Sequence>,
-    invalid_fee_cases: Vec<FeeCase>,
+    invalid_fee_cases: Vec<InvalidFeeCase>,
     invalid_schedule_versions: Vec<u64>,
 }
 
