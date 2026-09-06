@@ -1,3 +1,4 @@
+use oregon_primitives::execution_reserve::EXECUTION_RESERVE_LOCKING_PROGRAM_V1;
 use oregon_primitives::{
     Amount, FOUNDER_ALLOCATION_BASE_UNITS, Hash256, Transaction, write_varint,
 };
@@ -62,6 +63,50 @@ pub fn validate_coinbase(
 
     if miner_claim > ceiling {
         return Err(ConsensusError::CoinbaseOverClaim);
+    }
+
+    Ok(())
+}
+
+pub fn validate_coinbase_with_execution_fees_v1(
+    tx: &Transaction,
+    height: u64,
+    native_fees: Amount,
+    execution_fees: Amount,
+    params: &ConsensusParams,
+) -> Result<(), ConsensusError> {
+    let total_fee_units = native_fees
+        .base_units()
+        .checked_add(execution_fees.base_units())
+        .ok_or(ConsensusError::ArithmeticOverflow)?;
+    let total_fees =
+        Amount::from_base_units(total_fee_units).map_err(|_| ConsensusError::ArithmeticOverflow)?;
+
+    validate_coinbase(tx, height, total_fees, params)?;
+
+    let miner_start = if height == 1 { 1 } else { 0 };
+    let miner_outputs = tx
+        .outputs
+        .get(miner_start..)
+        .ok_or(ConsensusError::InvalidCoinbase)?;
+    let miner_claim = miner_outputs.iter().try_fold(0u64, |sum, output| {
+        sum.checked_add(output.value.base_units())
+            .ok_or(ConsensusError::ArithmeticOverflow)
+    })?;
+
+    if miner_claim < total_fee_units {
+        return Err(ConsensusError::InvalidCoinbase);
+    }
+
+    if execution_fees.base_units() != 0 {
+        let final_output = miner_outputs
+            .last()
+            .ok_or(ConsensusError::InvalidCoinbase)?;
+        if final_output.value.base_units() != execution_fees.base_units()
+            || final_output.locking_program.as_slice() == EXECUTION_RESERVE_LOCKING_PROGRAM_V1
+        {
+            return Err(ConsensusError::InvalidCoinbase);
+        }
     }
 
     Ok(())
