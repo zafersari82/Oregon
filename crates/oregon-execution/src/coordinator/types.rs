@@ -51,6 +51,8 @@ pub(super) enum CoordinatorError {
     UnsupportedHostChargeScheduleVersion(u16),
     #[error("host charge arithmetic overflowed the V1 u64 weight boundary")]
     HostChargeOverflow,
+    #[error("execution-funded payer balance is below max escrow")]
+    InsufficientExecutionFunding,
     #[error("the root effect frame cannot be ended through child lifecycle operations")]
     RootFrameLifecycle,
     #[error("coordinator call depth limit exceeded")]

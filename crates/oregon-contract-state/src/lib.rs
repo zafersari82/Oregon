@@ -11,8 +11,8 @@ mod transition;
 
 pub use error::StateError;
 pub use execution_accounting::{
-    ExecutionAccountingWritesV1, balance_key, encode_accounting_u64, encode_reserve_outpoint,
-    reserve_outpoint_key, sequence_key, total_execution_balance_key,
+    ExecutionAccountingWritesV1, balance_key, decode_accounting_u64, encode_accounting_u64,
+    encode_reserve_outpoint, reserve_outpoint_key, sequence_key, total_execution_balance_key,
 };
 pub use fee_state::{
     FEE_BASE_FEE_PER_WEIGHT_KEY_V1, FEE_BLOCK_WEIGHT_USED_KEY_V1, FEE_EXECUTION_FEE_TOTAL_KEY_V1,
