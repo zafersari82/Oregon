@@ -1,7 +1,7 @@
 use oregon_contract_state::{
-    DomainSnapshot, ExecutionAccountingWritesV1, apply_write_set, balance_key,
-    empty_hashes, encode_accounting_u64, encode_reserve_outpoint, read_value,
-    reserve_outpoint_key, sequence_key, total_execution_balance_key,
+    DomainSnapshot, ExecutionAccountingWritesV1, apply_write_set, balance_key, empty_hashes,
+    encode_accounting_u64, encode_reserve_outpoint, read_value, reserve_outpoint_key, sequence_key,
+    total_execution_balance_key,
 };
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::state_commitment::CommitmentDomainId;
