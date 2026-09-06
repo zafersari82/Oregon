@@ -149,8 +149,14 @@
       "native_fees": 100,
       "execution_fees": 50,
       "outputs": [
-        {"value": 237500100, "locking_program_hex": "51"},
-        {"value": 50, "locking_program_hex": "52"}
+        {
+          "value": 237500100,
+          "locking_program_hex": "51"
+        },
+        {
+          "value": 50,
+          "locking_program_hex": "52"
+        }
       ],
       "expected": "ok"
     },
@@ -160,7 +166,10 @@
       "native_fees": 100,
       "execution_fees": 50,
       "outputs": [
-        {"value": 237500150, "locking_program_hex": "51"}
+        {
+          "value": 237500150,
+          "locking_program_hex": "51"
+        }
       ],
       "expected": "invalid_coinbase"
     },
@@ -170,8 +179,14 @@
       "native_fees": 100,
       "execution_fees": 50,
       "outputs": [
-        {"value": 237500100, "locking_program_hex": "51"},
-        {"value": 50, "locking_program_hex": "4f5245474f4e2f455845432f524553455256452f563100"}
+        {
+          "value": 237500100,
+          "locking_program_hex": "51"
+        },
+        {
+          "value": 50,
+          "locking_program_hex": "4f5245474f4e2f455845432f524553455256452f563100"
+        }
       ],
       "expected": "invalid_coinbase"
     },
@@ -181,7 +196,10 @@
       "native_fees": 100,
       "execution_fees": 0,
       "outputs": [
-        {"value": 237500100, "locking_program_hex": "51"}
+        {
+          "value": 237500100,
+          "locking_program_hex": "51"
+        }
       ],
       "expected": "ok"
     },
@@ -191,8 +209,14 @@
       "native_fees": 100,
       "execution_fees": 50,
       "outputs": [
-        {"value": 99, "locking_program_hex": "51"},
-        {"value": 50, "locking_program_hex": "52"}
+        {
+          "value": 99,
+          "locking_program_hex": "51"
+        },
+        {
+          "value": 50,
+          "locking_program_hex": "52"
+        }
       ],
       "expected": "invalid_coinbase"
     },
@@ -202,8 +226,14 @@
       "native_fees": 100,
       "execution_fees": 50,
       "outputs": [
-        {"value": 237500150, "locking_program_hex": "51"},
-        {"value": 50, "locking_program_hex": "52"}
+        {
+          "value": 237500150,
+          "locking_program_hex": "51"
+        },
+        {
+          "value": 50,
+          "locking_program_hex": "52"
+        }
       ],
       "expected": "coinbase_overclaim"
     }
