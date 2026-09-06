@@ -43,7 +43,7 @@ fn amount(value: u64) -> Amount {
 
 #[test]
 fn active_validator_still_allows_subsidy_underclaim_but_execution_fee_helper_never_allows_fee_underclaim()
-{
+ {
     let params = params();
     let native_fees = amount(100);
     let execution_fees = amount(50);
