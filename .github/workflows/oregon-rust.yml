@@ -3,7 +3,7 @@ name: Oregon Rust CI
 # Oregon protocol development branches are CI-gated during test-first development.
 on:
   push:
-    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, oregon-v1-architecture-unification-2026-09-04, design/m6-network-architecture-2026-09-04, design/execution-envelope-wire-v1-2026-09-05, work/execution-envelope-auth-v1-2026-09-05, design/contract-state-commitments-v1-2026-09-05, work/contract-state-v1-2026-09-05]
+    branches: [oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, oregon-v1-architecture-unification-2026-09-04, design/m6-network-architecture-2026-09-04, design/execution-envelope-wire-v1-2026-09-05, work/execution-envelope-auth-v1-2026-09-05, design/contract-state-commitments-v1-2026-09-05, work/contract-state-v1-2026-09-05, work/execution-resources-v1-2026-09-06]
   pull_request:
     branches: [main]
 
@@ -44,7 +44,8 @@ jobs:
             docs/architecture/OREGON_PLATFORM_ARCHITECTURE_CONTRACT.md \
             docs/superpowers/specs/2026-09-05-execution-architecture-design.md \
             docs/superpowers/specs/2026-09-05-execution-envelope-wire-v1.md \
-            docs/superpowers/specs/2026-09-05-contract-state-commitments-v1.md; do
+            docs/superpowers/specs/2026-09-05-contract-state-commitments-v1.md \
+            docs/superpowers/specs/2026-09-06-execution-resources-fees-v1.md; do
             if [[ ! -s "$required_contract" ]]; then
               echo "Required architecture/agent contract is missing or empty: $required_contract" >&2
               exit 1
@@ -109,8 +110,19 @@ jobs:
           if rg -n 'oregon-(protocol|network|peer|sync|node)' \
             crates/oregon-consensus/Cargo.toml crates/oregon-utxo/Cargo.toml \
             crates/oregon-storage/Cargo.toml crates/oregon-chainstate/Cargo.toml \
-            crates/oregon-mempool/Cargo.toml crates/oregon-contract-state/Cargo.toml; then
+            crates/oregon-mempool/Cargo.toml crates/oregon-contract-state/Cargo.toml \
+            crates/oregon-execution/Cargo.toml; then
             echo 'Core crate depends upward on M6 networking.' >&2
+            exit 1
+          fi
+
+          if rg -n 'oregon-(execution|runtime|vm-evm|vm-wasm)' crates/oregon-consensus/Cargo.toml; then
+            echo 'Consensus must not depend upward on execution or VM implementations.' >&2
+            exit 1
+          fi
+
+          if rg -n 'oregon-(storage|chainstate|vm-evm|vm-wasm|rpc)' crates/oregon-execution/Cargo.toml; then
+            echo 'Execution must not depend on persistence, RPC or VM implementations.' >&2
             exit 1
           fi
 
@@ -137,6 +149,11 @@ jobs:
         run: cargo +1.85.0 test --locked -p oregon-primitives --test state_commitments
       - name: Contract state contracts
         run: cargo +1.85.0 test --locked -p oregon-contract-state --all-targets
+      - name: Execution resource contracts
+        run: |
+          python3 scripts/generate_execution_resource_vectors.py --check
+          cargo +1.85.0 test --locked -p oregon-consensus --test execution_resources --test execution_resource_vectors
+          cargo +1.85.0 test --locked -p oregon-execution --all-targets
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Execution address mutation gates
@@ -145,6 +162,8 @@ jobs:
         run: python3 scripts/verify_execution_envelope_mutations.py
       - name: Contract state mutation gates
         run: python3 scripts/verify_contract_state_mutations.py
+      - name: Execution resource mutation gates
+        run: python3 scripts/verify_execution_resource_mutations.py
       - name: Chainstate Rustdoc
         run: cargo +1.85.0 rustdoc --locked -p oregon-chainstate -- -D warnings
       - name: Workspace Docs

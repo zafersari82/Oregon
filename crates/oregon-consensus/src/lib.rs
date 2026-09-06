@@ -5,6 +5,7 @@ pub mod block;
 pub mod coinbase;
 pub mod emission;
 pub mod error;
+pub mod execution_resources;
 pub mod header;
 pub mod params;
 pub mod pow;

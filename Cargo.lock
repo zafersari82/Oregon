@@ -414,6 +414,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "oregon-execution"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "oregon-mempool"
 version = "0.1.0"
 dependencies = [
