@@ -52,39 +52,17 @@ The selected path minimizes architecture rework and preserves the parent contrac
 
 `oregon-runtime` owns only deterministic V1 runtime/call ABI types and traits. It may depend on `oregon-primitives` for canonical typed addresses, execution domains and hashes. It must not depend on `oregon-execution`, contract state, consensus, UTXO, storage, chainstate, networking, node, RPC or a VM implementation.
 
-It owns:
-
-- call request/context/result data;
-- stable deterministic trap discriminants;
-- VM-facing host trait signatures;
-- event input framing and structural bounds;
-- runtime ABI versioning.
-
-It does not own fee policy, state persistence, resource budgets, monetary policy, journal frames or dispatch authority.
+It owns call request/context/result data, stable deterministic trap discriminants, VM-facing host trait signatures, event input framing, structural bounds and runtime ABI versioning. It does not own fee policy, state persistence, resource budgets, monetary policy, journal frames or dispatch authority.
 
 ### 3.2 `oregon-execution`
 
-`oregon-execution` owns:
-
-- pre-execution composition;
-- authoritative funding capability consumption;
-- max-fee escrow lifecycle;
-- the one Stage 3A `WeightMeter` instance;
-- Stage 4A journal construction and frame lifecycle;
-- execution-domain backend dispatch;
-- cross-VM call-stack coordination;
-- value-transfer accounting inside journal frames;
-- event frame lifecycle;
-- top-level outcome mapping;
-- Stage 3B settlement reuse;
-- execution receipt assembly; and
-- unpublished transaction proposal composition.
+`oregon-execution` owns pre-execution composition, authenticated funding capability consumption, max-fee escrow, the one Stage 3A `WeightMeter`, Stage 4A journal/frame lifecycle, backend dispatch, cross-VM call-stack coordination, value-transfer accounting, event frame lifecycle, top-level outcome mapping, Stage 3B settlement reuse, receipt assembly and the unpublished transaction proposal.
 
 VM adapters cannot obtain direct references to `WeightMeter`, `EscrowBookV1`, `ExecutionJournalV1` or raw `ExecutionAccounting`/`FeeState` system keys.
 
 ### 3.3 Lower owners remain authoritative
 
-- `oregon-primitives` owns canonical execution receipt bytes and receipt/effect identifiers.
+- `oregon-primitives` owns canonical execution receipt/event/effect bytes and identifiers.
 - `oregon-contract-state` owns accounting key encoding, logical state reads/write sets and Oregon SMT transitions.
 - `oregon-utxo` remains native funding/reserve authority.
 - `oregon-consensus` remains base-fee/block-budget/activation authority.
@@ -113,11 +91,17 @@ RuntimeCallSpecV1 {
 
 The caller does **not** supply caller identity, chain id, txid, height, call depth, current execution domain, principal, payer or journal frame identity. The coordinator derives those from the current trusted frame.
 
-V1 Oregon-standard nested calls target only EVM or WASM typed execution addresses. Unknown/system targets fail deterministically. Domain-specific same-VM semantics such as EVM `DELEGATECALL` are not silently generalized into the cross-VM ABI. A later EVM adapter design may map its own same-VM semantics through a reviewed internal boundary while preserving this cross-VM contract.
+V1 Oregon-standard nested calls target only `ExecutionAddressKind::Evm` or `ExecutionAddressKind::Wasm`. `Oregon`, `System`, unknown and domain-incompatible targets fail deterministically. Domain-specific same-VM semantics such as EVM `DELEGATECALL` are not silently generalized into the cross-VM ABI.
+
+Read-only authority is monotonic down the stack. The child's effective flag is:
+
+`effective_read_only = parent_read_only || requested_read_only`.
+
+A child cannot clear a read-only restriction by requesting `false`.
 
 ### 4.3 Call context delivered to a backend
 
-A backend receives an immutable context logically containing:
+A backend receives immutable coordinator-derived context:
 
 ```text
 RuntimeCallContextV1 {
@@ -135,8 +119,6 @@ RuntimeCallContextV1 {
 }
 ```
 
-The coordinator constructs this context. A backend cannot rewrite it.
-
 ### 4.4 Call result
 
 A normal backend result is exactly one of:
@@ -145,11 +127,11 @@ A normal backend result is exactly one of:
 - `Revert(return_data)`; or
 - `Trap(RuntimeTrapCodeV1)`.
 
-Return data is structurally bounded before coordinator retention/copy to the caller. A backend cannot represent fatal state corruption as an ordinary revert.
+Return data is bounded before coordinator retention/copy to the caller. A backend cannot represent fatal state corruption as an ordinary revert.
 
 ### 4.5 Stable deterministic trap classes
 
-V1 trap discriminants are `u16` and frozen as:
+V1 `u16` trap discriminants are:
 
 - `0x0001` backend deterministic trap;
 - `0x0002` invalid/unsupported call target;
@@ -163,11 +145,11 @@ V1 trap discriminants are `u16` and frozen as:
 - `0x000a` unsupported deterministic runtime operation;
 - `0x000b` invalid deterministic host input.
 
-`0x0000` means no trap and is not a valid trapped result. Resource-meter exhaustion is **not** a catchable trap; it is a transaction-level outcome. State corruption, accounting invariant failure, commitment failure and coordinator invariant failure are fatal candidate errors, not traps.
+`0x0000` means no trap. Resource-meter exhaustion is **not** a catchable trap; it is a transaction-level outcome. State corruption, accounting invariant failure, commitment failure and coordinator invariant failure are fatal candidate errors.
 
 ## 5. Structural runtime ceilings
 
-These V1 values are absolute inactive structural ceilings, not benchmark-backed production economic settings. Activation may select lower limits; raising them requires versioned review.
+These are absolute inactive V1 structural ceilings, not benchmark-backed production economic settings. Activation may select lower limits; raising them requires versioned review.
 
 | Item | V1 ceiling |
 | --- | ---: |
@@ -177,154 +159,123 @@ These V1 values are absolute inactive structural ceilings, not benchmark-backed 
 | Event data per event | 65,536 bytes |
 | Event topics per event | 4 |
 | Events per transaction | 256 |
-| Aggregate retained event + return-data bytes | 2,097,152 bytes |
+| Aggregate live retained event + return-data bytes | 2,097,152 bytes |
 
-Event topics are fixed `Hash256` values. Event emitter identity is coordinator-derived from the current target; a backend may not forge another emitter.
+Stage 4A's monotonic total-frame ceiling of 4,096 remains the transaction-wide upper bound on created journal frames. The coordinator does not add an unbounded second call-frame counter.
 
-Checks occur before coordinator-owned copies or frame growth. Limit failure does not truncate data and call it success.
+Event topics are fixed `Hash256` values. Event emitter identity is coordinator-derived from the current target. Checks occur before coordinator-owned copies or frame growth. Limit failure does not truncate data and call it success.
+
+The aggregate retained-byte budget counts bytes currently retained by live effect frames plus committed transaction events/top-level return data. Discarding a frame releases its retained-byte allocation; the transaction meter still retains the charged work, and Stage 4A's monotonic total-frame count prevents free sibling-frame churn.
 
 ## 6. Deterministic host surface
 
-`RuntimeHostV1` is a capability-limited interface implemented by the coordinator for the active frame. V1 host categories are:
-
-- scoped state read;
-- scoped state put/delete;
-- emit event;
-- nested Oregon-standard call;
-- charge current VM-native deterministic units;
-- charge normalized common host work; and
-- immutable context queries.
+`RuntimeHostV1` is a capability-limited interface implemented by the coordinator for the active frame. V1 host categories are scoped state read, scoped state put/delete, emit event, nested Oregon-standard call, charge current VM-native deterministic units, charge normalized common host work and immutable context queries.
 
 There is no filesystem, socket/network access, wall clock, process environment, OS randomness, arbitrary database access, raw RocksDB access, generic system-domain key access, fee mutation, receipt mutation, async-consumed mutation or `non_revertible_write` host function.
 
-A VM-facing state operation is automatically scoped to the current target/domain. The backend supplies only its domain-owned local key/value bytes. It does not supply `CommitmentDomainId` and cannot redirect a storage write into `ExecutionAccounting`, `ExecutionReceipts`, `FeeState`, `AsyncOutbox` or `AsyncConsumed`.
+A VM-facing state operation is scoped to the current target/domain. The backend supplies only its domain-owned local key/value bytes. It does not supply a `CommitmentDomainId` and cannot redirect a storage write into `ExecutionAccounting`, `ExecutionReceipts`, `FeeState`, `AsyncOutbox` or `AsyncConsumed`.
 
 Stage 4B production state support through the Stage 4A Oregon-SMT journal is initially only the WASM logical state domain. EVM uses a separately reserved commitment scheme and is not falsely routed through Oregon SMT. Stage 4B may exercise EVM-labelled adversarial backends for call/meter/event semantics, but no such backend is production EVM state support.
 
 ## 7. Host charging and the one transaction meter
 
-One Stage 3A `WeightMeter` is constructed by the coordinator and lives for the complete transaction. It is not cloned per call. Rollback never decreases it. Exhaustion remains sticky and consumes the authorized maximum exactly as Stage 3A specifies.
+One Stage 3A `WeightMeter` lives for the complete transaction. It is not cloned per call. Rollback never decreases it. Exhaustion remains sticky and consumes the authorized maximum exactly as Stage 3A specifies.
 
-Backends do not choose a `ResourceDomain` when reporting native units. `charge_vm_units(units)` is mapped by the coordinator from the current execution domain to the authoritative Stage 3A resource domain, preventing a backend from relabeling expensive EVM/WASM work as another domain.
+Backends do not choose a `ResourceDomain`. `charge_vm_units(units)` is mapped by the coordinator from the current execution domain, preventing a backend from relabeling expensive work as another domain.
 
-Host operations use a versioned `HostChargeScheduleV1` of checked integer base and per-byte/per-item charges. Stage 4B freezes the algorithm and operation categories, but does not invent production coefficients before benchmark evidence.
+`HostChargeScheduleV1` uses checked integer base and per-byte/per-item coefficients for the fixed V1 operation categories. Stage 4B freezes the algorithm and categories but not production coefficient values before benchmark evidence. Test schedules use explicit synthetic values and cannot be described as activation constants.
 
 Charging order:
 
 1. validate structural lengths/counts without copying;
-2. charge deterministic fixed/input-size host work;
+2. charge fixed/input-size host work;
 3. perform the bounded operation;
 4. for returned state bytes, charge the boundary-copy component after authoritative read size is known but before those bytes are copied into VM-visible return memory;
-5. if any charge exhausts the meter, stop transaction execution immediately as `ResourceExhausted`.
+5. any exhaustion stops transaction execution immediately as `ResourceExhausted`.
 
-The bounded authoritative state-read base work is never free merely because returned length is not known before lookup.
+The authoritative state-read base work is never free merely because returned length is unknown before lookup.
 
 ## 8. Coordinator pre-execution authority
 
 The coordinator does not accept a caller-constructed `FundingCapabilityV1` as sufficient spending authority.
 
-The trusted composition boundary supplies a production source validator that binds:
+The trusted composition boundary supplies a production source validator binding chain/height, exact txid/domain, principal/effective payer, authorization commitment, domain replay state, fee caps/base fee, authoritative payer source commitment/sequence and sufficient available amount. Only after that validation is the Stage 3B capability supplied to the coordinator.
 
-- chain id and current height;
-- exact Oregon txid and domain;
-- principal and effective fee payer;
-- authorization result/commitment;
-- domain-native replay state;
-- current fee caps/base fee;
-- exact authoritative payer source commitment and sequence; and
-- sufficient available amount.
-
-The validator then produces the Stage 3B capability used by the coordinator. Test validators/backends are compile-time test-only and must be visibly named as such. RPC or VM code cannot manufacture production funding authority.
-
-The coordinator additionally verifies capability payer/source-kind/txid-context consistency before calling `EscrowBookV1::open`.
+Test validators/backends are compile-time test-only and visibly named as such. RPC or VM code cannot manufacture production funding authority. The coordinator additionally checks capability payer/source-kind/context consistency before `EscrowBookV1::open`.
 
 ## 9. Root settlement frame and revertible execution frame
 
-A Stage 4B transaction uses the Stage 4A journal deliberately as a two-level authority model:
+A Stage 4B transaction uses Stage 4A's journal as a two-level authority model:
 
-1. the **root journal frame** is coordinator-owned settlement/accounting state and is never exposed to a VM;
-2. the coordinator opens a **top-level execution child frame** before invoking the backend;
-3. all contract storage, attached-value transfers and nested call effects live in that child and its descendants;
+1. the **root frame** is coordinator-owned settlement/accounting state and is never VM-visible;
+2. the coordinator opens a **top-level execution child frame** before backend invocation;
+3. contract storage, attached-value transfers and nested call effects live in that child/descendants;
 4. success commits the top-level child into the root;
-5. top-level revert/trap/resource exhaustion reverts the top-level child while preserving coordinator-owned root settlement effects;
-6. fee settlement/refund and final accounting are completed in the root;
-7. the root is finalized only after the deterministic transaction outcome is known.
+5. top-level revert/trap/resource exhaustion reverts the child while preserving root settlement effects;
+6. fee settlement/refund and final accounting complete in the root;
+7. the root finalizes only after deterministic outcome is known.
 
-This makes fee effects survive contract revert without introducing a generic non-revertible host write.
+This makes fees survive contract revert without a generic non-revertible host write.
 
 ## 10. Execution-funded escrow visibility and accounting
 
-For an execution-funded payer, opening escrow must make `max_escrow` unavailable to contract execution before the top-level child starts.
+For an execution-funded payer, opening escrow makes `max_escrow` unavailable before the top-level child starts.
 
-The coordinator stages a root-frame debit of the payer's spendable `ExecutionAccounting` balance by `max_escrow`. The corresponding amount remains an unpublished in-memory escrow liability; `total_execution_balance` is not reduced merely by reservation because native reserve backing is still unchanged.
+The coordinator stages a root-frame debit of the payer's spendable `ExecutionAccounting` balance by `max_escrow`. That amount remains an unpublished in-memory escrow liability; `total_execution_balance` is not reduced merely by reservation because native reserve backing is still unchanged.
 
-The child execution frame sees the root debit and therefore cannot spend escrowed value.
+The execution child sees the root debit and therefore cannot spend escrowed value.
 
 After execution:
 
-- refund is added back to the then-current payer balance in the root;
+- refund is added to the then-current payer balance in the root;
 - actual execution-funded charge remains deducted;
 - `total_execution_balance` decreases by exactly the charged execution-funded fee;
 - native-funded fees do not reduce execution balance/reserve accounting; and
-- Stage 3B settlement arithmetic remains the sole price/charge/refund authority.
+- Stage 3B remains the only price/charge/refund arithmetic owner.
 
-At the transaction proposal boundary no live escrow remains. The later block reserve transition consumes the accumulated execution-funded fee total under the existing Stage 3B reserve equation.
+At proposal completion no live escrow remains. The later block reserve transition consumes accumulated execution-funded fee totals under the existing Stage 3B reserve equation.
 
-Any underflow, overflow, malformed accounting value or total-balance inconsistency is fatal to the candidate, not a catchable contract failure.
+Any underflow, overflow, malformed accounting value or total-balance inconsistency is fatal.
 
 ## 11. Revertible attached-value transfers
 
 An Oregon-standard nested call may attach backed OREG value.
 
-For a nonzero value:
+For nonzero value, **both caller and target must be `ExecutionAddressKind::Evm` or `ExecutionAddressKind::Wasm`**. `Oregon` and `System` kinds cannot originate or receive generic V1 call value.
 
-1. coordinator validates caller/target are execution identities allowed for V1 call value;
-2. read the caller and target balances through the current authoritative journal overlay;
-3. reject insufficient spendable caller value as deterministic trap `0x0009`;
-4. checked-debit caller and checked-credit target in the newly opened child call frame;
-5. leave `total_execution_balance` unchanged because this is execution-to-execution movement; and
-6. invoke the child backend only after the staged transfer succeeds.
+The coordinator:
 
-Child success merges the transfer; child revert/trap discards it. A propagated top-level revert discards all such contract value transfers while fee settlement remains.
+1. validates the exact allowed kinds;
+2. reads caller/target balances through the current journal overlay;
+3. treats insufficient spendable caller value as deterministic trap `0x0009`;
+4. checked-debits caller and checked-credits target in the newly opened child call frame;
+5. leaves `total_execution_balance` unchanged; and
+6. invokes the child backend only after the staged transfer succeeds.
 
-System/protocol identities cannot receive or originate generic call-value transfers in V1.
+Child success merges the transfer; child revert/trap discards it. A propagated top-level revert discards all contract value transfers while fee settlement remains.
 
 ## 12. Call frames and frame-local effects
 
-The coordinator, not a VM backend, owns begin/commit/revert.
+The coordinator owns begin/commit/revert. Every nested call atomically opens one Stage 4A journal child frame and one frame-local effects record containing events and retained return-data accounting.
 
-Every nested call atomically opens:
-
-- one Stage 4A journal child frame; and
-- one frame-local effects record containing events and retained return-data accounting.
-
-On child success both are merged into the parent. On child revert/trap both are discarded. The caller receives the bounded return result according to VM semantics. Meter consumption is never merged/reverted because it is transaction-global.
-
-If a fatal candidate error occurs in any descendant, no parent may catch it and convert the transaction into success.
+On child success both merge into the parent. On child revert/trap both are discarded. Meter consumption is transaction-global and never merged/reverted. Fatal descendant errors cannot be caught and converted to success.
 
 ## 13. Top-level outcome mapping
 
-Stage 4B has four canonical execution-receipt outcomes:
+Canonical execution receipt outcomes are `Committed`, `Reverted`, `Trapped`, `ResourceExhausted`.
 
-- `Committed`;
-- `Reverted`;
-- `Trapped`;
-- `ResourceExhausted`.
-
-Fee settlement maps them onto the existing Stage 3B fee outcomes:
+Fee settlement maps them to the existing Stage 3B outcomes:
 
 - `Committed -> ExecutionOutcome::Committed`;
 - `Reverted -> ExecutionOutcome::Reverted`;
 - `Trapped -> ExecutionOutcome::Reverted`;
 - `ResourceExhausted -> ExecutionOutcome::ResourceExhausted`.
 
-Thus deterministic trap and explicit revert pay for the same consumed work; sticky resource exhaustion charges the full authorized meter maximum under existing Stage 3A/3B semantics.
-
-Pre-escrow invalidity produces no execution receipt and no fee. Fatal candidate errors after escrow produce no publishable transaction proposal at all; any provisional local escrow/journal objects are dropped with the rejected candidate overlay.
+Thus trap and explicit revert pay consumed work; sticky exhaustion charges the full authorized maximum. Pre-escrow invalidity produces no executed receipt/fee. Fatal post-escrow candidate errors produce no publishable proposal.
 
 ## 14. Canonical events and event commitment
 
-`oregon-primitives` owns canonical execution-event bytes for receipt commitment. V1 event bytes are:
+`oregon-primitives` owns canonical execution-event bytes:
 
 ```text
 version:      u16 LE = 1
@@ -335,57 +286,63 @@ data_len:     u32 LE
 data:         data_len bytes
 ```
 
-`topic_count <= 4`, `data_len <= 65,536`, and the transaction total event count/retained-byte limits apply before copies.
+`topic_count <= 4`, `data_len <= 65,536`, and transaction aggregate limits apply before copies.
 
 `event_id = H("OREGON/EXEC/EVENT/V1\0", event_bytes)`.
-
-The ordered transaction event commitment is:
 
 `events_root = H("OREGON/EXEC/EVENTS/V1\0", u32_le(event_count) || event_id_0 || ... || event_id_n)`.
 
 Order is exact execution order after rollback filtering. Discarded-frame events do not appear.
 
-## 15. First-phase state-effect commitment
+## 15. State-effect commitment without receipt self-reference
 
-The canonical execution receipt must commit the resulting execution/accounting effects without becoming circular with the receipt-state root that stores the receipt itself.
+The execution receipt must commit execution/accounting effects without hashing a receipt-state root that depends on the receipt itself.
 
-Stage 4B therefore uses **two unpublished journal finalizations**.
+Stage 4B therefore uses two unpublished phases.
 
-### Phase A — execution/settlement journal
+### Phase A — execution/settlement effects
 
-The first journal contains contract/accounting effects but **not** `ExecutionReceipts` insertion. It finalizes locally and returns a Stage 4A result. Nothing is published.
+Phase A contains contract/accounting effects but no `ExecutionReceipts` insertion. Oregon-SMT effects are finalized through Stage 4A. The resulting effect descriptors are canonicalized together with any future scheme-specific effect descriptor supplied by a separately approved backend adapter.
 
-`state_effect_root` is computed from that Phase-A result in numeric domain order:
+A canonical `StateEffectDescriptorV1` is:
+
+```text
+domain_id:  u16 LE
+scheme_id:  u16 LE
+old_root:   Hash256
+new_root:   Hash256
+```
+
+Descriptors are strictly ordered by numeric `domain_id`, duplicates are rejected, and `(domain_id, scheme_id)` must be protocol-approved. Stage 4A Oregon-SMT results use `CommitmentSchemeId::OregonSmtV1`. A future real EVM adapter may contribute `CommitmentDomainId::Evm + CommitmentSchemeId::EvmCommitmentV1` without changing the receipt format or pretending EVM uses Oregon SMT.
+
+The canonical effect preimage is:
 
 ```text
 version: u16 LE = 1
 count:   u16 LE
-for each participating domain:
-    domain_id: u16 LE
-    old_root:  Hash256
-    new_root:  Hash256
+repeated StateEffectDescriptorV1
 ```
+
+`ExecutionReceipts` is forbidden in this Phase-A descriptor list.
 
 `state_effect_root = H("OREGON/EXEC/STATE-EFFECT/V1\0", canonical_bytes)`.
 
-Because `ExecutionReceipts` is excluded from Phase A, the execution receipt does not hash a state root that depends on its own bytes.
+### Phase B — receipt state
 
-### Phase B — receipt journal
+Only after Phase A succeeds does the coordinator construct fee/execution receipts and stage them in a second unpublished Stage 4A journal configured for `ExecutionReceipts`.
 
-Only after Phase A succeeds does the coordinator construct the canonical fee/execution receipts and stage them in a second unpublished Stage 4A journal configured for `ExecutionReceipts`.
-
-V1 raw receipt keys are:
+V1 raw keys are:
 
 - `b"receipt/v1/fee/" || txid[32]` -> canonical `FeeSettlementReceiptV1` bytes;
 - `b"receipt/v1/execution/" || txid[32]` -> canonical `ExecutionReceiptV1` bytes.
 
-Existing values at either key are a fatal duplicate-finalization error.
+Existing values at either key are fatal duplicate-finalization errors.
 
-If Phase B fails, the Phase-A bundle is discarded. The coordinator returns one combined unpublished `TransactionExecutionProposalV1` only after both phases succeed. The proposal carries both transition sets and must later be published atomically by the block/chainstate owner; Stage 4B itself does not persist either phase.
+If Phase B fails, Phase A is discarded. One combined unpublished `TransactionExecutionProposalV1` escapes only after both phases succeed. Later chainstate publication must persist both atomically; Stage 4B persists neither.
 
 ## 16. Canonical `ExecutionReceiptV1`
 
-`oregon-primitives` owns a fixed-width V1 execution receipt with exactly these fields:
+`oregon-primitives` owns a fixed-width V1 execution receipt:
 
 ```text
 version:                    u16 LE = 1
@@ -406,7 +363,7 @@ outbox_effect_root:          Hash256
 outbox_count:                u32 LE
 ```
 
-The encoded length is exactly **259 bytes**.
+Encoded length is exactly **259 bytes**.
 
 Outcome discriminants:
 
@@ -415,153 +372,117 @@ Outcome discriminants:
 - `0x02` trapped;
 - `0x03` resource exhausted.
 
-`trap_code` must be nonzero only for `Trapped`; it must be zero for all other outcomes.
+`trap_code` is nonzero only for `Trapped` and zero otherwise.
 
-`return_data_hash = H("OREGON/EXEC/RETURN/V1\0", top_level_return_data)` and `return_data_len` is the exact retained top-level length.
+`return_data_hash = H("OREGON/EXEC/RETURN/V1\0", top_level_return_data)` with exact bounded `return_data_len`.
 
-Stage 4B has no async emission API. Therefore `outbox_count` is exactly zero and `outbox_effect_root` is the canonical empty value:
+Stage 4B has no async emission API. Therefore `outbox_count = 0` and:
 
-`H("OREGON/EXEC/OUTBOX-EFFECT/V1\0", u32_le(0))`.
+`outbox_effect_root = H("OREGON/EXEC/OUTBOX-EFFECT/V1\0", u32_le(0))`.
 
-Stage 4C may later populate the same receipt fields from its separately reviewed canonical message ids without changing the V1 receipt layout.
+Stage 4C may populate these already-reserved fields from separately reviewed canonical message ids without changing the V1 receipt layout.
 
 `execution_receipt_id = H("OREGON/EXEC/RECEIPT/V1\0", receipt_bytes)`.
 
-Construction validates the fee charged/payer/actual weight against the already-built Stage 3B fee settlement receipt; duplicated fields are not accepted as independent truth.
+Construction cross-checks payer, actual weight and charged amount against the built Stage 3B fee settlement receipt; duplicated fields are not independent truth.
 
 ## 17. Backend dispatch and production boundaries
 
-The coordinator owns a closed dispatch table for activated execution domains. Stage 4B implementation includes deterministic adversarial **test-only** backends that exercise:
+The coordinator owns a closed dispatch table for activated domains. Stage 4B implementation includes deterministic adversarial **test-only** backends exercising nested same-domain calls, cross-labelled EVM/WASM calls, success/revert/trap, value rollback, shared-meter exhaustion, read-only propagation, event rollback/order/bounds, return-data bounds and fatal propagation.
 
-- nested same-domain calls;
-- cross-labelled EVM/WASM calls;
-- success/revert/trap;
-- attached-value rollback;
-- shared-meter exhaustion;
-- read-only violation;
-- event rollback/order/bounds;
-- return-data bounds; and
-- fatal state/corruption propagation.
+They are not exported as production executors and are not EVM/WASM compatibility claims.
 
-These test backends are not exported as production executors and must not be described as EVM/WASM compatibility.
-
-A production WASM backend is a later slice using the same ABI and the Stage 4B scoped WASM state host. A production EVM backend requires its own explicit EVM state commitment/overlay adapter design and cannot be routed through the Stage 4A Oregon-SMT journal as a shortcut.
+A production WASM backend is a later slice using this ABI and scoped WASM state host. A production EVM backend requires an explicit EVM state commitment/overlay adapter and cannot be routed through Stage 4A Oregon SMT.
 
 ## 18. Async boundary
 
-Stage 4B does not emit or consume async messages. No VM-visible async host API exists yet.
-
-The receipt carries the fixed empty outbox effect commitment only so Stage 4C can populate the already-planned receipt field. Stage 4C remains responsible for canonical message bytes, ids, outbox keys, consumed keys, expiry, authorization, replay policy and delivery-failure semantics.
+Stage 4B does not emit or consume async messages and exposes no VM-visible async host API. The receipt carries only the canonical empty outbox effect. Stage 4C remains responsible for message bytes/ids, outbox/consumed keys, sequence, expiry, authorization, replay and delivery-failure semantics.
 
 ## 19. Fatal versus deterministic failures
 
-The following are deterministic execution outcomes when caused by contract/backend behavior within validated state:
+Deterministic execution outcomes include explicit contract revert, stable runtime trap, insufficient attached call value, read-only write attempt, structural call/event/return limit violation and resource exhaustion with its distinct top-level outcome.
 
-- explicit contract revert;
-- stable runtime trap;
-- insufficient attached call value;
-- read-only write attempt;
-- structural call/event/return limit violation; and
-- full transaction resource exhaustion, with its distinct top-level outcome.
+Fatal candidate errors include corrupt/missing authoritative records where the lower owner requires them, accounting encoding/invariant failure, fee invariant failure, duplicate settlement/receipt insertion, state commitment failure, coordinator/journal context mismatch, impossible frame/effect-stack mismatch and lower-state corruption errors.
 
-The following are fatal candidate errors and invalidate the unpublished transaction/block overlay:
-
-- corrupt/missing authoritative state records where the lower owner requires them;
-- accounting encoding/invariant violation;
-- fee arithmetic/settlement invariant failure;
-- duplicate settlement/receipt insertion;
-- state commitment failure;
-- coordinator/journal context mismatch;
-- impossible frame/effect-stack mismatch; and
-- any error the lower state owner classifies as corruption rather than normal absence.
-
-Fatal errors cannot be caught by a contract or translated into a successful receipt.
+Fatal errors cannot be caught by a contract or translated into success.
 
 ## 20. Verification requirements
 
-Implementation is test-first and must include distinguishing tests for at least:
+Implementation is test-first and must distinguish at least:
 
-### Runtime/call behavior
+### Runtime/calls
 
-- derived caller/context cannot be forged by a backend;
-- exact call-depth limit and one-over;
+- caller/context cannot be forged by a backend;
+- exact depth and one-over;
+- parent read-only cannot be cleared by child;
 - nested success merges state/events;
 - child revert/trap discards state/value/events but not weight;
-- ancestor revert discards previously committed descendants;
-- read-only child cannot write;
-- invalid/system target traps deterministically;
-- return/input/event exact limits and one-over;
+- ancestor revert discards committed descendants;
+- invalid/Oregon/System target traps;
+- input/return/event exact limits and one-over;
 - event order after rollback filtering.
 
 ### Metering
 
-- one meter instance across all frames/domains;
-- VM unit charge maps from current domain rather than backend-selected domain;
-- host charge before state write/call/event copy;
-- sticky exhaustion cannot be caught by child;
-- exhaustion maps to max authorized weight and top-level `ResourceExhausted`.
+- one meter across frames/domains;
+- backend cannot choose cheaper resource domain;
+- host work charged at required boundary;
+- sticky exhaustion cannot be caught;
+- exhaustion maps to max authorized weight and `ResourceExhausted`.
 
 ### Escrow/accounting
 
-- execution-funded max escrow is unavailable to child execution;
-- successful contract writes plus refund produce `base - transfers - actual_charge` for payer;
-- top-level revert restores contract transfers but still charges actual fee;
-- execution-to-execution value transfer preserves total execution balance;
-- execution-funded fee reduces total execution balance exactly by charge;
+- max escrow unavailable to execution child;
+- success + refund gives correct payer balance after transfers and actual charge;
+- top-level revert restores contract transfers but charges fee;
+- execution-to-execution value preserves total execution balance;
+- execution-funded fee reduces total by charge;
 - native-funded fee leaves execution total unchanged;
 - malformed/overflowing accounting is fatal;
 - same capability/escrow cannot settle twice.
 
-### Two-phase proposal/receipt
+### Two-phase receipt proposal
 
-- Phase A succeeds and Phase B fails -> no combined proposal escapes;
-- state effect commitment excludes receipt self-dependency;
-- duplicate receipt keys fail closed;
-- fee receipt id/charge/payer/weight must match execution receipt;
-- canonical event/state/return/empty-outbox roots have independent golden vectors;
-- success/revert/trap/resource-exhausted receipt bytes have byte-exact golden vectors.
+- Phase A success + Phase B failure leaks no proposal;
+- receipt self-dependency is impossible;
+- Oregon-SMT descriptors carry `OregonSmtV1`;
+- a synthetic EVM-labelled descriptor cannot masquerade as Oregon SMT;
+- duplicate/noncanonical effect descriptors fail;
+- duplicate receipt keys fail;
+- fee receipt id/charge/payer/weight match execution receipt;
+- event/state/return/empty-outbox roots have independent golden vectors;
+- all four receipt outcomes have byte-exact 259-byte vectors.
 
-### Adversarial mutations
+### Required mutation gates
 
-At minimum mutation gates must kill:
+At minimum kill mutations where:
 
 - child rollback refunds meter;
-- backend chooses a cheaper resource domain;
+- backend chooses cheaper domain;
+- read-only child clears parent restriction;
 - event survives reverted frame;
 - attached value survives reverted frame;
-- escrow reservation hidden from contract balance view;
-- execution-funded fee fails to reduce execution total;
-- trap incorrectly maps to committed fee outcome;
-- resource exhaustion made catchable;
-- generic system-domain write exposed to backend;
+- escrow reservation is hidden from contract balance view;
+- execution fee does not reduce execution total;
+- trap maps to committed fee outcome;
+- resource exhaustion is catchable;
+- generic system-domain write is exposed;
+- EVM effect is mislabeled Oregon SMT;
 - receipt stores a self-referential receipt-state root;
-- Phase-A partial result escapes when Phase B fails;
-- duplicate receipt finalization accepted;
-- trap code accepted on a non-trapped receipt; and
-- event/return structural limit truncates instead of failing.
+- Phase-A partial result escapes after Phase-B failure;
+- duplicate receipt finalization succeeds;
+- trap code is accepted on non-trapped receipt; or
+- event/return over-limit data is truncated instead of rejected.
 
-Independent reference vectors must not call Rust production helpers for expected roots/hashes/bytes. New canonical vectors run on x86_64 and ARM.
+Independent vectors must not call Rust production helpers for expected bytes/hashes. New canonical vectors run on x86_64 and ARM.
 
-Full acceptance also requires workspace tests, architecture scan, rustdoc/docs, rustfmt, Clippy with warnings denied, relevant inherited mutation gates, exact-head CI and a new Stage 4B checkpoint.
+Acceptance also requires workspace tests, architecture scan, rustdoc/docs, rustfmt, warnings-denied Clippy, inherited mutation gates, exact-head CI and a Stage 4B checkpoint.
 
 ## 21. Non-goals and activation boundary
 
-Stage 4B completion must not be reported as:
+Stage 4B completion is not production WASM, production EVM, Ethereum RPC, universal-envelope activation, async messaging, durable execution persistence, active execution-fee coinbase settlement, active aggregate block commitment, completed hybrid-state chainstate publication or completed Target 2.
 
-- production WASM execution;
-- production EVM execution;
-- Ethereum RPC compatibility;
-- universal-envelope activation;
-- async messaging;
-- durable execution persistence;
-- active execution fee-aware coinbase settlement;
-- active aggregate block state commitment;
-- completed hybrid-state chainstate publication; or
-- completed Target 2.
-
-Those remain later gated slices.
-
-Stage 4B output is an **inactive, unpublished transaction execution proposal**. Only a later chainstate/block-integration design may compose native UTXO/reserve transitions, Phase-A execution transitions, Phase-B receipt transitions, block fee totals, commitments and undo into one WAL+sync durable accepted operation.
+Stage 4B returns an **inactive, unpublished transaction execution proposal**. Only a later chainstate/block-integration design may compose native UTXO/reserve transitions, Phase-A execution transitions, Phase-B receipt transitions, block fee totals, commitments and undo into one WAL+sync durable operation.
 
 ## 22. Implementation decomposition after written-spec approval
 
