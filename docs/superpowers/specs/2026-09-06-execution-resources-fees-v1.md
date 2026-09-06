@@ -106,7 +106,7 @@ The checked-in JSON contains synthetic data with provenance from a Python arbitr
 
 Property tests cover split/combined metering equivalence within native-counter bounds; monotone consumption; fee direction/range/rate bounds; and mixed-domain ordering equivalence below budget. Independent vectors must not call Rust production helpers for expected values.
 
-Required security mutations: floor in place of conversion ceiling; per-chunk instead of cumulative conversion; skipped common charge; non-sticky exhaustion; budget off-by-one; downward update changed to upward; omitted upward minimum; omitted price ceiling; accepted excess parent utilization; accepted excess transaction/block weight. A killed mutant must compile and fail its named assertion test; a compiler error is not evidence.
+Required security mutations: floor in place of conversion ceiling; cumulative conversion replaced by per-chunk conversion; cumulative old/new delta replaced by a zero delta; skipped common charge; non-sticky exhaustion; budget off-by-one; counter overflow accepted; downward update changed to upward; omitted upward minimum; omitted price ceiling; accepted excess parent utilization; accepted excess transaction weight; accepted excess block weight. A killed mutant must compile and fail its named assertion test; a compiler error is not evidence.
 
 ## 8. Binding Stage 3B accounting requirements
 

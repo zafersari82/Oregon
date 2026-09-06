@@ -1,4 +1,4 @@
-use oregon_consensus::execution_resources::{FeeParametersV1, next_base_fee};
+use oregon_consensus::execution_resources::{FeeParametersV1, ResourceFeeError, next_base_fee};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -22,6 +22,8 @@ struct Sequence {
 struct Vectors {
     fees: Vec<FeeCase>,
     sequences: Vec<Sequence>,
+    invalid_fee_cases: Vec<FeeCase>,
+    invalid_schedule_versions: Vec<u64>,
 }
 
 fn parameters(v: [u64; 6]) -> FeeParametersV1 {
@@ -62,5 +64,22 @@ fn independent_fee_vectors_and_producer_sequences() {
             previous = next_base_fee(&p, previous, used).unwrap();
             assert_eq!(previous, expected, "sequence {}", sequence.name);
         }
+    }
+    for case in vectors.invalid_fee_cases {
+        assert_eq!(
+            next_base_fee(
+                &parameters(case.parameters),
+                case.parent_base_fee,
+                case.parent_weight
+            ),
+            Err(ResourceFeeError::ParentWeightExceeded)
+        );
+    }
+    assert_eq!(vectors.invalid_schedule_versions, vec![0, 2]);
+    for version in vectors.invalid_schedule_versions {
+        assert_eq!(
+            FeeParametersV1::new(version as u16, 100, 100, 8, 1, 1_000),
+            Err(ResourceFeeError::UnsupportedVersion(version as u16))
+        );
     }
 }

@@ -103,11 +103,12 @@ pub fn next_base_fee(
     let distance = u128::from(parent_weight.abs_diff(parameters.target_weight));
     let denominator =
         u128::from(parameters.target_weight) * u128::from(parameters.adjustment_denominator);
-    let change = (u128::from(parent_base_fee) * distance / denominator) as u64;
+    let change = u64::try_from(u128::from(parent_base_fee) * distance / denominator)
+        .map_err(|_| ResourceFeeError::InvalidParameters)?;
     if parent_weight > parameters.target_weight {
-        Ok(parent_base_fee
-            .saturating_add(change.max(1))
-            .min(parameters.max_base_fee))
+        let increased = u64::try_from(u128::from(parent_base_fee) + u128::from(change.max(1)))
+            .map_err(|_| ResourceFeeError::InvalidParameters)?;
+        Ok(increased.min(parameters.max_base_fee))
     } else {
         Ok(parent_base_fee
             .saturating_sub(change)

@@ -1140,5 +1140,23 @@
         }
       ]
     }
+  ],
+  "invalid_fee_cases": [
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 100,
+      "parent_weight": 201
+    }
+  ],
+  "invalid_schedule_versions": [
+    0,
+    2
   ]
 }

@@ -49,6 +49,10 @@ MUTATIONS = [
      "let Some(delta) = new_weight.checked_sub(old_weight) else {",
      "let Some(delta) = new_weight.checked_sub(new_weight) else {",
      "oregon-execution", "weight", "split_charges_share_cumulative_rounding"),
+    ("conversion charges each chunk independently", WEIGHT,
+     "let Some(delta) = new_weight.checked_sub(old_weight) else {",
+     "let Ok(delta) = self.schedule.ratio(domain).normalized_weight(units) else {",
+     "oregon-execution", "weight", "split_charges_share_cumulative_rounding"),
     ("common work is not charged", WEIGHT,
      "self.consumed += weight;", "self.consumed += 0;",
      "oregon-execution", "weight", "common_work_consumes_budget"),
@@ -60,8 +64,8 @@ MUTATIONS = [
      "if delta >= self.max_weight - self.consumed {",
      "oregon-execution", "weight", "exact_budget_succeeds_then_overrun_exhausts"),
     ("native counter overflow wraps", WEIGHT,
-     "self.counters[index].checked_add(units)",
-     "Some(self.counters[index].wrapping_add(units))",
+     "let Some(next_counter) = self.counters[index].checked_add(units) else {\n            return self.exhaust();\n        };",
+     "let Some(next_counter) = self.counters[index].checked_add(units) else {\n            self.counters[index] = 0;\n            return Ok(());\n        };",
      "oregon-execution", "weight", "native_counter_overflow_is_terminal"),
     ("under-target fee movement goes upward", FEES,
      "if parent_weight > parameters.target_weight {",
@@ -77,6 +81,16 @@ MUTATIONS = [
      "if parent_weight > parameters.block_weight_limit() {",
      "if false && parent_weight > parameters.block_weight_limit() {",
      "oregon-consensus", "execution_resources", "invalid_parent_utilization_rejected"),
+    ("transaction limit is omitted", FEES,
+     "if actual_weight == 0 || actual_weight > self.transaction_limit {",
+     "if actual_weight == 0 {",
+     "oregon-consensus", "execution_resources",
+     "block_budget_rejects_transaction_and_block_overruns_atomically"),
+    ("block limit is omitted", FEES,
+     "if next > self.limit {",
+     "if false && next > self.limit {",
+     "oregon-consensus", "execution_resources",
+     "block_budget_rejects_transaction_and_block_overruns_atomically"),
 ]
 
 
@@ -111,6 +125,8 @@ def main() -> None:
                 source.write_text(original)
             if source.read_text() != original:
                 raise SystemExit(f"source restoration failed: {name}")
+    require_baseline()
+    require_clean()
     print(f"Execution resource mutations: {killed}/{len(MUTATIONS)} killed")
 
 

@@ -26,7 +26,7 @@ The design and plan select a cumulative rational normalized meter, parent-only b
 
 Fresh local evidence available on the implementation worktree:
 
-- `cargo +1.85.0 test --locked -p oregon-execution --all-targets`: 16 tests passed (14 meter + 2 independent-vector), 0 failed.
+- `cargo +1.85.0 test --locked -p oregon-execution --all-targets`: 18 tests passed (15 meter + 3 independent-vector tests), 0 failed.
 - `cargo +1.85.0 clippy --locked -p oregon-execution --all-targets -- -D warnings`: success.
 - `cargo +1.85.0 fmt --all -- --check`: success.
 - `cargo +1.85.0 check --locked -p oregon-consensus --tests` with the local CMake command unavailable and `CMAKE=/bin/true`: type-check success only; it is not a linked consensus test result.

@@ -107,7 +107,10 @@ def build():
         meters.append({"name": name, "ratios": ratios, "max_weight": limit,
                        "intrinsic_weight": intrinsic, "events": events})
     return {"version": 1, "provenance": "Synthetic non-activation parameters; Python arbitrary-precision integers and fractions.Fraction; regenerate with scripts/generate_execution_resource_vectors.py",
-            "conversions": conversions, "fees": fees, "sequences": sequences, "meters": meters}
+            "conversions": conversions, "fees": fees, "sequences": sequences, "meters": meters,
+            "invalid_fee_cases": [{"parameters": normal, "parent_base_fee": 100,
+                                   "parent_weight": 201}],
+            "invalid_schedule_versions": [0, 2]}
 
 
 def main():

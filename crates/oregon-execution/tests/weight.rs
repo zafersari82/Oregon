@@ -158,6 +158,18 @@ fn native_counter_overflow_is_terminal() {
     );
     assert_eq!(meter.consumed(), u64::MAX);
     assert!(meter.is_exhausted());
+
+    let tiny = WeightRatio::new(1, u64::MAX).unwrap();
+    let schedule = MeterScheduleV1::new(1, tiny, tiny, tiny).unwrap();
+    let mut distinguishing = WeightMeter::new(schedule, u64::MAX, 0).unwrap();
+    distinguishing
+        .charge(ResourceDomain::Native, u64::MAX)
+        .unwrap();
+    assert_eq!(
+        distinguishing.charge(ResourceDomain::Native, 2),
+        Err(ResourceError::WeightExhausted)
+    );
+    assert_eq!(distinguishing.consumed(), u64::MAX);
 }
 
 #[test]
@@ -219,5 +231,18 @@ proptest! {
         second.charge(ResourceDomain::Native, u64::from(native)).unwrap();
         second.charge(ResourceDomain::Evm, u64::from(evm)).unwrap();
         prop_assert_eq!(first.consumed(), second.consumed());
+    }
+
+    #[test]
+    fn consumption_is_monotone(
+        charges in prop::collection::vec(0u16..=100, 1..40),
+    ) {
+        let mut meter = WeightMeter::new(unit_schedule(), u64::MAX, 0).unwrap();
+        let mut previous = meter.consumed();
+        for units in charges {
+            meter.charge(ResourceDomain::Native, u64::from(units)).unwrap();
+            prop_assert!(meter.consumed() >= previous);
+            previous = meter.consumed();
+        }
     }
 }

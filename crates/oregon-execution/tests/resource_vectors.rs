@@ -31,6 +31,7 @@ struct MeterCase {
 struct Vectors {
     conversions: Vec<Conversion>,
     meters: Vec<MeterCase>,
+    invalid_schedule_versions: Vec<u64>,
 }
 
 fn vectors() -> Vectors {
@@ -91,5 +92,18 @@ fn independent_meter_vectors_bind_each_transition() {
             );
             assert_eq!(meter.is_exhausted(), event.exhausted, "case {}", c.name);
         }
+    }
+}
+
+#[test]
+fn independent_vectors_pin_unsupported_schedule_versions() {
+    let vectors = vectors();
+    assert_eq!(vectors.invalid_schedule_versions, vec![0, 2]);
+    let ratio = WeightRatio::new(1, 1).unwrap();
+    for version in vectors.invalid_schedule_versions {
+        assert_eq!(
+            MeterScheduleV1::new(version as u16, ratio, ratio, ratio),
+            Err(ResourceError::UnsupportedVersion(version as u16))
+        );
     }
 }

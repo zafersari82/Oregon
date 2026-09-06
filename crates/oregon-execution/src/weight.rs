@@ -43,6 +43,7 @@ impl WeightRatio {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum ResourceDomain {
     Native,
     Evm,
