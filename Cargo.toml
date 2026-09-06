@@ -7,6 +7,8 @@ members = [
     "crates/oregon-storage",
     "crates/oregon-chainstate",
     "crates/oregon-mempool",
+    "crates/oregon-contract-state",
+    "crates/oregon-execution",
     "crates/oregon-protocol",
     "crates/oregon-network",
     "crates/oregon-peer",

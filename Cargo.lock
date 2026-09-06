@@ -389,6 +389,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "oregon-contract-state"
+version = "0.1.0"
+dependencies = [
+ "oregon-primitives",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "oregon-consensus"
 version = "0.1.0"
 dependencies = [
@@ -396,6 +407,16 @@ dependencies = [
  "num-traits",
  "oregon-pow",
  "oregon-primitives",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "oregon-execution"
+version = "0.1.0"
+dependencies = [
  "proptest",
  "serde",
  "serde_json",
