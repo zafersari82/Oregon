@@ -1,9 +1,7 @@
 use oregon_primitives::Hash256;
 use thiserror::Error;
 
-use crate::{
-    RuntimeCallContextV1, RuntimeCallResultV1, RuntimeCallSpecV1, RuntimeTrapCodeV1,
-};
+use crate::{RuntimeCallContextV1, RuntimeCallResultV1, RuntimeCallSpecV1, RuntimeTrapCodeV1};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeHostSignalV1 {
@@ -26,16 +24,10 @@ pub trait RuntimeHostV1 {
 
     fn state_delete(&mut self, key: &[u8]) -> Result<(), RuntimeHostSignalV1>;
 
-    fn emit_event(
-        &mut self,
-        topics: &[Hash256],
-        data: &[u8],
-    ) -> Result<(), RuntimeHostSignalV1>;
+    fn emit_event(&mut self, topics: &[Hash256], data: &[u8]) -> Result<(), RuntimeHostSignalV1>;
 
-    fn call(
-        &mut self,
-        spec: RuntimeCallSpecV1,
-    ) -> Result<RuntimeCallResultV1, RuntimeHostSignalV1>;
+    fn call(&mut self, spec: RuntimeCallSpecV1)
+    -> Result<RuntimeCallResultV1, RuntimeHostSignalV1>;
 
     fn charge_vm_units(&mut self, units: u64) -> Result<(), RuntimeHostSignalV1>;
 

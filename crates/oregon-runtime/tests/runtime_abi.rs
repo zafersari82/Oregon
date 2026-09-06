@@ -1,6 +1,6 @@
+use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::execution_envelope::ExecutionDomain;
-use oregon_primitives::Hash256;
 use oregon_runtime::{
     MAX_RUNTIME_CALL_DEPTH, MAX_RUNTIME_CALL_INPUT_BYTES, MAX_RUNTIME_RETURN_DATA_BYTES,
     RuntimeAbiError, RuntimeBackendV1, RuntimeCallContextV1, RuntimeCallContextV1Parts,
@@ -23,7 +23,10 @@ fn system(byte: u8) -> ExecutionAddress {
     ExecutionAddress::new(ExecutionAddressKind::System, [byte; 32]).unwrap()
 }
 
-fn context_parts(target: ExecutionAddress, execution_domain: ExecutionDomain) -> RuntimeCallContextV1Parts {
+fn context_parts(
+    target: ExecutionAddress,
+    execution_domain: ExecutionDomain,
+) -> RuntimeCallContextV1Parts {
     RuntimeCallContextV1Parts {
         chain_id: 42,
         height: 9001,
@@ -41,13 +44,8 @@ fn context_parts(target: ExecutionAddress, execution_domain: ExecutionDomain) ->
 
 #[test]
 fn call_input_exact_limit_is_accepted() {
-    let call = RuntimeCallSpecV1::new(
-        evm(0x01),
-        9,
-        false,
-        vec![0u8; MAX_RUNTIME_CALL_INPUT_BYTES],
-    )
-    .unwrap();
+    let call = RuntimeCallSpecV1::new(evm(0x01), 9, false, vec![0u8; MAX_RUNTIME_CALL_INPUT_BYTES])
+        .unwrap();
     assert_eq!(call.input().len(), MAX_RUNTIME_CALL_INPUT_BYTES);
     assert_eq!(call.value(), 9);
     assert!(!call.read_only());
@@ -77,10 +75,16 @@ fn standard_runtime_calls_target_only_evm_or_wasm() {
 #[test]
 fn return_data_exact_limit_is_accepted_and_one_over_is_rejected() {
     let success = RuntimeCallResultV1::success(vec![0u8; MAX_RUNTIME_RETURN_DATA_BYTES]).unwrap();
-    assert_eq!(success.return_data().unwrap().len(), MAX_RUNTIME_RETURN_DATA_BYTES);
+    assert_eq!(
+        success.return_data().unwrap().len(),
+        MAX_RUNTIME_RETURN_DATA_BYTES
+    );
 
     let revert = RuntimeCallResultV1::revert(vec![0u8; MAX_RUNTIME_RETURN_DATA_BYTES]).unwrap();
-    assert_eq!(revert.return_data().unwrap().len(), MAX_RUNTIME_RETURN_DATA_BYTES);
+    assert_eq!(
+        revert.return_data().unwrap().len(),
+        MAX_RUNTIME_RETURN_DATA_BYTES
+    );
 
     assert_eq!(
         RuntimeCallResultV1::success(vec![0u8; MAX_RUNTIME_RETURN_DATA_BYTES + 1]).unwrap_err(),
@@ -152,19 +156,31 @@ fn context_depth_is_bounded_including_top_level() {
 
 #[test]
 fn context_target_kind_must_match_execution_domain() {
-    assert!(RuntimeCallContextV1::from_trusted_parts(context_parts(evm(0x01), ExecutionDomain::Evm)).is_ok());
-    assert!(RuntimeCallContextV1::from_trusted_parts(context_parts(wasm(0x02), ExecutionDomain::Wasm)).is_ok());
+    assert!(
+        RuntimeCallContextV1::from_trusted_parts(context_parts(evm(0x01), ExecutionDomain::Evm))
+            .is_ok()
+    );
+    assert!(
+        RuntimeCallContextV1::from_trusted_parts(context_parts(wasm(0x02), ExecutionDomain::Wasm))
+            .is_ok()
+    );
 
     assert_eq!(
-        RuntimeCallContextV1::from_trusted_parts(context_parts(evm(0x03), ExecutionDomain::Wasm)).unwrap_err(),
+        RuntimeCallContextV1::from_trusted_parts(context_parts(evm(0x03), ExecutionDomain::Wasm))
+            .unwrap_err(),
         RuntimeAbiError::ContextDomainTargetMismatch,
     );
     assert_eq!(
-        RuntimeCallContextV1::from_trusted_parts(context_parts(wasm(0x04), ExecutionDomain::Evm)).unwrap_err(),
+        RuntimeCallContextV1::from_trusted_parts(context_parts(wasm(0x04), ExecutionDomain::Evm))
+            .unwrap_err(),
         RuntimeAbiError::ContextDomainTargetMismatch,
     );
     assert_eq!(
-        RuntimeCallContextV1::from_trusted_parts(context_parts(wasm(0x05), ExecutionDomain::Native)).unwrap_err(),
+        RuntimeCallContextV1::from_trusted_parts(context_parts(
+            wasm(0x05),
+            ExecutionDomain::Native
+        ))
+        .unwrap_err(),
         RuntimeAbiError::ContextDomainTargetMismatch,
     );
 }

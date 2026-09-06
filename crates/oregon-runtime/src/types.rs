@@ -1,6 +1,6 @@
+use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::execution_envelope::ExecutionDomain;
-use oregon_primitives::Hash256;
 use thiserror::Error;
 
 pub const RUNTIME_ABI_VERSION_V1: u16 = 1;
