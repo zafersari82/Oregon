@@ -10,8 +10,8 @@ mod verifier;
 pub use entry::{COINBASE_MATURITY, UtxoEntry};
 pub use error::UtxoError;
 pub use reserve::{
-    ReservePoolSnapshotV1, ReserveTransitionError, ReserveTransitionV1,
-    ReserveTransitionV1Parts, ReserveUndoV1,
+    ReservePoolSnapshotV1, ReserveTransitionError, ReserveTransitionV1, ReserveTransitionV1Parts,
+    ReserveUndoV1,
 };
 pub use state::UtxoState;
 pub use undo::BlockUndo;
