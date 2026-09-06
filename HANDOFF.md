@@ -70,6 +70,24 @@ The accepted Stage 4B/4C architecture remains valid but is not the default immed
 
 ## Preserved cautions
 
+### Pending reserve-proof design
+
+The branch `design/reserve-conservation-proof-v1-2026-09-06` prepares Workstream A
+from main `dd7cdcb566273c39d5a38cf0c0036058b08a7d89`:
+
+- Design: `docs/superpowers/specs/2026-09-06-reserve-conservation-proof-v1.md`.
+- Plan: `docs/superpowers/plans/2026-09-06-reserve-conservation-proof-v1.md`.
+- State: proposed bounded-model proof with Kani 0.67.0 and production differential
+  tests; no proof implementation, result or owner approval is claimed.
+- Next action: review/approve the concrete verifier/model boundary, then execute
+  the test-first plan on its own implementation branch.
+
+Open draft PR #20 remains separate Stage 4B work at
+`fc2cc1564de69eee1482a445bb0c08b49b667ab0`; it does not supersede main's default
+trust-roadmap priority. Neither that branch nor historical checkpoints were moved.
+
+### Existing implementation cautions
+
 - `FundingCapabilityV1::new` validates data; it does not verify a live payer source. Future coordination must obtain authority from source validation.
 - Existing `WeightMeter` exhaustion is sticky and charges the maximum. Child rollback cannot reset it or cumulative conversion counters.
 - No generic VM-facing unrestricted system-domain write or non-revertible write API is permitted.
