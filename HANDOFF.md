@@ -1,49 +1,51 @@
 # Oregon — current continuation record
 
-Updated: 2026-09-06 UTC. Progress record only; no activation or main-integration approval.
+Updated: 2026-09-06 UTC. The owner explicitly requested main integration: “MAİNE İŞLEYELİM O ZAMAN”. This authorizes integration of the completed inactive foundations through Stage 3A; execution activation still requires its own design and decision.
 
 ## Resume here
 
 - Repository: https://github.com/zafersari82/Oregon
-- Accepted main: `bf7675bfe17182f77d4c43e2bcbd0c283709d799` (M0–M6 plus platform architecture contract).
-- Execution architecture: `ed67ccb89131970571d93911cf5553be33636e2f`, PR #9.
-- Verified address checkpoint: `8057ba2a030a8e79c10a240d48675be758c4d875`, PR #10.
-- Verified Stage 1 envelope/auth final head: `b97f9d3af9e2c9c4011750cfb69cce8fd9117a8a`, PR #12; byte design PR #11.
-- Stage 2 design: `8a3f2c51f7c4ed7078fa808b2223f3b6af4ef3a7`, PR #13.
-- **Active continuation branch: `work/contract-state-v1-2026-09-05`, draft PR #14.**
-- **Stage 3A branch: `work/execution-resources-v1-2026-09-06`, stacked draft PR #15.**
-- **Verified Stage 2 implementation: `6bfc3364c71674c2bc3dd20e2b66a4fcabaac19f`.**
-- Verified tree: `682a1fc617dad937efbaa3b24ae5c7d861674ad6`.
-- Checkpoint: `docs/checkpoints/OREGON_CONTRACT_STATE_PROGRESS.md`.
-- Completed plan/spec: `docs/superpowers/{plans,specs}/2026-09-05-contract-state-commitments-v1.md`.
-- Stage 3A design/plan/checkpoint: `docs/superpowers/{specs,plans}/2026-09-06-execution-resources-fees-v1.md`, `docs/checkpoints/OREGON_EXECUTION_RESOURCES_PROGRESS.md`.
+- Integration branch: `work/integrate-execution-foundations-2026-09-06`.
+- Integration target and continuation baseline after merge: `main`.
+- Pre-integration main: `bf7675bfe17182f77d4c43e2bcbd0c283709d799`.
+- Complete verified source: `06233e9b509c25e6aed3466cd79613cfbf0ff850`.
+- Source tree: `994b317bb0a3e0aad9b37aca45e493a3ff3bb4f3`.
+- This source includes the full ancestor history of PRs #9–#15. The integration uses a merge commit to preserve that history and leaves the original source branches intact.
 
-## Completed work
+Before editing, fetch current `main` and inspect the integration PR's merge state and CI. If it is merged, start the next isolated branch from current `main`; do not resume an old Stage 1/2/3A branch. If it is still open, finish its checks and the authorized integration first. GitHub's recorded merge commit and its CI are the authoritative integration outcome; this file does not predict a future merge SHA.
 
-Stage 1 address/envelope/auth primitives and Stage 2 logical contract state/commitments are complete and inactive. Stage 2 includes canonical child/aggregate commitments, immutable SMT transitions/snapshots, checked reads and compressed membership/non-membership proofs.
+## Completed inactive foundations
 
-The continuation audit fixed old-value corruption bypass during deletion/replacement/no-op and cross-decode-domain proof canonicality bypass. Shared rule ownership, resource boundaries, snapshot tests, independent accounting/all-domain vectors and every required mutation target are covered.
+| Work | Source | Specification/checkpoint |
+| --- | --- | --- |
+| Execution Architecture V1 | PR #9, `ed67ccb89131970571d93911cf5553be33636e2f` | `docs/superpowers/specs/2026-09-05-execution-architecture-design.md` |
+| Typed addresses | PR #10, `8057ba2a030a8e79c10a240d48675be758c4d875` | `docs/checkpoints/OREGON_EXECUTION_ADDRESS_PROGRESS.md` |
+| Universal envelope and authorization structure | PRs #11–#12, `b97f9d3af9e2c9c4011750cfb69cce8fd9117a8a` | `docs/checkpoints/OREGON_EXECUTION_ENVELOPE_PROGRESS.md` |
+| Logical contract state and commitments | PRs #13–#14, `7cfac99c40de96afb79d222cd5ade9f3a537215a` | `docs/checkpoints/OREGON_CONTRACT_STATE_PROGRESS.md` |
+| Resource metering, parent-derived base fee, transaction/block budgets | PR #15, `06233e9b509c25e6aed3466cd79613cfbf0ff850` | `docs/checkpoints/OREGON_EXECUTION_RESOURCES_PROGRESS.md` |
 
-Verified implementation evidence:
+Subsystem checkpoints preserve the decisions and verification evidence from their recorded dates. Their old “main unchanged/not approved” statements describe those historical checkpoints; the explicit integration decision above supersedes that progress status, without changing any normative architecture or activation rule.
 
-- Oregon Rust CI `33990488016`, job `101371722660`: SUCCESS, including full workspace, architecture, docs, rustfmt and Clippy.
-- Address mutations 3/3, envelope mutations 9/9, state mutations 17/17: killed with clean restoration.
-- RandomX architecture `33990488002`: x86 and ARM SUCCESS.
-- RandomX full/light parity `33990487993`: x86 and ARM SUCCESS.
-- Focused local tests: 39 contract-state + 5 commitment tests passed.
+## Verification and integration gate
 
-This handoff/checkpoint successor removes the two temporary RandomX trigger entries; code/tests/vectors remain identical to the verified implementation. Always inspect the current branch's own final Rust CI and PR #14 before treating its current head as verified. An earlier green ancestor does not prove changed descendant code.
+The exact source `06233e9b509c25e6aed3466cd79613cfbf0ff850` passed:
 
-## Exact next action
+- Oregon Rust CI [34025020784](https://github.com/zafersari82/Oregon/actions/runs/34025020784), job `101464341445`: full workspace/all-target tests, architecture and focused contracts, rustdoc/docs, format, warnings-denied Clippy.
+- Address mutations 3/3, envelope mutations 9/9, contract-state mutations 17/17, resource mutations 13/13; restored suites passed.
+- Execution Resource Vectors [34025020773](https://github.com/zafersari82/Oregon/actions/runs/34025020773): x86_64 job `101464341320`, ARM job `101464341471`, both successful.
 
-Read `AGENTS.md`, the Engineering Constitution, Platform Architecture Contract, Execution Architecture V1, this handoff and the Stage 2 checkpoint. Fetch current branch HEAD before editing.
+The integration adds only this continuation update and main-push triggers for the Rust and resource-vector workflows. Production code, tests, vectors, Cargo dependencies and normative contracts are identical to the verified source. The integration PR must pass its own checks before merging; the resulting `main` commit must pass its own Rust and x86_64/ARM resource workflows. Record their exact SHAs and run links in the integration PR. Do not substitute an ancestor's green run for a changed tree.
 
-Stage 3A now has a versioned design/plan and inactive implementation branch in PR #15. Inspect that branch's exact head and own CI before treating it as accepted. Its next continuation is a separate Stage 3B versioned design for fee escrow/settlement, fee-state transitions and native UTXO reserve conservation. Define authoritative owners, exact bytes/keys, authenticated funding and producer destinations, deterministic arithmetic/overflow rules, rollback versus non-revertible fee boundaries, backing invariants, stale/double-settlement rejection, receipts/undo, required vectors and adversarial tests before implementation. Preserve no fee burn, one fee/execution truth and 1:1 native backing. Activation constants require their specified benchmark/vector evidence.
+## Exact next action after integration
 
-Do not repeat M0–M6, Stage 1, Stage 2 design selection or completed Stage 2 implementation. The owner requests autonomous progress without repeated low-level approval prompts; that does not authorize changing frozen architecture or integrating main.
+Read `AGENTS.md`, the Engineering Constitution, Platform Architecture Contract, Execution Architecture V1 and the Stage 3A checkpoint. Continue with a separate versioned Stage 3B design for fee escrow/settlement, fee-state transitions and native UTXO reserve conservation.
+
+Define authoritative owners, exact bytes/keys, authenticated funding and producer destinations, deterministic arithmetic/overflow rules, rollback versus non-revertible fee boundaries, backing invariants, stale/double-settlement rejection, receipts/undo, required vectors and adversarial tests before implementation. Preserve no fee burn, one fee/execution truth and exact 1:1 native backing. Activation constants require their specified benchmark/vector evidence.
+
+Do not repeat completed M0–M6, Stage 1, Stage 2 or Stage 3A work. The owner requests autonomous progress without repeated low-level approval prompts. Frozen architecture changes and future main integrations still follow their applicable explicit-decision process; this authorization covers the current integration.
 
 ## Remaining sequence and boundaries
 
-Later work is Stage 3B fee accounting/reserve integration, runtime/journal/async core, EVM ingress/backend, WASM backend, cross-VM operations, unified mempool/block execution, durable chainstate/reorg/recovery, then separate activation and integration decisions.
+Stage 3B fee accounting/reserve integration, runtime/journal/async core, EVM ingress/backend, WASM backend, cross-VM operations, unified mempool/block execution, durable chainstate/reorg/recovery, then separate activation decisions.
 
-Current header/transaction bytes, RocksDB schema, UTXO and monetary rules, active M0–M6 behavior and main remain unchanged. No wallet/RPC, public network or active contracts are claimed. Never force-push accepted/shared checkpoint refs. Keep exact sources, verification evidence, limitations and next action in the repository.
+The current header/transaction bytes, RocksDB schema, UTXO and monetary rules, and active M0–M6 behavior are preserved by this integration. No wallet/RPC, public network or active contracts are claimed. Never force-push accepted/shared checkpoint refs. Preserve sources, verification evidence, limitations and the next action in the repository.

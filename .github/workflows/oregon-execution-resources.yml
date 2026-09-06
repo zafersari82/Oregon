@@ -3,7 +3,7 @@ name: Oregon Execution Resource Vectors
 on:
   workflow_dispatch:
   push:
-    branches: [work/execution-resources-v1-2026-09-06]
+    branches: [main, work/execution-resources-v1-2026-09-06]
   pull_request:
     branches: [main]
     paths:
