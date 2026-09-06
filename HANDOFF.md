@@ -1,46 +1,47 @@
 # Oregon — current continuation record
 
-Updated: 2026-09-05 (UTC). Progress record only; no activation or main-integration approval.
+Updated: 2026-09-06 UTC. Progress record only; no activation or main-integration approval.
 
-## Where to resume
+## Resume here
 
 - Repository: https://github.com/zafersari82/Oregon
 - Accepted main: `bf7675bfe17182f77d4c43e2bcbd0c283709d799` (M0–M6 plus platform architecture contract).
 - Execution architecture: `ed67ccb89131970571d93911cf5553be33636e2f`, PR #9.
-- Verified typed-address checkpoint: `8057ba2a030a8e79c10a240d48675be758c4d875`, PR #10.
-- Verified inactive envelope/auth final head: `b97f9d3af9e2c9c4011750cfb69cce8fd9117a8a`, PR #12; byte design PR #11.
+- Verified address checkpoint: `8057ba2a030a8e79c10a240d48675be758c4d875`, PR #10.
+- Verified Stage 1 envelope/auth final head: `b97f9d3af9e2c9c4011750cfb69cce8fd9117a8a`, PR #12; byte design PR #11.
 - Stage 2 design: `8a3f2c51f7c4ed7078fa808b2223f3b6af4ef3a7`, PR #13.
-- **Active continuation branch: `work/contract-state-v1-2026-09-05`, PR #14.**
-- Current spec: `docs/superpowers/specs/2026-09-05-contract-state-commitments-v1.md`.
-- Current plan: `docs/superpowers/plans/2026-09-05-contract-state-commitments-v1.md`.
+- **Active continuation branch: `work/contract-state-v1-2026-09-05`, draft PR #14.**
+- **Verified Stage 2 implementation: `6bfc3364c71674c2bc3dd20e2b66a4fcabaac19f`.**
+- Verified tree: `682a1fc617dad937efbaa3b24ae5c7d861674ad6`.
+- Checkpoint: `docs/checkpoints/OREGON_CONTRACT_STATE_PROGRESS.md`.
+- Completed plan/spec: `docs/superpowers/{plans,specs}/2026-09-05-contract-state-commitments-v1.md`.
 
-## Current work
+## Completed work
 
-Stage 1 is complete. Stage 2 implementation includes primitive child/aggregate commitments, the immutable SMT transition engine, checked storage-neutral reads, and compressed membership/non-membership proofs. Stage 2 final acceptance remains incomplete.
+Stage 1 address/envelope/auth primitives and Stage 2 logical contract state/commitments are complete and inactive. Stage 2 includes canonical child/aggregate commitments, immutable SMT transitions/snapshots, checked reads and compressed membership/non-membership proofs.
 
-Inherited implementation head `d3e89ab13bd70604b14b82893519f54664f594ba` was audited on continuation. Rust CI run `33985620545`, job `101358465281`, passed focused tests, workspace tests, inherited mutations, state mutations and docs, but failed rustfmt; Clippy was skipped. It is not a verified final checkpoint.
+The continuation audit fixed old-value corruption bypass during deletion/replacement/no-op and cross-decode-domain proof canonicality bypass. Shared rule ownership, resource boundaries, snapshot tests, independent accounting/all-domain vectors and every required mutation target are covered.
 
-The audit identified two correctness bugs being repaired with test-first evidence:
+Verified implementation evidence:
 
-1. Deletion/replacement/same-value writes must validate the old referenced value blob before returning a transition, including a no-op.
-2. Proof verification must reject explicit default siblings for the verification domain even if the object was decoded under another domain.
+- Oregon Rust CI `33990488016`, job `101371722660`: SUCCESS, including full workspace, architecture, docs, rustfmt and Clippy.
+- Address mutations 3/3, envelope mutations 9/9, state mutations 17/17: killed with clean restoration.
+- RandomX architecture `33990488002`: x86 and ARM SUCCESS.
+- RandomX full/light parity `33990487993`: x86 and ARM SUCCESS.
+- Focused local tests: 39 contract-state + 5 commitment tests passed.
 
-Required remaining work also includes five missing normative mutation targets, exact resource-boundary/adversarial tests, accounting transition/long-prefix vectors, all-id descriptor vectors, snapshot retention coverage and one authoritative path-bit implementation.
+This handoff/checkpoint successor removes the two temporary RandomX trigger entries; code/tests/vectors remain identical to the verified implementation. Always inspect the current branch's own final Rust CI and PR #14 before treating its current head as verified. An earlier green ancestor does not prove changed descendant code.
 
-## First action in another conversation
+## Exact next action
 
-Fetch the active branch above, then read this file, `AGENTS.md`, the Engineering Constitution, Platform Architecture Contract, Execution Architecture V1, Stage 2 spec/plan and relevant checkpoints. Inspect exact branch HEAD and CI before editing; a green ancestor does not verify a changed descendant.
+Read `AGENTS.md`, the Engineering Constitution, Platform Architecture Contract, Execution Architecture V1, this handoff and the Stage 2 checkpoint. Fetch current branch HEAD before editing.
 
-Resume Stage 2 hardening and final verification. Do not repeat M0–M6, address, envelope or Stage 2 design selection. The owner delegated remaining Stage 2 technical choices and instructed autonomous progress without repeated approval prompts; frozen architecture and separate main-integration rules remain in force.
+Start Execution Architecture V1 §27 **Stage 3 with a versioned design** for normalized resource weight, fee escrow/settlement, fee-state transitions and native UTXO reserve conservation. Define authoritative owners, deterministic arithmetic/overflow rules, rollback versus non-revertible fee boundaries, backing invariants, required vectors and adversarial tests before implementation. Preserve no fee burn, one fee/execution truth and 1:1 native backing. Activation constants require their specified benchmark/vector evidence.
 
-## Verification and remaining sequence
+Do not repeat M0–M6, Stage 1, Stage 2 design selection or completed Stage 2 implementation. The owner requests autonomous progress without repeated low-level approval prompts; that does not authorize changing frozen architecture or integrating main.
 
-Local Rust 1.85.0 focused tests can establish red/green regressions. GitHub Actions provides authoritative full-workspace, architecture, docs, format, Clippy, mutation and x86/ARM RandomX verification for the exact published code state.
+## Remaining sequence and boundaries
 
-After Stage 2 is fully verified, create `docs/checkpoints/OREGON_CONTRACT_STATE_PROGRESS.md`, complete the plan and update this handoff. The next work is a versioned Stage 3 design for normalized resource weight, fee escrow/state transition and UTXO reserve conservation; do not infer activation constants from another chain.
+Later work is Stage 3 accounting/weight/fees, runtime/journal/async core, EVM ingress/backend, WASM backend, cross-VM operations, unified mempool/block execution, durable chainstate/reorg/recovery, then separate activation and integration decisions.
 
-Later stages remain runtime/journal/async core, EVM ingress/backend, WASM backend, cross-VM operations, unified mempool/block execution, durable chainstate/reorg/recovery integration, then separate activation and main-integration decisions.
-
-## Persistence and authority
-
-Preserve exact source SHAs/trees, verification evidence, limitations and next action in checkpoints and this file. Never force-push accepted/shared checkpoint refs. No current header/transaction bytes, storage schema, native UTXO rules or active M0–M6 path is changed by Stage 2.
+Current header/transaction bytes, RocksDB schema, UTXO and monetary rules, active M0–M6 behavior and main remain unchanged. No wallet/RPC, public network or active contracts are claimed. Never force-push accepted/shared checkpoint refs. Keep exact sources, verification evidence, limitations and next action in the repository.
