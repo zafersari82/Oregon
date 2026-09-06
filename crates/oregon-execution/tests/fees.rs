@@ -1,6 +1,4 @@
-use oregon_execution::{
-    EscrowBookV1, FeeError, FeeTermsV1, FundingCapabilityV1,
-};
+use oregon_execution::{EscrowBookV1, FeeError, FeeTermsV1, FundingCapabilityV1};
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::fee_settlement::{ExecutionOutcome, FeeSourceKind};
 use oregon_primitives::{Hash256, MAX_SUPPLY_BASE_UNITS, domain_hash};
@@ -43,10 +41,7 @@ fn max_fee_below_base_fee_is_rejected() {
 
 #[test]
 fn zero_weight_and_priority_above_max_fee_are_rejected() {
-    assert_eq!(
-        FeeTermsV1::new(10, 20, 5, 0),
-        Err(FeeError::ZeroMaxWeight)
-    );
+    assert_eq!(FeeTermsV1::new(10, 20, 5, 0), Err(FeeError::ZeroMaxWeight));
     assert_eq!(
         FeeTermsV1::new(10, 20, 21, 100),
         Err(FeeError::PriorityFeeExceedsMaxFee)
@@ -155,22 +150,14 @@ fn insufficient_funding_rejects_without_consuming_capability() {
     let mut book = EscrowBookV1::new(8).unwrap();
     let capability = execution_capability(1_999, 9);
     assert_eq!(
-        book.open(
-            Hash256::from_bytes([0x46; 32]),
-            capability,
-            terms(),
-        ),
+        book.open(Hash256::from_bytes([0x46; 32]), capability, terms(),),
         Err(FeeError::InsufficientFunding)
     );
 
     let lower_terms = FeeTermsV1::new(10, 19, 5, 100).unwrap();
     assert!(
-        book.open(
-            Hash256::from_bytes([0x46; 32]),
-            capability,
-            lower_terms,
-        )
-        .is_ok()
+        book.open(Hash256::from_bytes([0x46; 32]), capability, lower_terms,)
+            .is_ok()
     );
 }
 
@@ -178,19 +165,11 @@ fn insufficient_funding_rejects_without_consuming_capability() {
 fn duplicate_capability_and_stale_source_sequence_fail_closed() {
     let mut book = EscrowBookV1::new(8).unwrap();
     let capability = execution_capability(2_000, 10);
-    book.open(
-        Hash256::from_bytes([0x47; 32]),
-        capability,
-        terms(),
-    )
-    .unwrap();
+    book.open(Hash256::from_bytes([0x47; 32]), capability, terms())
+        .unwrap();
 
     assert_eq!(
-        book.open(
-            Hash256::from_bytes([0x48; 32]),
-            capability,
-            terms(),
-        ),
+        book.open(Hash256::from_bytes([0x48; 32]), capability, terms(),),
         Err(FeeError::CapabilityAlreadyConsumed)
     );
 
@@ -267,11 +246,7 @@ fn resource_exhaustion_is_a_fee_paying_reverted_outcome() {
         .unwrap();
 
     let settled = book
-        .settle(
-            ticket.escrow_id(),
-            ExecutionOutcome::ResourceExhausted,
-            100,
-        )
+        .settle(ticket.escrow_id(), ExecutionOutcome::ResourceExhausted, 100)
         .unwrap();
     assert_eq!(settled.charged(), 1_500);
     assert_eq!(settled.refund(), 500);
