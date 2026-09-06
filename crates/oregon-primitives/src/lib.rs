@@ -6,6 +6,8 @@ pub mod encoding;
 pub mod error;
 pub mod execution_address;
 pub mod execution_envelope;
+pub mod execution_reserve;
+pub mod fee_settlement;
 pub mod hash;
 pub mod merkle;
 pub mod state_commitment;

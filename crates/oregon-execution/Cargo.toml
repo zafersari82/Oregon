@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+oregon-primitives = { path = "../oregon-primitives" }
 thiserror = "2"
 
 [dev-dependencies]

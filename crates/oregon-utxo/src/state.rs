@@ -36,6 +36,18 @@ impl UtxoState {
         self.entries.get(outpoint)
     }
 
+    pub(crate) fn reserve_insert_entry(
+        &mut self,
+        outpoint: OutPoint,
+        entry: UtxoEntry,
+    ) -> Option<UtxoEntry> {
+        self.entries.insert(outpoint, entry)
+    }
+
+    pub(crate) fn reserve_remove_entry(&mut self, outpoint: &OutPoint) -> Option<UtxoEntry> {
+        self.entries.remove(outpoint)
+    }
+
     #[cfg(test)]
     pub(crate) fn insert_test_utxo(&mut self, outpoint: OutPoint, entry: UtxoEntry) {
         self.entries.insert(outpoint, entry);

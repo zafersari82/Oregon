@@ -18,7 +18,7 @@ pub use block::{
     validate_non_genesis_block_skeleton, validate_non_genesis_block_structure,
     validate_normal_transaction_skeleton,
 };
-pub use coinbase::{is_coinbase_form, validate_coinbase};
+pub use coinbase::{is_coinbase_form, validate_coinbase, validate_coinbase_with_execution_fees_v1};
 pub use emission::{
     SCHEDULED_MINING_ISSUANCE_BASE_UNITS, SCHEDULED_TOTAL_WITH_FOUNDER_BASE_UNITS, block_subsidy,
 };

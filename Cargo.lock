@@ -417,6 +417,7 @@ dependencies = [
 name = "oregon-execution"
 version = "0.1.0"
 dependencies = [
+ "oregon-primitives",
  "proptest",
  "serde",
  "serde_json",
