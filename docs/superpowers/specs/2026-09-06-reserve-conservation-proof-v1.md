@@ -63,8 +63,10 @@ Its checked-in `rust-toolchain.toml` pins `nightly-2025-11-21` and
 explicitly in each harness; do not follow a floating solver default.
 
 Use a separate Linux x86_64 proof job; leave Oregon's Rust 1.85.0 gates intact.
-Bootstrap with `cargo install --locked kani-verifier --version 0.67.0` and
-`cargo kani setup`. Before running proofs, commit a tool-lock manifest containing
+Bootstrap with `cargo +1.88.0 install --locked kani-verifier --version 0.67.0` and
+`cargo kani setup`. The installer-only toolchain is separate from Oregon's
+production toolchain: the pinned installer's `home` dependency requires Rust 1.88.
+Before running proofs, commit a tool-lock manifest containing
 the selected release asset's SHA-256, platform, compiler/backend versions and
 solver binary digest. Verify downloads against that lock, and reject mismatches.
 The bootstrap task must establish these digests before any proof acceptance;

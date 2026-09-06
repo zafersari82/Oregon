@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "scope": "Local verifier bootstrap only; no reserve obligations or CI acceptance",
+  "source_commit": "e816a9cbdca758658770ea2775eaa69b6063e204",
+  "source_sha256": "0cb94ae39a3e7a1b3dafc7c6157b2fac6c7aaa22be7efd14c0c2c35c474d2e7e",
+  "results": [
+    {
+      "harness": "bootstrap_positive",
+      "command": [
+        "/root/.cargo/bin/kani",
+        "/workspace/scratch/6fb76c82236f/Oregon/verification/reserve-conservation/bootstrap.rs",
+        "--harness",
+        "bootstrap_positive"
+      ],
+      "exit_code": 0,
+      "expected_result_observed": true,
+      "log": "positive.json"
+    },
+    {
+      "harness": "bootstrap_negative",
+      "command": [
+        "/root/.cargo/bin/kani",
+        "/workspace/scratch/6fb76c82236f/Oregon/verification/reserve-conservation/bootstrap.rs",
+        "--harness",
+        "bootstrap_negative",
+        "-Z",
+        "concrete-playback",
+        "--concrete-playback=print"
+      ],
+      "exit_code": 1,
+      "expected_result_observed": true,
+      "log": "negative.json"
+    },
+    {
+      "harness": "bootstrap_positive",
+      "command": [
+        "/root/.cargo/bin/kani",
+        "/workspace/scratch/6fb76c82236f/Oregon/verification/reserve-conservation/bootstrap.rs",
+        "--harness",
+        "bootstrap_positive"
+      ],
+      "exit_code": 0,
+      "expected_result_observed": true,
+      "log": "positive_after_negative.json"
+    }
+  ]
+}

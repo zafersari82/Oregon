@@ -9,8 +9,14 @@ Updated: 2026-09-06 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
   `7743aaa`; implementation is authorized. Do not request the same approval again.
 - Read `docs/architecture/OREGON_OWNER_DIRECTION.md` for the persistent engineering
   objective, future subsystem assurance needs and limits of this reserve proof.
-- Current next action: bootstrap the pinned verifier and tool digests, then follow
-  the approved test-first plan. No Kani proof has been run or accepted yet.
+- Current completed slice: pinned verifier bootstrap at source `e816a9c`. Kani
+  0.67.0/CBMC 6.8.0/CaDiCaL 2.0.0 passed the positive smoke check and found the
+  intended negative counterexample (255); the positive rerun also passed.
+- Evidence: `verification/reserve-conservation/evidence/bootstrap/summary.json` and
+  raw logs. These are local tool checks, not reserve proofs or CI acceptance.
+- Current next action: complete the fail-closed tooling runner and standalone model
+  package, then write the approved production correspondence tests before the model.
+  RC01–RC10 remain unimplemented; do not count bootstrap harnesses as reserve proofs.
 - Publication limitation: the design push failed because GitHub write authentication
   was unavailable. These continuation changes are local until a push succeeds.
 
@@ -88,9 +94,10 @@ from main `dd7cdcb566273c39d5a38cf0c0036058b08a7d89`:
 - Design: `docs/superpowers/specs/2026-09-06-reserve-conservation-proof-v1.md`.
 - Plan: `docs/superpowers/plans/2026-09-06-reserve-conservation-proof-v1.md`.
 - State: owner-approved bounded-model proof with Kani 0.67.0 and production
-  differential tests; no proof implementation or result is claimed.
+  differential tests; verifier bootstrap works locally, reserve proofs remain pending.
 - Next action: execute the approved test-first plan on
-  `work/reserve-conservation-proof-v1-2026-09-06`, starting with verifier bootstrap.
+  `work/reserve-conservation-proof-v1-2026-09-06`, continuing after the recorded
+  bootstrap checks.
 
 Open draft PR #20 remains separate Stage 4B work at
 `fc2cc1564de69eee1482a445bb0c08b49b667ab0`; it does not supersede main's default

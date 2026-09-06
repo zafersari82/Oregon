@@ -29,9 +29,9 @@ On `work/reserve-conservation-proof-v1-2026-09-06`, based on the reviewed design
 
 - [ ] Add standalone verification package/model directory outside the production
   workspace and a committed lockfile if the package uses dependencies.
-- [ ] Record Kani 0.67.0, pinned source commit, nightly and CBMC versions from the
+- [x] Record Kani 0.67.0, pinned source commit, nightly and CBMC versions from the
   design, plus downloaded asset and solver digests in `toolchain-lock.json`.
-- [ ] Verify a positive smoke assertion and an intentionally failing assertion;
+- [x] Verify a positive smoke assertion and an intentionally failing assertion;
   record real property identifiers/output shape for the result parser.
 - [ ] Fail closed on missing tools, wrong versions, unexpected harness inventory,
   timeouts, compilation failures, unsupported operations and unwind failures.
@@ -39,6 +39,14 @@ On `work/reserve-conservation-proof-v1-2026-09-06`, based on the reviewed design
 Do not add Kani as a production dependency or change Rust 1.85.0. If this selected
 release cannot run the bounded model, document the actual failure before proposing
 a different version; do not silently weaken the proof or switch tools.
+
+Local bootstrap evidence is in `verification/reserve-conservation/evidence/bootstrap/`.
+At source `e816a9c`, the positive harness passed, its maximum-input cover was
+satisfied, and the negative harness failed the intended assertion with input 255.
+The positive harness passed again afterward. These are tooling smoke checks, not
+RC01–RC10 results or exact-head CI acceptance. The installer required separate Rust
+1.88.0; production stays at 1.85.0. The verified archive and binary digests are in
+`verification/reserve-conservation/toolchain-lock.json`.
 
 ## 3. Write failing correspondence tests first
 
