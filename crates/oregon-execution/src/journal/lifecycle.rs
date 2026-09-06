@@ -4,7 +4,7 @@ use super::ExecutionJournalV1;
 use super::frame::JournalFrame;
 use super::types::JournalError;
 
-impl<'a, S: StateSource + ?Sized> ExecutionJournalV1<'a, S> {
+impl<S: StateSource + ?Sized> ExecutionJournalV1<'_, S> {
     pub fn begin_frame(&mut self) -> Result<(), JournalError> {
         let next_depth = self
             .frames
