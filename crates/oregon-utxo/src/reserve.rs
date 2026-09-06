@@ -1,3 +1,304 @@
+use oregon_primitives::execution_reserve::{
+    EXECUTION_RESERVE_LOCKING_PROGRAM_V1, reserve_outpoint_txid, reserve_transition_id,
+};
+use oregon_primitives::{Amount, Hash256, OutPoint, TxOutput};
+use thiserror::Error;
+
+use crate::{UtxoEntry, UtxoState};
+
+const RESERVE_TRANSITION_VERSION_V1: u16 = 1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReservePoolSnapshotV1 {
+    pub outpoint: OutPoint,
+    pub amount: u64,
+}
+
+impl ReservePoolSnapshotV1 {
+    #[cfg(test)]
+    fn test(amount: u64) -> Self {
+        Self {
+            outpoint: OutPoint {
+                txid: Hash256::from_bytes([0x90; 32]),
+                index: 0,
+            },
+            amount,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReserveTransitionV1Parts {
+    pub chain_id: u64,
+    pub height: u64,
+    pub parent_block_hash: Hash256,
+    pub previous: Option<ReservePoolSnapshotV1>,
+    pub native_deposit_total: u64,
+    pub execution_withdrawal_total: u64,
+    pub execution_fee_total: u64,
+    pub new_execution_balance_total: u64,
+    pub producer_coinbase_txid: Hash256,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReserveTransitionV1 {
+    parts: ReserveTransitionV1Parts,
+    canonical_transition_bytes: Vec<u8>,
+    transition_id: Hash256,
+    new_reserve_amount: u64,
+    new_reserve_outpoint: Option<OutPoint>,
+}
+
+impl ReserveTransitionV1 {
+    pub fn new(parts: ReserveTransitionV1Parts) -> Result<Self, ReserveTransitionError> {
+        if parts.previous.is_some_and(|previous| previous.amount == 0) {
+            return Err(ReserveTransitionError::InvalidPreviousSnapshot);
+        }
+
+        let previous_amount = parts.previous.map_or(0, |previous| previous.amount);
+        let after_deposit = previous_amount
+            .checked_add(parts.native_deposit_total)
+            .ok_or(ReserveTransitionError::ArithmeticOverflow)?;
+        let after_withdrawal = after_deposit
+            .checked_sub(parts.execution_withdrawal_total)
+            .ok_or(ReserveTransitionError::ArithmeticUnderflow)?;
+        let new_reserve_amount = after_withdrawal
+            .checked_sub(parts.execution_fee_total)
+            .ok_or(ReserveTransitionError::ArithmeticUnderflow)?;
+
+        if new_reserve_amount != parts.new_execution_balance_total {
+            return Err(ReserveTransitionError::ExecutionBalanceMismatch {
+                reserve_amount: new_reserve_amount,
+                execution_balance: parts.new_execution_balance_total,
+            });
+        }
+
+        if let Some(previous) = parts.previous {
+            Amount::from_base_units(previous.amount)
+                .map_err(|_| ReserveTransitionError::AmountOutOfRange)?;
+        }
+        Amount::from_base_units(new_reserve_amount)
+            .map_err(|_| ReserveTransitionError::AmountOutOfRange)?;
+
+        let canonical_transition_bytes = encode_transition_parts(&parts);
+        let transition_id = reserve_transition_id(&canonical_transition_bytes);
+        let new_reserve_outpoint = (new_reserve_amount != 0).then_some(OutPoint {
+            txid: reserve_outpoint_txid(transition_id),
+            index: 0,
+        });
+
+        Ok(Self {
+            parts,
+            canonical_transition_bytes,
+            transition_id,
+            new_reserve_amount,
+            new_reserve_outpoint,
+        })
+    }
+
+    pub fn canonical_transition_bytes(&self) -> &[u8] {
+        &self.canonical_transition_bytes
+    }
+
+    pub const fn transition_id(&self) -> Hash256 {
+        self.transition_id
+    }
+
+    pub const fn new_reserve_amount(&self) -> u64 {
+        self.new_reserve_amount
+    }
+
+    pub const fn new_reserve_outpoint(&self) -> Option<OutPoint> {
+        self.new_reserve_outpoint
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReserveUndoV1 {
+    previous: Option<(OutPoint, UtxoEntry)>,
+    created: Option<(OutPoint, UtxoEntry)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ReserveTransitionError {
+    #[error("reserve arithmetic overflow")]
+    ArithmeticOverflow,
+    #[error("reserve arithmetic underflow")]
+    ArithmeticUnderflow,
+    #[error(
+        "reserve amount {reserve_amount} does not match execution balance {execution_balance}"
+    )]
+    ExecutionBalanceMismatch {
+        reserve_amount: u64,
+        execution_balance: u64,
+    },
+    #[error("previous reserve snapshot is invalid")]
+    InvalidPreviousSnapshot,
+    #[error("reserve amount exceeds the Oregon supply envelope")]
+    AmountOutOfRange,
+    #[error("previous reserve state does not match the transition")]
+    PreviousReserveMismatch,
+    #[error("multiple live execution reserve outputs exist")]
+    MultipleLiveReserves,
+    #[error("derived reserve outpoint collides with an existing UTXO: {0:?}")]
+    OutputCollision(OutPoint),
+    #[error("reserve undo does not match the current state")]
+    UndoMismatch,
+}
+
+fn encode_transition_parts(parts: &ReserveTransitionV1Parts) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(&RESERVE_TRANSITION_VERSION_V1.to_le_bytes());
+    bytes.extend_from_slice(&parts.chain_id.to_le_bytes());
+    bytes.extend_from_slice(&parts.height.to_le_bytes());
+    bytes.extend_from_slice(parts.parent_block_hash.as_bytes());
+
+    match parts.previous {
+        None => bytes.push(0x00),
+        Some(previous) => {
+            bytes.push(0x01);
+            bytes.extend_from_slice(previous.outpoint.txid.as_bytes());
+            bytes.extend_from_slice(&previous.outpoint.index.to_le_bytes());
+        }
+    }
+
+    bytes.extend_from_slice(&parts.previous.map_or(0, |previous| previous.amount).to_le_bytes());
+    bytes.extend_from_slice(&parts.native_deposit_total.to_le_bytes());
+    bytes.extend_from_slice(&parts.execution_withdrawal_total.to_le_bytes());
+    bytes.extend_from_slice(&parts.execution_fee_total.to_le_bytes());
+    bytes.extend_from_slice(&parts.new_execution_balance_total.to_le_bytes());
+    bytes.extend_from_slice(parts.producer_coinbase_txid.as_bytes());
+    bytes
+}
+
+fn live_reserves(state: &UtxoState) -> Vec<(OutPoint, UtxoEntry)> {
+    state
+        .entries()
+        .filter(|(_, entry)| {
+            entry.output.locking_program.as_slice() == EXECUTION_RESERVE_LOCKING_PROGRAM_V1
+        })
+        .map(|(outpoint, entry)| (*outpoint, entry.clone()))
+        .collect()
+}
+
+pub(crate) fn apply_reserve_transition_v1(
+    state: &mut UtxoState,
+    transition: &ReserveTransitionV1,
+) -> Result<ReserveUndoV1, ReserveTransitionError> {
+    let live = live_reserves(state);
+    if live.len() > 1 {
+        return Err(ReserveTransitionError::MultipleLiveReserves);
+    }
+
+    let previous = match transition.parts.previous {
+        None => {
+            if !live.is_empty() {
+                return Err(ReserveTransitionError::PreviousReserveMismatch);
+            }
+            None
+        }
+        Some(expected) => {
+            let Some((outpoint, entry)) = live.first() else {
+                return Err(ReserveTransitionError::PreviousReserveMismatch);
+            };
+            if *outpoint != expected.outpoint
+                || entry.output.value.base_units() != expected.amount
+                || entry.output.locking_program.as_slice() != EXECUTION_RESERVE_LOCKING_PROGRAM_V1
+            {
+                return Err(ReserveTransitionError::PreviousReserveMismatch);
+            }
+            Some((*outpoint, entry.clone()))
+        }
+    };
+
+    let created = match transition.new_reserve_outpoint {
+        None => None,
+        Some(outpoint) => {
+            if state.get(&outpoint).is_some() {
+                return Err(ReserveTransitionError::OutputCollision(outpoint));
+            }
+            let amount = Amount::from_base_units(transition.new_reserve_amount)
+                .map_err(|_| ReserveTransitionError::AmountOutOfRange)?;
+            Some((
+                outpoint,
+                UtxoEntry {
+                    output: TxOutput {
+                        value: amount,
+                        locking_program: EXECUTION_RESERVE_LOCKING_PROGRAM_V1.to_vec(),
+                    },
+                    creation_height: transition.parts.height,
+                    is_coinbase: false,
+                },
+            ))
+        }
+    };
+
+    let mut overlay = state.clone();
+    if let Some((outpoint, entry)) = &previous {
+        if overlay.reserve_remove_entry(outpoint).as_ref() != Some(entry) {
+            return Err(ReserveTransitionError::PreviousReserveMismatch);
+        }
+    }
+    if let Some((outpoint, entry)) = &created {
+        if overlay
+            .reserve_insert_entry(*outpoint, entry.clone())
+            .is_some()
+        {
+            return Err(ReserveTransitionError::OutputCollision(*outpoint));
+        }
+    }
+
+    *state = overlay;
+    Ok(ReserveUndoV1 { previous, created })
+}
+
+pub(crate) fn undo_reserve_transition_v1(
+    state: &mut UtxoState,
+    undo: &ReserveUndoV1,
+) -> Result<(), ReserveTransitionError> {
+    let live = live_reserves(state);
+    match &undo.created {
+        Some((expected_outpoint, expected_entry)) => {
+            if live.len() != 1
+                || live[0].0 != *expected_outpoint
+                || live[0].1 != *expected_entry
+                || state.get(expected_outpoint) != Some(expected_entry)
+            {
+                return Err(ReserveTransitionError::UndoMismatch);
+            }
+        }
+        None => {
+            if !live.is_empty() {
+                return Err(ReserveTransitionError::UndoMismatch);
+            }
+        }
+    }
+
+    if let Some((previous_outpoint, _)) = &undo.previous {
+        if state.get(previous_outpoint).is_some() {
+            return Err(ReserveTransitionError::UndoMismatch);
+        }
+    }
+
+    let mut overlay = state.clone();
+    if let Some((outpoint, entry)) = &undo.created {
+        if overlay.reserve_remove_entry(outpoint).as_ref() != Some(entry) {
+            return Err(ReserveTransitionError::UndoMismatch);
+        }
+    }
+    if let Some((outpoint, entry)) = &undo.previous {
+        if overlay
+            .reserve_insert_entry(*outpoint, entry.clone())
+            .is_some()
+        {
+            return Err(ReserveTransitionError::UndoMismatch);
+        }
+    }
+
+    *state = overlay;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
