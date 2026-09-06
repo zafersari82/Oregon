@@ -123,7 +123,8 @@ impl FeeTermsV1 {
         }
 
         let max_escrow_wide = u128::from(max_weight) * u128::from(max_fee_per_weight);
-        let max_escrow = u64::try_from(max_escrow_wide).map_err(|_| FeeError::ArithmeticOverflow)?;
+        let max_escrow =
+            u64::try_from(max_escrow_wide).map_err(|_| FeeError::ArithmeticOverflow)?;
         if max_escrow > MAX_SUPPLY_BASE_UNITS {
             return Err(FeeError::AmountExceedsMaximumSupply);
         }
