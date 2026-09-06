@@ -1,10 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use oregon_primitives::execution_address::ExecutionAddress;
 use oregon_primitives::fee_settlement::{
     ExecutionOutcome, FeeSettlementError, FeeSettlementReceiptV1, FeeSettlementReceiptV1Parts,
     FeeSourceKind,
 };
-use oregon_primitives::{ExecutionAddress, Hash256, MAX_SUPPLY_BASE_UNITS, domain_hash};
+use oregon_primitives::{Hash256, MAX_SUPPLY_BASE_UNITS, domain_hash};
 use thiserror::Error;
 
 const CAPABILITY_VERSION_V1: u16 = 1;
@@ -198,7 +199,7 @@ impl EscrowTicketV1 {
     }
 
     pub fn escrow_id(self) -> Hash256 {
-        let mut bytes = Vec::with_capacity(138);
+        let mut bytes = Vec::with_capacity(140);
         bytes.extend_from_slice(&ESCROW_VERSION_V1.to_le_bytes());
         bytes.extend_from_slice(self.txid.as_bytes());
         bytes.extend_from_slice(&self.payer.to_bytes());
