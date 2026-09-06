@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use oregon_execution::{EscrowBookV1, FeeTermsV1, FundingCapabilityV1};
+use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::fee_settlement::{ExecutionOutcome, FeeSourceKind};
-use oregon_primitives::Hash256;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -109,7 +109,11 @@ fn independent_fee_vectors_bind_checked_arithmetic_and_settlement() {
             .open(Hash256::from_bytes([index as u8; 32]), capability, terms)
             .unwrap();
         let settled = book
-            .settle(ticket.escrow_id(), ExecutionOutcome::Committed, case.actual_weight)
+            .settle(
+                ticket.escrow_id(),
+                ExecutionOutcome::Committed,
+                case.actual_weight,
+            )
             .unwrap();
         let parts = settled.receipt().parts();
 
@@ -155,6 +159,9 @@ fn independent_settlement_vector_pins_capability_escrow_and_receipt_ids() {
             case.actual_weight,
         )
         .unwrap();
-    assert_eq!(settled.receipt().encode().as_slice(), bytes(&case.receipt_hex));
+    assert_eq!(
+        settled.receipt().encode().as_slice(),
+        bytes(&case.receipt_hex)
+    );
     assert_eq!(settled.receipt().receipt_id(), hash(&case.receipt_id));
 }
