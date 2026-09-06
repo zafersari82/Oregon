@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+oregon-contract-state = { path = "../oregon-contract-state" }
 oregon-primitives = { path = "../oregon-primitives" }
 thiserror = "2"
 
