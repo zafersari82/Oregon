@@ -35,7 +35,7 @@
 
 ## File Structure
 
-Create or modify only these responsibility-oriented surfaces unless an implementation detail forces a documented adjustment:
+The implementation is planned against exactly these responsibility-oriented surfaces. If execution discovers a required file that is not listed here, update this plan first and review the dependency/ownership consequence before writing that code.
 
 - `crates/oregon-primitives/src/execution_event.rs` — canonical event bytes/id/root.
 - `crates/oregon-primitives/src/execution_effect.rs` — state-effect descriptor validation/bytes/root.
@@ -45,7 +45,8 @@ Create or modify only these responsibility-oriented surfaces unless an implement
 - `crates/oregon-primitives/tests/runtime_receipt_vectors.rs` — independent JSON vector consumer.
 - `crates/oregon-runtime/Cargo.toml`, `src/lib.rs`, `src/types.rs`, `src/host.rs` — ABI-only crate.
 - `crates/oregon-runtime/tests/runtime_abi.rs` — constructor/limit/discriminant/trait contract tests.
-- `crates/oregon-contract-state/src/execution_accounting.rs` — add authoritative accounting decoders needed by coordinator; do not move key ownership.
+- `crates/oregon-contract-state/src/execution_accounting.rs` — authoritative accounting codecs/key ownership.
+- `crates/oregon-contract-state/src/error.rs` — exact malformed-accounting error variant.
 - `crates/oregon-contract-state/tests/execution_accounting.rs` — malformed-width/round-trip decoder tests.
 - `crates/oregon-execution/src/coordinator.rs` — module root only.
 - `crates/oregon-execution/src/coordinator/types.rs` — coordinator input/result/error/terminal state.
@@ -55,8 +56,9 @@ Create or modify only these responsibility-oriented surfaces unless an implement
 - `crates/oregon-execution/src/coordinator/calls.rs` — nested frame creation, read-only propagation, value transfer and dispatch.
 - `crates/oregon-execution/src/coordinator/settlement.rs` — pre-exec authority, escrow reservation, outcome mapping and Stage 3B settlement composition.
 - `crates/oregon-execution/src/coordinator/proposal.rs` — Phase A effect root + Phase B receipt journal + all-or-nothing unpublished proposal.
+- `crates/oregon-execution/src/coordinator/test_backends.rs` — `#[cfg(test)]` deterministic adversarial backends only.
 - `crates/oregon-execution/src/lib.rs`, `Cargo.toml` — internal coordinator module and runtime dependency.
-- `crates/oregon-execution/src/coordinator/tests.rs` — white-box adversarial coordinator tests/test-only backends.
+- `crates/oregon-execution/src/coordinator/tests.rs` — white-box coordinator tests.
 - `scripts/generate_runtime_coordinator_vectors.py` — independent canonical byte/hash and simple outcome oracle.
 - `tests/vectors/runtime-coordinator-v1.json` — frozen independent corpus.
 - `scripts/verify_runtime_coordinator_mutations.py` — 16 required compiled/killed mutations with source restoration.
@@ -92,7 +94,7 @@ Create or modify only these responsibility-oriented surfaces unless an implement
 
 - [ ] **Step 1: Write the independent oracle and freeze RED vectors before Rust production code exists**
 
-Implement Python using only `struct`, `json`, `pathlib` and an independent BLAKE3 implementation/copy already proven by `generate_journal_vectors.py`; do not import Rust outputs. The corpus must include one event root, a multi-event ordered root, one Oregon-SMT effect set, a synthetic EVM `EvmCommitmentV1` descriptor, duplicate/noncanonical/receipt-domain negative metadata, empty outbox root, return-data hashes and all four 259-byte receipt outcomes.
+Implement Python using only `struct`, `json`, `pathlib` and an independent BLAKE3 implementation copied from the already cross-checked one-chunk implementation pattern in `generate_journal_vectors.py`; do not import Rust outputs. The corpus must include one event root, a multi-event ordered root, one Oregon-SMT effect set, a synthetic EVM `EvmCommitmentV1` descriptor, duplicate/noncanonical/receipt-domain negative metadata, empty outbox root, return-data hashes and all four 259-byte receipt outcomes.
 
 ```python
 RECEIPT_BYTES = 259
@@ -133,7 +135,7 @@ Expected: FAIL because the new modules/types do not exist.
 
 - [ ] **Step 3: Implement the minimal canonical primitives**
 
-Use fixed discriminants from the spec, checked lengths/counts, strict descriptor order and protocol-approved `(domain, scheme)` pairs. `ExecutionReceiptV1::new` must recompute/cross-check fee payer, actual weight and charge from the supplied `FeeSettlementReceiptV1`; do not trust duplicated receipt fields independently.
+Use fixed discriminants from the spec, checked lengths/counts, strict descriptor order and these Stage-4B-approved effect pairs: `Evm + EvmCommitmentV1`; `Wasm`, `ExecutionAccounting`, `FeeState`, `AsyncOutbox`, `AsyncConsumed` + `OregonSmtV1`. `ExecutionReceipts` is forbidden in Phase A; `NativeUtxo` is outside the Stage 4B transaction execution proposal. `ExecutionReceiptV1::new` must recompute/cross-check fee payer, actual weight and charge from the supplied `FeeSettlementReceiptV1`; do not trust duplicated receipt fields independently.
 
 ```rust
 pub const EXECUTION_RECEIPT_BYTES_V1: usize = 259;
@@ -180,7 +182,7 @@ git commit -m "feat(stage4b): add canonical execution receipt primitives"
 - Consumes: primitive `ExecutionAddress`, `ExecutionAddressKind`, `ExecutionDomain`, `Hash256`.
 - Produces:
   - `RuntimeCallSpecV1::new(target, value, read_only, input) -> Result<Self, RuntimeAbiError>`
-  - `RuntimeCallContextV1` with coordinator-only constructor kept `pub(crate)` impossible across crates; therefore expose `RuntimeCallContextV1Parts` only to execution through a deliberately named `RuntimeCallContextV1::from_trusted_parts` public constructor that validates target/domain/depth but grants no state authority.
+  - `RuntimeCallContextV1Parts` and deliberately named `RuntimeCallContextV1::from_trusted_parts(parts) -> Result<Self, RuntimeAbiError>`; this validates context structure but grants no state/fee authority.
   - `RuntimeTrapCodeV1` exact `u16` discriminants `0x0001..=0x000b`.
   - `RuntimeCallResultV1::{Success(Vec<u8>), Revert(Vec<u8>), Trap(RuntimeTrapCodeV1)}` with return-data ceiling enforcement.
   - `RuntimeHostSignalV1::{Trap(RuntimeTrapCodeV1), Abort}`; `Abort` is opaque and coordinator-latched.
@@ -219,7 +221,7 @@ thiserror = "2"
 
 - [ ] **Step 3: Implement validation with no VM/state logic**
 
-`RuntimeCallSpecV1` accepts only EVM/WASM targets. `RuntimeCallContextV1::from_trusted_parts` validates depth `1..=64`, target kind/domain correspondence and `transferred_value` without attempting authorization. `RuntimeCallResultV1` constructors reject return data over 262,144 bytes.
+`RuntimeCallSpecV1` accepts only EVM/WASM targets. `RuntimeCallContextV1::from_trusted_parts` validates depth `1..=64`, target kind/domain correspondence and context structural invariants without attempting authorization. `RuntimeCallResultV1` constructors reject return data over 262,144 bytes.
 
 - [ ] **Step 4: Verify runtime and architecture dependency direction**
 
@@ -278,7 +280,7 @@ Expected: FAIL because coordinator modules do not exist.
 
 - [ ] **Step 2: Add `oregon-runtime` dependency and module skeleton**
 
-Add only `oregon-runtime = { path = "../oregon-runtime" }`. Keep `mod coordinator;` private in `lib.rs` during this slice unless a later task demonstrates a real cross-crate consumer.
+Add only `oregon-runtime = { path = "../oregon-runtime" }`. Keep `mod coordinator;` private in `lib.rs` during this slice unless a later approved task introduces a real cross-crate consumer.
 
 - [ ] **Step 3: Implement effect frames with pre-copy bounds**
 
@@ -346,9 +348,8 @@ Map active `ExecutionDomain::Evm` to `ResourceDomain::Evm` and `ExecutionDomain:
 Run:
 ```bash
 cargo +1.85.0 test --locked -p oregon-execution coordinator::tests::meter
-cargo +1.85.0 test --locked -p oregon-execution --test resource_meter --test resource_meter_properties
+cargo +1.85.0 test --locked -p oregon-execution --test weight --test resource_vectors
 ```
-If existing resource tests use different exact filenames, use `cargo +1.85.0 test --locked -p oregon-execution --all-targets` and record the discovered stable names in the checkpoint; do not rename inherited tests merely for this plan.
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -364,7 +365,8 @@ git commit -m "feat(stage4b): compose runtime host with shared meter"
 
 **Files:**
 - Modify: `crates/oregon-contract-state/src/execution_accounting.rs`
-- Create or modify: `crates/oregon-contract-state/tests/execution_accounting.rs`
+- Modify: `crates/oregon-contract-state/src/error.rs`
+- Create: `crates/oregon-contract-state/tests/execution_accounting.rs`
 - Create: `crates/oregon-execution/src/coordinator/accounting.rs`
 - Create: `crates/oregon-execution/src/coordinator/settlement.rs`
 - Modify: `crates/oregon-execution/src/coordinator/types.rs`
@@ -374,6 +376,7 @@ git commit -m "feat(stage4b): compose runtime host with shared meter"
 - Consumes: existing accounting key builders, journal `read/put/delete`, `FundingCapabilityV1`, `FeeTermsV1`, `EscrowBookV1`.
 - Produces:
   - `decode_accounting_u64(bytes: &[u8]) -> Result<u64, StateError>` in contract-state as authoritative inverse of `encode_accounting_u64`.
+  - `StateError::InvalidAccountingValueLength(usize)`.
   - Private coordinator `read_balance`, `write_balance`, `read_total_execution_balance` using contract-state key/codec owners.
   - `FundingSourceValidatorV1` trait at execution composition boundary.
   - `FundingValidationRequestV1` binding chain/height/txid/domain/principal/payer/authorization/fee terms.
@@ -384,8 +387,14 @@ git commit -m "feat(stage4b): compose runtime host with shared meter"
 ```rust
 #[test]
 fn accounting_u64_rejects_non_eight_byte_values() {
-    assert!(decode_accounting_u64(&[0u8; 7]).is_err());
-    assert!(decode_accounting_u64(&[0u8; 9]).is_err());
+    assert_eq!(
+        decode_accounting_u64(&[0u8; 7]),
+        Err(StateError::InvalidAccountingValueLength(7)),
+    );
+    assert_eq!(
+        decode_accounting_u64(&[0u8; 9]),
+        Err(StateError::InvalidAccountingValueLength(9)),
+    );
 }
 
 #[test]
@@ -406,12 +415,14 @@ Expected: FAIL on missing decoder/coordinator composition.
 
 ```rust
 pub fn decode_accounting_u64(bytes: &[u8]) -> Result<u64, StateError> {
-    let array: [u8; 8] = bytes.try_into().map_err(|_| StateError::InvalidAccountingValueLength(bytes.len()))?;
+    let array: [u8; 8] = bytes
+        .try_into()
+        .map_err(|_| StateError::InvalidAccountingValueLength(bytes.len()))?;
     Ok(u64::from_le_bytes(array))
 }
 ```
 
-Add the exact descriptive `StateError` variant in the existing owner error enum instead of mapping malformed state to a generic string.
+Add `InvalidAccountingValueLength(usize)` to the existing `StateError` enum with a descriptive error message.
 
 - [ ] **Step 3: Implement trusted validator trait and capability consistency checks**
 
@@ -449,7 +460,7 @@ git commit -m "feat(stage4b): bind escrow to authoritative accounting"
 **Interfaces:**
 - Consumes: runtime call spec/context/result, journal frame lifecycle, effect frames, accounting helpers, active dispatch table.
 - Produces:
-  - Scoped WASM state key mapping owned by execution coordinator, e.g. `b"wasm/v1/storage/" || target[33] || local_key` before Stage 2 path hashing; the backend never supplies a domain id.
+  - Scoped WASM state key mapping `b"wasm/v1/storage/" || target[33] || local_key` before Stage 2 path hashing; backend never supplies a domain id.
   - Nested-call coordinator that opens journal/effect frames together and derives caller/target/domain/depth/read-only.
   - Checked call-value debit/credit in child frame with unchanged total execution balance.
 
@@ -537,7 +548,7 @@ For execution-funded payer after `settle`: add `refund` to current root-visible 
 Run:
 ```bash
 cargo +1.85.0 test --locked -p oregon-execution coordinator::tests::settlement
-cargo +1.85.0 test --locked -p oregon-execution --test fees --test fee_vectors
+cargo +1.85.0 test --locked -p oregon-execution --test fees --test fee_vectors --test weight --test resource_vectors
 python3 scripts/generate_execution_resource_vectors.py --check
 python3 scripts/generate_fee_settlement_vectors.py --check
 ```
@@ -586,14 +597,21 @@ Convert Stage 4A roots to descriptors only for participating Oregon-SMT domains,
 
 - [ ] **Step 3: Build canonical receipts and Phase-B journal**
 
-Receipt keys are exactly:
+Receipt keys are exactly `b"receipt/v1/fee/" || txid[32]` and `b"receipt/v1/execution/" || txid[32]`:
 
 ```rust
-fn fee_receipt_key(txid: Hash256) -> Vec<u8> { b"receipt/v1/fee/" + txid }
-fn execution_receipt_key(txid: Hash256) -> Vec<u8> { b"receipt/v1/execution/" + txid }
+fn receipt_key(prefix: &[u8], txid: Hash256) -> Vec<u8> {
+    let mut key = Vec::with_capacity(prefix.len() + 32);
+    key.extend_from_slice(prefix);
+    key.extend_from_slice(txid.as_bytes());
+    key
+}
+
+let fee_key = receipt_key(b"receipt/v1/fee/", txid);
+let execution_key = receipt_key(b"receipt/v1/execution/", txid);
 ```
 
-Implement with explicit `Vec` assembly, read each key first, fail if present, then put the canonical fee receipt bytes and 259-byte execution receipt into an `ExecutionReceipts`-only journal and finalize committed.
+Read each key first, fail if present, then put canonical fee receipt bytes and the 259-byte execution receipt into an `ExecutionReceipts`-only journal and finalize committed.
 
 - [ ] **Step 4: Return proposal only after both immutable finalizations succeed**
 
@@ -619,8 +637,9 @@ git commit -m "feat(stage4b): compose atomic execution receipt proposal"
 ### Task 9: Adversarial Test-Only Backends and Cross-Call Scenarios
 
 **Files:**
+- Create: `crates/oregon-execution/src/coordinator/test_backends.rs`
 - Modify: `crates/oregon-execution/src/coordinator/tests.rs`
-- Optional create if test file becomes unwieldy: `crates/oregon-execution/src/coordinator/test_backends.rs` under `#[cfg(test)]` only.
+- Modify: `crates/oregon-execution/src/coordinator.rs` only to include `#[cfg(test)] mod test_backends;`.
 
 **Interfaces:**
 - Consumes: runtime backend/host traits and completed private coordinator.
@@ -655,12 +674,13 @@ Cover child revert handled by parent, child trap handled by parent, ancestor top
 
 - [ ] **Step 4: Run focused adversarial suite repeatedly**
 
-Run:
+Run twice:
 ```bash
+cargo +1.85.0 test --locked -p oregon-execution coordinator::tests -- --nocapture
 cargo +1.85.0 test --locked -p oregon-execution coordinator::tests -- --nocapture
 cargo +1.85.0 test --locked -p oregon-execution --all-targets
 ```
-Expected: PASS deterministically on repeated runs.
+Expected: all runs PASS with identical deterministic assertions.
 
 - [ ] **Step 5: Commit**
 
@@ -705,12 +725,16 @@ Follow `verify_journal_mutations.py`: disposable checkout, source-hash capture, 
 
 Each mutation must compile; compiler failure is not a killed mutation.
 
-- [ ] **Step 2: Verify mutation runner RED controls**
+- [ ] **Step 2: Add vector negative control**
 
-Add an explicit negative-control mode that changes one expected runtime receipt root/byte in a disposable corpus and proves both the Python `--check` and Rust vector consumer reject it.
+The runner creates a disposable corpus with one changed expected execution receipt root/byte and proves both commands reject it:
 
-Run: `python3 scripts/verify_runtime_coordinator_mutations.py`
-Expected before mutation targets are all wired: runner reports any surviving mutation and exits nonzero; fix tests/implementation rather than weakening the runner.
+```bash
+python3 scripts/generate_runtime_coordinator_vectors.py --check
+cargo +1.85.0 test --locked -p oregon-primitives --test runtime_receipt_vectors
+```
+
+The negative-control path succeeds only when both commands fail against the tampered literal and the clean corpus passes before/after.
 
 - [ ] **Step 3: Add dedicated workflow**
 
@@ -727,7 +751,7 @@ docs/superpowers/plans/2026-09-06-runtime-coordinator-v1.md
 
 Add dependency scan proving `oregon-runtime` has no upward/state/VM dependencies and execution still has no VM/storage/chainstate/RPC dependency. Add `Runtime coordinator contracts` before full workspace test and `Runtime coordinator mutation gates` after inherited journal mutations.
 
-- [ ] **Step 5: Run all local gate commands available and commit**
+- [ ] **Step 5: Run all focused gates and commit**
 
 Run:
 ```bash
@@ -791,7 +815,7 @@ Required evidence:
 
 - [ ] **Step 3: Perform focused source review before checkpoint**
 
-Review dependency direction, public API necessity, no system-domain host write, no EVM-as-Oregon-SMT path, no duplicated fee arithmetic, no meter reset/refund, no early Phase-A escape, and no production backend export. Search production source for forbidden placeholders/lint suppression/task-named modules and remove any finding.
+Review dependency direction, public API necessity, no system-domain host write, no EVM-as-Oregon-SMT path, no duplicated fee arithmetic, no meter reset/refund, no early Phase-A escape, and no production backend export. Search production source for lint suppression, task-named modules and unfinished marker comments; remove any finding.
 
 - [ ] **Step 4: Commit checkpoint/HANDOFF/plan state together**
 
@@ -804,7 +828,7 @@ git commit -m "docs(stage4b): checkpoint verified runtime coordinator"
 
 - [ ] **Step 5: Verify the checkpoint successor exact head**
 
-Wait for GitHub Actions on the checkpoint commit and require Oregon Rust CI + dedicated runtime coordinator x86/ARM workflow SUCCESS. Update PR body with both implementation-head and checkpoint-successor evidence. Do not create another repository commit solely to embed the successor run IDs if that would create an infinite self-invalidating verification cycle; PR body may record the external successor evidence.
+Require GitHub Actions on the checkpoint commit: Oregon Rust CI + dedicated runtime coordinator x86/ARM workflow SUCCESS. Update PR body with both implementation-head and checkpoint-successor evidence. Do not create another repository commit solely to embed successor run IDs because that would create another successor requiring the same verification cycle; PR body records that external successor evidence.
 
 - [ ] **Step 6: Stop before main integration**
 
