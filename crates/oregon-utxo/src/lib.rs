@@ -17,6 +17,18 @@ pub use state::UtxoState;
 pub use undo::BlockUndo;
 pub use verifier::SpendVerifier;
 
+impl ReserveTransitionV1 {
+    pub fn validate_against(&self, state: &UtxoState) -> Result<(), ReserveTransitionError> {
+        let mut preview = state.clone();
+        let undo = reserve::apply_reserve_transition_v1(&mut preview, self)?;
+        reserve::undo_reserve_transition_v1(&mut preview, &undo)?;
+        if &preview != state {
+            return Err(ReserveTransitionError::UndoMismatch);
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod block_tests;
 #[cfg(test)]
@@ -28,7 +40,10 @@ mod undo_tests;
 mod tests {
     use oregon_primitives::{Amount, Hash256, OutPoint, Transaction, TxInput, TxOutput};
 
-    use super::{COINBASE_MATURITY, SpendVerifier, UtxoEntry, UtxoError, UtxoState};
+    use super::{
+        COINBASE_MATURITY, ReserveTransitionV1, ReserveTransitionV1Parts, SpendVerifier, UtxoEntry,
+        UtxoError, UtxoState,
+    };
     use crate::test_support::AcceptAllSpends;
 
     fn output_with_value(value: u64) -> TxOutput {
@@ -86,6 +101,27 @@ mod tests {
         ) -> Result<(), UtxoError> {
             Err(UtxoError::SpendAuthorizationFailed)
         }
+    }
+
+    #[test]
+    fn reserve_validation_preview_is_non_mutating_and_reversible() {
+        let state = UtxoState::new();
+        let before = state.clone();
+        let transition = ReserveTransitionV1::new(ReserveTransitionV1Parts {
+            chain_id: 7,
+            height: 100,
+            parent_block_hash: Hash256::from_bytes([0x10; 32]),
+            previous: None,
+            native_deposit_total: 25,
+            execution_withdrawal_total: 0,
+            execution_fee_total: 0,
+            new_execution_balance_total: 25,
+            producer_coinbase_txid: Hash256::from_bytes([0x20; 32]),
+        })
+        .unwrap();
+
+        transition.validate_against(&state).unwrap();
+        assert_eq!(state, before);
     }
 
     #[test]
