@@ -1,6 +1,6 @@
+use oregon_primitives::OutPoint;
 use oregon_primitives::execution_address::ExecutionAddress;
 use oregon_primitives::state_commitment::CommitmentDomainId;
-use oregon_primitives::OutPoint;
 
 use crate::{StateError, StateWrite, StateWriteSet};
 
