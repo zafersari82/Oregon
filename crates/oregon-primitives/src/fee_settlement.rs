@@ -219,8 +219,8 @@ fn validate_arithmetic(parts: &FeeSettlementReceiptV1Parts) -> Result<(), FeeSet
         return Err(FeeSettlementError::AmountExceedsMaximumSupply);
     }
 
-    let offered_price = u128::from(parts.base_fee_per_weight)
-        + u128::from(parts.max_priority_fee_per_weight);
+    let offered_price =
+        u128::from(parts.base_fee_per_weight) + u128::from(parts.max_priority_fee_per_weight);
     let effective_price = u128::from(parts.max_fee_per_weight).min(offered_price);
     let actual_weight = u128::from(parts.actual_weight);
     let charged = actual_weight * effective_price;
