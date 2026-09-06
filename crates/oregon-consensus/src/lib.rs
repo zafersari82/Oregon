@@ -220,22 +220,16 @@ mod pow_bridge_tests {
     fn randomx_pow_bridge_rejects_insufficient_work_after_prevalidation() {
         let key_block_id = Hash256::from_bytes([0x44; 32]);
         let key = derive_randomx_key(key_block_id);
+        let mut engine = LightEngine::new(key).expect("RandomX light engine");
         let key_blocks = KeyBlocks {
             height: 0,
             id: key_block_id,
         };
         let (header, facts) = prevalidated_header(1, target(1));
 
-        let expected_hash = [0x5a; 32];
-        let mut engine = FakeEngine {
-            key,
-            hash: expected_hash,
-            calls: 0,
-        };
         assert_eq!(
             validate_header_pow(&header, &facts, &key_blocks, &mut engine),
             Err(ConsensusError::InsufficientProofOfWork)
         );
-        assert_eq!(engine.calls, 1);
     }
 }
