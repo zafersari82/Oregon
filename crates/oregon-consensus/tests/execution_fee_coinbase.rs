@@ -42,7 +42,8 @@ fn amount(value: u64) -> Amount {
 }
 
 #[test]
-fn active_validator_still_allows_subsidy_underclaim_but_execution_fee_helper_never_allows_fee_underclaim() {
+fn active_validator_still_allows_subsidy_underclaim_but_execution_fee_helper_never_allows_fee_underclaim()
+{
     let params = params();
     let native_fees = amount(100);
     let execution_fees = amount(50);
@@ -50,13 +51,7 @@ fn active_validator_still_allows_subsidy_underclaim_but_execution_fee_helper_nev
 
     assert_eq!(validate_coinbase(&tx, 2, amount(150), &params), Ok(()));
     assert_eq!(
-        validate_coinbase_with_execution_fees_v1(
-            &tx,
-            2,
-            native_fees,
-            execution_fees,
-            &params,
-        ),
+        validate_coinbase_with_execution_fees_v1(&tx, 2, native_fees, execution_fees, &params),
         Err(ConsensusError::InvalidCoinbase)
     );
 }
@@ -77,13 +72,7 @@ fn nonzero_execution_fees_require_an_exact_final_dedicated_output() {
         vec![output(subsidy + 100, vec![0x01]), output(49, vec![0x02])],
     );
     assert_eq!(
-        validate_coinbase_with_execution_fees_v1(
-            &wrong_value,
-            2,
-            amount(100),
-            amount(50),
-            &params,
-        ),
+        validate_coinbase_with_execution_fees_v1(&wrong_value, 2, amount(100), amount(50), &params),
         Err(ConsensusError::InvalidCoinbase)
     );
 }
