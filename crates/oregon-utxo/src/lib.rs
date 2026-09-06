@@ -2,6 +2,7 @@
 
 mod entry;
 mod error;
+mod reserve;
 mod state;
 mod undo;
 mod verifier;
