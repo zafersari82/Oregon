@@ -3,7 +3,7 @@ name: Oregon Rust CI
 # Oregon protocol development branches are CI-gated during test-first development.
 on:
   push:
-    branches: [main, oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, oregon-v1-architecture-unification-2026-09-04, design/m6-network-architecture-2026-09-04, design/execution-envelope-wire-v1-2026-09-05, work/execution-envelope-auth-v1-2026-09-05, design/contract-state-commitments-v1-2026-09-05, work/contract-state-v1-2026-09-05, work/execution-resources-v1-2026-09-06]
+    branches: [main, oregon-v0-protocol, oregon-v1-m1-consensus-core, oregon-v1-m2-randomx-pow, oregon-v1-m2-randomx-pow-exec, oregon-v1-m3-utxo-chainstate, oregon-v1-m4-persistent-chainstate, oregon-v1-m5-mempool, oregon-v1-architecture-unification-2026-09-04, design/m6-network-architecture-2026-09-04, design/execution-envelope-wire-v1-2026-09-05, work/execution-envelope-auth-v1-2026-09-05, design/contract-state-commitments-v1-2026-09-05, work/contract-state-v1-2026-09-05, work/execution-resources-v1-2026-09-06, work/fee-settlement-reserve-v1-2026-09-06]
   pull_request:
     branches: [main]
 
@@ -45,7 +45,8 @@ jobs:
             docs/superpowers/specs/2026-09-05-execution-architecture-design.md \
             docs/superpowers/specs/2026-09-05-execution-envelope-wire-v1.md \
             docs/superpowers/specs/2026-09-05-contract-state-commitments-v1.md \
-            docs/superpowers/specs/2026-09-06-execution-resources-fees-v1.md; do
+            docs/superpowers/specs/2026-09-06-execution-resources-fees-v1.md \
+            docs/superpowers/specs/2026-09-06-fee-settlement-reserve-v1.md; do
             if [[ ! -s "$required_contract" ]]; then
               echo "Required architecture/agent contract is missing or empty: $required_contract" >&2
               exit 1
@@ -154,6 +155,15 @@ jobs:
           python3 scripts/generate_execution_resource_vectors.py --check
           cargo +1.85.0 test --locked -p oregon-consensus --test execution_resources --test execution_resource_vectors
           cargo +1.85.0 test --locked -p oregon-execution --all-targets
+      - name: Fee settlement contracts
+        run: |
+          python3 scripts/generate_fee_settlement_vectors.py --check
+          cargo +1.85.0 test --locked -p oregon-primitives --test fee_settlement --test execution_reserve --test fee_settlement_vectors
+          cargo +1.85.0 test --locked -p oregon-execution --test fees --test fee_vectors
+          cargo +1.85.0 test --locked -p oregon-consensus --test execution_fee_coinbase --test execution_fee_vectors
+          cargo +1.85.0 test --locked -p oregon-contract-state --test fee_state
+          cargo +1.85.0 test --locked -p oregon-utxo --lib reserve::tests
+          cargo +1.85.0 test --locked -p oregon-utxo --test reserve_vectors
       - name: Test
         run: cargo +1.85.0 test --locked --workspace --all-targets
       - name: Execution address mutation gates
@@ -164,6 +174,8 @@ jobs:
         run: python3 scripts/verify_contract_state_mutations.py
       - name: Execution resource mutation gates
         run: python3 scripts/verify_execution_resource_mutations.py
+      - name: Fee settlement mutation gates
+        run: python3 scripts/verify_fee_settlement_mutations.py
       - name: Chainstate Rustdoc
         run: cargo +1.85.0 rustdoc --locked -p oregon-chainstate -- -D warnings
       - name: Workspace Docs
