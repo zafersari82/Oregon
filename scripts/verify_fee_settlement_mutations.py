@@ -9,7 +9,6 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-
 FEES = Path("crates/oregon-execution/src/fees.rs")
 COINBASE = Path("crates/oregon-consensus/src/coinbase.rs")
 RESERVE = Path("crates/oregon-utxo/src/reserve.rs")
@@ -25,9 +24,7 @@ class Mutation:
     expected_test: str
 
 
-def run(
-    command: list[str] | tuple[str, ...], cwd: Path = ROOT
-) -> subprocess.CompletedProcess[str]:
+def run(command: list[str] | tuple[str, ...], cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         list(command),
         cwd=cwd,
@@ -40,124 +37,53 @@ def run(
 
 def cargo_integration(crate: str, target: str, test_name: str) -> tuple[str, ...]:
     return (
-        "cargo",
-        "+1.85.0",
-        "test",
-        "--locked",
-        "-p",
-        crate,
-        "--test",
-        target,
-        test_name,
-        "--",
-        "--exact",
+        "cargo", "+1.85.0", "test", "--locked", "-p", crate,
+        "--test", target, test_name, "--", "--exact",
     )
 
 
 def cargo_lib(crate: str, test_name: str) -> tuple[str, ...]:
     return (
-        "cargo",
-        "+1.85.0",
-        "test",
-        "--locked",
-        "-p",
-        crate,
-        "--lib",
-        test_name,
-        "--",
-        "--exact",
+        "cargo", "+1.85.0", "test", "--locked", "-p", crate,
+        "--lib", test_name, "--", "--exact",
     )
 
 
 BASELINE = [
-    (
-        "independent oracle",
-        ("python3", "scripts/generate_fee_settlement_vectors.py", "--check"),
-    ),
+    ("independent oracle", ("python3", "scripts/generate_fee_settlement_vectors.py", "--check")),
     (
         "primitive vectors",
         (
-            "cargo",
-            "+1.85.0",
-            "test",
-            "--locked",
-            "-p",
-            "oregon-primitives",
-            "--test",
-            "fee_settlement",
-            "--test",
-            "execution_reserve",
-            "--test",
-            "fee_settlement_vectors",
+            "cargo", "+1.85.0", "test", "--locked", "-p", "oregon-primitives",
+            "--test", "fee_settlement", "--test", "execution_reserve",
+            "--test", "fee_settlement_vectors",
         ),
     ),
     (
         "execution fee vectors",
         (
-            "cargo",
-            "+1.85.0",
-            "test",
-            "--locked",
-            "-p",
-            "oregon-execution",
-            "--test",
-            "fees",
-            "--test",
-            "fee_vectors",
+            "cargo", "+1.85.0", "test", "--locked", "-p", "oregon-execution",
+            "--test", "fees", "--test", "fee_vectors",
         ),
     ),
     (
         "producer vectors",
         (
-            "cargo",
-            "+1.85.0",
-            "test",
-            "--locked",
-            "-p",
-            "oregon-consensus",
-            "--test",
-            "execution_fee_coinbase",
-            "--test",
-            "execution_fee_vectors",
+            "cargo", "+1.85.0", "test", "--locked", "-p", "oregon-consensus",
+            "--test", "execution_fee_coinbase", "--test", "execution_fee_vectors",
         ),
     ),
     (
         "fee state",
-        (
-            "cargo",
-            "+1.85.0",
-            "test",
-            "--locked",
-            "-p",
-            "oregon-contract-state",
-            "--test",
-            "fee_state",
-        ),
+        ("cargo", "+1.85.0", "test", "--locked", "-p", "oregon-contract-state", "--test", "fee_state"),
     ),
     (
         "reserve unit tests",
-        (
-            "cargo",
-            "+1.85.0",
-            "test",
-            "--locked",
-            "-p",
-            "oregon-utxo",
-            "reserve::tests",
-        ),
+        ("cargo", "+1.85.0", "test", "--locked", "-p", "oregon-utxo", "reserve::tests"),
     ),
     (
         "reserve vector consumer",
-        (
-            "cargo",
-            "+1.85.0",
-            "test",
-            "--locked",
-            "-p",
-            "oregon-utxo",
-            "--test",
-            "reserve_vectors",
-        ),
+        ("cargo", "+1.85.0", "test", "--locked", "-p", "oregon-utxo", "--test", "reserve_vectors"),
     ),
 ]
 
@@ -170,9 +96,7 @@ MUTATIONS = [
             "if max_fee_per_weight < base_fee_per_weight {",
             "if false && max_fee_per_weight < base_fee_per_weight {",
         ),),
-        cargo_integration(
-            "oregon-execution", "fees", "max_fee_below_base_fee_is_rejected"
-        ),
+        cargo_integration("oregon-execution", "fees", "max_fee_below_base_fee_is_rejected"),
         "max_fee_below_base_fee_is_rejected",
     ),
     Mutation(
@@ -182,11 +106,7 @@ MUTATIONS = [
             "let max_escrow_wide = u128::from(max_weight) * u128::from(max_fee_per_weight);",
             "let max_escrow_wide = u128::from(max_weight.wrapping_mul(max_fee_per_weight));",
         ),),
-        cargo_integration(
-            "oregon-execution",
-            "fees",
-            "max_escrow_uses_wide_arithmetic_and_supply_bound",
-        ),
+        cargo_integration("oregon-execution", "fees", "max_escrow_uses_wide_arithmetic_and_supply_bound"),
         "max_escrow_uses_wide_arithmetic_and_supply_bound",
     ),
     Mutation(
@@ -201,30 +121,21 @@ MUTATIONS = [
             .and_then(|refund| refund.checked_add(1))
             .ok_or(FeeError::ArithmeticOverflow)?;""",
         ),),
-        cargo_integration(
-            "oregon-execution",
-            "fees",
-            "reverted_execution_still_charges_consumed_weight_once",
-        ),
+        cargo_integration("oregon-execution", "fees", "reverted_execution_still_charges_consumed_weight_once"),
         "reverted_execution_still_charges_consumed_weight_once",
     ),
     Mutation(
         "revert_fee_zeroed",
         FEES,
         ((
-            """let charged =
-            u64::try_from(charged_wide).map_err(|_| FeeError::ArithmeticOverflow)?;""",
+            "let charged = u64::try_from(charged_wide).map_err(|_| FeeError::ArithmeticOverflow)?;",
             """let charged = if outcome == ExecutionOutcome::Committed {
             u64::try_from(charged_wide).map_err(|_| FeeError::ArithmeticOverflow)?
         } else {
             0
         };""",
         ),),
-        cargo_integration(
-            "oregon-execution",
-            "fees",
-            "reverted_execution_still_charges_consumed_weight_once",
-        ),
+        cargo_integration("oregon-execution", "fees", "reverted_execution_still_charges_consumed_weight_once"),
         "reverted_execution_still_charges_consumed_weight_once",
     ),
     Mutation(
@@ -234,11 +145,7 @@ MUTATIONS = [
             "if self.settled.contains(&escrow_id) {",
             "if false && self.settled.contains(&escrow_id) {",
         ),),
-        cargo_integration(
-            "oregon-execution",
-            "fees",
-            "reverted_execution_still_charges_consumed_weight_once",
-        ),
+        cargo_integration("oregon-execution", "fees", "reverted_execution_still_charges_consumed_weight_once"),
         "reverted_execution_still_charges_consumed_weight_once",
     ),
     Mutation(
@@ -248,11 +155,7 @@ MUTATIONS = [
             "if self.consumed_sources.contains(&source_id) {",
             "if false && self.consumed_sources.contains(&source_id) {",
         ),),
-        cargo_integration(
-            "oregon-execution",
-            "fees",
-            "duplicate_capability_and_stale_source_sequence_fail_closed",
-        ),
+        cargo_integration("oregon-execution", "fees", "duplicate_capability_and_stale_source_sequence_fail_closed"),
         "duplicate_capability_and_stale_source_sequence_fail_closed",
     ),
     Mutation(
@@ -262,11 +165,7 @@ MUTATIONS = [
             "|| final_output.locking_program.as_slice() == EXECUTION_RESERVE_LOCKING_PROGRAM_V1",
             "|| false && final_output.locking_program.as_slice() == EXECUTION_RESERVE_LOCKING_PROGRAM_V1",
         ),),
-        cargo_integration(
-            "oregon-consensus",
-            "execution_fee_coinbase",
-            "reserve_program_cannot_receive_execution_fee_payout",
-        ),
+        cargo_integration("oregon-consensus", "execution_fee_coinbase", "reserve_program_cannot_receive_execution_fee_payout"),
         "reserve_program_cannot_receive_execution_fee_payout",
     ),
     Mutation(
@@ -279,10 +178,7 @@ MUTATIONS = [
             """let after_withdrawal =
             after_deposit.saturating_sub(parts.execution_withdrawal_total);""",
         ),),
-        cargo_lib(
-            "oregon-utxo",
-            "reserve::tests::reserve_equation_rejects_underflow_overflow_and_total_mismatch",
-        ),
+        cargo_lib("oregon-utxo", "reserve::tests::reserve_equation_rejects_underflow_overflow_and_total_mismatch"),
         "reserve::tests::reserve_equation_rejects_underflow_overflow_and_total_mismatch",
     ),
     Mutation(
@@ -292,10 +188,7 @@ MUTATIONS = [
             "if new_reserve_amount != parts.new_execution_balance_total {",
             "if false && new_reserve_amount != parts.new_execution_balance_total {",
         ),),
-        cargo_lib(
-            "oregon-utxo",
-            "reserve::tests::reserve_equation_rejects_underflow_overflow_and_total_mismatch",
-        ),
+        cargo_lib("oregon-utxo", "reserve::tests::reserve_equation_rejects_underflow_overflow_and_total_mismatch"),
         "reserve::tests::reserve_equation_rejects_underflow_overflow_and_total_mismatch",
     ),
     Mutation(
@@ -312,11 +205,7 @@ MUTATIONS = [
         .and_then(|fees| fees.checked_add(execution_fees.base_units()))
         .ok_or(ConsensusError::ArithmeticOverflow)?;""",
         ),),
-        cargo_integration(
-            "oregon-consensus",
-            "execution_fee_vectors",
-            "independent_producer_vectors_pin_execution_fee_boundaries",
-        ),
+        cargo_integration("oregon-consensus", "execution_fee_vectors", "independent_producer_vectors_pin_execution_fee_boundaries"),
         "independent_producer_vectors_pin_execution_fee_boundaries",
     ),
     Mutation(
@@ -326,11 +215,7 @@ MUTATIONS = [
             "if execution_fees.base_units() != 0 {",
             "if false && execution_fees.base_units() != 0 {",
         ),),
-        cargo_integration(
-            "oregon-consensus",
-            "execution_fee_coinbase",
-            "nonzero_execution_fees_require_an_exact_final_dedicated_output",
-        ),
+        cargo_integration("oregon-consensus", "execution_fee_coinbase", "nonzero_execution_fees_require_an_exact_final_dedicated_output"),
         "nonzero_execution_fees_require_an_exact_final_dedicated_output",
     ),
     Mutation(
@@ -342,11 +227,7 @@ MUTATIONS = [
             """StateWriteSet::new(
             CommitmentDomainId::ExecutionAccounting,""",
         ),),
-        cargo_integration(
-            "oregon-contract-state",
-            "fee_state",
-            "identical_fee_state_writes_are_deterministic_and_domain_separated",
-        ),
+        cargo_integration("oregon-contract-state", "fee_state", "identical_fee_state_writes_are_deterministic_and_domain_separated"),
         "identical_fee_state_writes_are_deterministic_and_domain_separated",
     ),
     Mutation(
@@ -359,9 +240,7 @@ MUTATIONS = [
     bytes.extend_from_slice(&[0u8; 32]);
     bytes""",
         ),),
-        cargo_lib(
-            "oregon-utxo", "reserve::tests::transition_preimage_and_new_outpoint_are_exact"
-        ),
+        cargo_lib("oregon-utxo", "reserve::tests::transition_preimage_and_new_outpoint_are_exact"),
         "reserve::tests::transition_preimage_and_new_outpoint_are_exact",
     ),
     Mutation(
@@ -415,9 +294,10 @@ def mutate_once(disposable: Path, mutation: Mutation) -> None:
     text = original.decode()
 
     for old, new in mutation.replacements:
-        if text.count(old) != 1:
+        matches = text.count(old)
+        if matches != 1:
             raise SystemExit(
-                f"mutation site is not unique for {mutation.name}: {mutation.path}"
+                f"mutation site count={matches} for {mutation.name}: {mutation.path}"
             )
         text = text.replace(old, new, 1)
 
@@ -452,11 +332,7 @@ def main() -> None:
     killed = 0
     with tempfile.TemporaryDirectory(prefix="oregon-fee-mutants-") as directory:
         disposable = Path(directory) / "repo"
-        shutil.copytree(
-            ROOT,
-            disposable,
-            ignore=shutil.ignore_patterns(".git", "target"),
-        )
+        shutil.copytree(ROOT, disposable, ignore=shutil.ignore_patterns(".git", "target"))
         for mutation in MUTATIONS:
             mutate_once(disposable, mutation)
             killed += 1
