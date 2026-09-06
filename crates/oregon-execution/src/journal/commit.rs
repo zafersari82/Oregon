@@ -4,7 +4,7 @@ use super::ExecutionJournalV1;
 use super::frame::JournalFrame;
 use super::types::JournalError;
 
-impl<'a, S: StateSource + ?Sized> ExecutionJournalV1<'a, S> {
+impl<S: StateSource + ?Sized> ExecutionJournalV1<'_, S> {
     pub fn commit_frame(&mut self) -> Result<(), JournalError> {
         if self.frames.len() == 1 {
             return Err(JournalError::RootFrameLifecycle);
