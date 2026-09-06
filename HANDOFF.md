@@ -11,10 +11,12 @@ Updated: 2026-09-06 UTC. Progress record only; no activation or main-integration
 - Verified Stage 1 envelope/auth final head: `b97f9d3af9e2c9c4011750cfb69cce8fd9117a8a`, PR #12; byte design PR #11.
 - Stage 2 design: `8a3f2c51f7c4ed7078fa808b2223f3b6af4ef3a7`, PR #13.
 - **Active continuation branch: `work/contract-state-v1-2026-09-05`, draft PR #14.**
+- **Stage 3A branch: `work/execution-resources-v1-2026-09-06`, stacked draft PR #15.**
 - **Verified Stage 2 implementation: `6bfc3364c71674c2bc3dd20e2b66a4fcabaac19f`.**
 - Verified tree: `682a1fc617dad937efbaa3b24ae5c7d861674ad6`.
 - Checkpoint: `docs/checkpoints/OREGON_CONTRACT_STATE_PROGRESS.md`.
 - Completed plan/spec: `docs/superpowers/{plans,specs}/2026-09-05-contract-state-commitments-v1.md`.
+- Stage 3A design/plan/checkpoint: `docs/superpowers/{specs,plans}/2026-09-06-execution-resources-fees-v1.md`, `docs/checkpoints/OREGON_EXECUTION_RESOURCES_PROGRESS.md`.
 
 ## Completed work
 
@@ -36,12 +38,12 @@ This handoff/checkpoint successor removes the two temporary RandomX trigger entr
 
 Read `AGENTS.md`, the Engineering Constitution, Platform Architecture Contract, Execution Architecture V1, this handoff and the Stage 2 checkpoint. Fetch current branch HEAD before editing.
 
-Start Execution Architecture V1 §27 **Stage 3 with a versioned design** for normalized resource weight, fee escrow/settlement, fee-state transitions and native UTXO reserve conservation. Define authoritative owners, deterministic arithmetic/overflow rules, rollback versus non-revertible fee boundaries, backing invariants, required vectors and adversarial tests before implementation. Preserve no fee burn, one fee/execution truth and 1:1 native backing. Activation constants require their specified benchmark/vector evidence.
+Stage 3A now has a versioned design/plan and inactive implementation branch in PR #15. Inspect that branch's exact head and own CI before treating it as accepted. Its next continuation is a separate Stage 3B versioned design for fee escrow/settlement, fee-state transitions and native UTXO reserve conservation. Define authoritative owners, exact bytes/keys, authenticated funding and producer destinations, deterministic arithmetic/overflow rules, rollback versus non-revertible fee boundaries, backing invariants, stale/double-settlement rejection, receipts/undo, required vectors and adversarial tests before implementation. Preserve no fee burn, one fee/execution truth and 1:1 native backing. Activation constants require their specified benchmark/vector evidence.
 
 Do not repeat M0–M6, Stage 1, Stage 2 design selection or completed Stage 2 implementation. The owner requests autonomous progress without repeated low-level approval prompts; that does not authorize changing frozen architecture or integrating main.
 
 ## Remaining sequence and boundaries
 
-Later work is Stage 3 accounting/weight/fees, runtime/journal/async core, EVM ingress/backend, WASM backend, cross-VM operations, unified mempool/block execution, durable chainstate/reorg/recovery, then separate activation and integration decisions.
+Later work is Stage 3B fee accounting/reserve integration, runtime/journal/async core, EVM ingress/backend, WASM backend, cross-VM operations, unified mempool/block execution, durable chainstate/reorg/recovery, then separate activation and integration decisions.
 
 Current header/transaction bytes, RocksDB schema, UTXO and monetary rules, active M0–M6 behavior and main remain unchanged. No wallet/RPC, public network or active contracts are claimed. Never force-push accepted/shared checkpoint refs. Keep exact sources, verification evidence, limitations and next action in the repository.

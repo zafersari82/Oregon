@@ -1,0 +1,1144 @@
+{
+  "version": 1,
+  "provenance": "Synthetic non-activation parameters; Python arbitrary-precision integers and fractions.Fraction; regenerate with scripts/generate_execution_resource_vectors.py",
+  "conversions": [
+    {
+      "numerator": 2,
+      "denominator": 3,
+      "units": 0,
+      "expected": 0
+    },
+    {
+      "numerator": 2,
+      "denominator": 3,
+      "units": 1,
+      "expected": 1
+    },
+    {
+      "numerator": 2,
+      "denominator": 3,
+      "units": 2,
+      "expected": 2
+    },
+    {
+      "numerator": 2,
+      "denominator": 3,
+      "units": 3,
+      "expected": 2
+    },
+    {
+      "numerator": 2,
+      "denominator": 3,
+      "units": 18446744073709551615,
+      "expected": 12297829382473034410
+    },
+    {
+      "numerator": 1,
+      "denominator": 18446744073709551615,
+      "units": 0,
+      "expected": 0
+    },
+    {
+      "numerator": 1,
+      "denominator": 18446744073709551615,
+      "units": 1,
+      "expected": 1
+    },
+    {
+      "numerator": 1,
+      "denominator": 18446744073709551615,
+      "units": 2,
+      "expected": 1
+    },
+    {
+      "numerator": 1,
+      "denominator": 18446744073709551615,
+      "units": 3,
+      "expected": 1
+    },
+    {
+      "numerator": 1,
+      "denominator": 18446744073709551615,
+      "units": 18446744073709551615,
+      "expected": 1
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551615,
+      "units": 0,
+      "expected": 0
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551615,
+      "units": 1,
+      "expected": 1
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551615,
+      "units": 2,
+      "expected": 2
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551615,
+      "units": 3,
+      "expected": 3
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551615,
+      "units": 18446744073709551615,
+      "expected": 18446744073709551615
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 1,
+      "units": 0,
+      "expected": 0
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 1,
+      "units": 1,
+      "expected": 18446744073709551615
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 1,
+      "units": 2,
+      "expected": null
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 1,
+      "units": 3,
+      "expected": null
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 1,
+      "units": 18446744073709551615,
+      "expected": null
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551614,
+      "units": 0,
+      "expected": 0
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551614,
+      "units": 1,
+      "expected": 2
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551614,
+      "units": 2,
+      "expected": 3
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551614,
+      "units": 3,
+      "expected": 4
+    },
+    {
+      "numerator": 18446744073709551615,
+      "denominator": 18446744073709551614,
+      "units": 18446744073709551615,
+      "expected": null
+    }
+  ],
+  "fees": [
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 100,
+      "parent_weight": 0,
+      "expected": 88
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 100,
+      "parent_weight": 1,
+      "expected": 88
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 100,
+      "parent_weight": 99,
+      "expected": 100
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 100,
+      "parent_weight": 100,
+      "expected": 100
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 100,
+      "parent_weight": 101,
+      "expected": 101
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 100,
+      "parent_weight": 199,
+      "expected": 112
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 100,
+      "parent_weight": 200,
+      "expected": 112
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 1,
+      "parent_weight": 0,
+      "expected": 1
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 1,
+      "parent_weight": 100,
+      "expected": 1
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 1,
+      "parent_weight": 101,
+      "expected": 2
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 1,
+      "parent_weight": 200,
+      "expected": 2
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 999,
+      "parent_weight": 0,
+      "expected": 875
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 999,
+      "parent_weight": 100,
+      "expected": 999
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 999,
+      "parent_weight": 101,
+      "expected": 1000
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 999,
+      "parent_weight": 200,
+      "expected": 1000
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 1000,
+      "parent_weight": 0,
+      "expected": 875
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 1000,
+      "parent_weight": 100,
+      "expected": 1000
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 1000,
+      "parent_weight": 101,
+      "expected": 1000
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "parent_base_fee": 1000,
+      "parent_weight": 200,
+      "expected": 1000
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        200,
+        8,
+        50,
+        1000
+      ],
+      "parent_base_fee": 50,
+      "parent_weight": 0,
+      "expected": 50
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        200,
+        8,
+        50,
+        1000
+      ],
+      "parent_base_fee": 50,
+      "parent_weight": 99,
+      "expected": 50
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        200,
+        8,
+        50,
+        1000
+      ],
+      "parent_base_fee": 50,
+      "parent_weight": 101,
+      "expected": 51
+    },
+    {
+      "parameters": [
+        1,
+        100,
+        200,
+        8,
+        50,
+        1000
+      ],
+      "parent_base_fee": 50,
+      "parent_weight": 200,
+      "expected": 56
+    },
+    {
+      "parameters": [
+        1,
+        9223372036854775807,
+        18446744073709551614,
+        18446744073709551615,
+        1,
+        100000000000000
+      ],
+      "parent_base_fee": 100000000000000,
+      "parent_weight": 0,
+      "expected": 100000000000000
+    },
+    {
+      "parameters": [
+        1,
+        9223372036854775807,
+        18446744073709551614,
+        18446744073709551615,
+        1,
+        100000000000000
+      ],
+      "parent_base_fee": 100000000000000,
+      "parent_weight": 9223372036854775807,
+      "expected": 100000000000000
+    },
+    {
+      "parameters": [
+        1,
+        9223372036854775807,
+        18446744073709551614,
+        18446744073709551615,
+        1,
+        100000000000000
+      ],
+      "parent_base_fee": 100000000000000,
+      "parent_weight": 18446744073709551614,
+      "expected": 100000000000000
+    },
+    {
+      "parameters": [
+        1,
+        9223372036854775807,
+        18446744073709551614,
+        2,
+        1,
+        100000000000000
+      ],
+      "parent_base_fee": 50000000000000,
+      "parent_weight": 0,
+      "expected": 25000000000000
+    },
+    {
+      "parameters": [
+        1,
+        9223372036854775807,
+        18446744073709551614,
+        2,
+        1,
+        100000000000000
+      ],
+      "parent_base_fee": 50000000000000,
+      "parent_weight": 9223372036854775807,
+      "expected": 50000000000000
+    },
+    {
+      "parameters": [
+        1,
+        9223372036854775807,
+        18446744073709551614,
+        2,
+        1,
+        100000000000000
+      ],
+      "parent_base_fee": 50000000000000,
+      "parent_weight": 18446744073709551614,
+      "expected": 75000000000000
+    }
+  ],
+  "sequences": [
+    {
+      "name": "producer_full",
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "initial_fee": 100,
+      "parent_weights": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "expected_fees": [
+        112,
+        126,
+        141,
+        158,
+        177
+      ]
+    },
+    {
+      "name": "producer_empty",
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "initial_fee": 100,
+      "parent_weights": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_fees": [
+        88,
+        77,
+        68,
+        60,
+        53
+      ]
+    },
+    {
+      "name": "producer_alternating",
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "initial_fee": 100,
+      "parent_weights": [
+        200,
+        0,
+        200,
+        0,
+        200,
+        0,
+        200,
+        0,
+        200,
+        0,
+        200,
+        0,
+        200,
+        0,
+        200,
+        0
+      ],
+      "expected_fees": [
+        112,
+        98,
+        110,
+        97,
+        109,
+        96,
+        108,
+        95,
+        106,
+        93,
+        104,
+        91,
+        102,
+        90,
+        101,
+        89
+      ]
+    },
+    {
+      "name": "producer_ceiling",
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "initial_fee": 100,
+      "parent_weights": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "expected_fees": [
+        112,
+        126,
+        141,
+        158,
+        177,
+        199,
+        223,
+        250,
+        281,
+        316,
+        355,
+        399,
+        448,
+        504,
+        567,
+        637,
+        716,
+        805,
+        905,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000
+      ]
+    },
+    {
+      "name": "producer_floor",
+      "parameters": [
+        1,
+        100,
+        120,
+        8,
+        1,
+        1000
+      ],
+      "initial_fee": 100,
+      "parent_weights": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected_fees": [
+        88,
+        77,
+        68,
+        60,
+        53,
+        47,
+        42,
+        37,
+        33,
+        29,
+        26,
+        23,
+        21,
+        19,
+        17,
+        15,
+        14,
+        13,
+        12,
+        11,
+        10,
+        9,
+        8,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7,
+        7
+      ]
+    }
+  ],
+  "meters": [
+    {
+      "name": "split",
+      "ratios": [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      "max_weight": 20,
+      "intrinsic_weight": 2,
+      "events": [
+        {
+          "domain": "evm",
+          "units": 1,
+          "consumed": 3,
+          "exhausted": false,
+          "failed": false
+        },
+        {
+          "domain": "evm",
+          "units": 1,
+          "consumed": 4,
+          "exhausted": false,
+          "failed": false
+        },
+        {
+          "domain": "evm",
+          "units": 1,
+          "consumed": 4,
+          "exhausted": false,
+          "failed": false
+        }
+      ]
+    },
+    {
+      "name": "combined",
+      "ratios": [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      "max_weight": 20,
+      "intrinsic_weight": 2,
+      "events": [
+        {
+          "domain": "evm",
+          "units": 3,
+          "consumed": 4,
+          "exhausted": false,
+          "failed": false
+        }
+      ]
+    },
+    {
+      "name": "shared",
+      "ratios": [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      "max_weight": 10,
+      "intrinsic_weight": 2,
+      "events": [
+        {
+          "domain": "native",
+          "units": 2,
+          "consumed": 4,
+          "exhausted": false,
+          "failed": false
+        },
+        {
+          "domain": "evm",
+          "units": 3,
+          "consumed": 6,
+          "exhausted": false,
+          "failed": false
+        },
+        {
+          "domain": "wasm",
+          "units": 2,
+          "consumed": 9,
+          "exhausted": false,
+          "failed": false
+        },
+        {
+          "domain": "common",
+          "units": 1,
+          "consumed": 10,
+          "exhausted": false,
+          "failed": false
+        },
+        {
+          "domain": "common",
+          "units": 0,
+          "consumed": 10,
+          "exhausted": false,
+          "failed": false
+        },
+        {
+          "domain": "native",
+          "units": 1,
+          "consumed": 10,
+          "exhausted": true,
+          "failed": true
+        },
+        {
+          "domain": "common",
+          "units": 0,
+          "consumed": 10,
+          "exhausted": true,
+          "failed": true
+        }
+      ]
+    },
+    {
+      "name": "counter_limit",
+      "ratios": [
+        [
+          1,
+          18446744073709551615
+        ],
+        [
+          1,
+          18446744073709551615
+        ],
+        [
+          1,
+          18446744073709551615
+        ]
+      ],
+      "max_weight": 3,
+      "intrinsic_weight": 0,
+      "events": [
+        {
+          "domain": "native",
+          "units": 18446744073709551615,
+          "consumed": 1,
+          "exhausted": false,
+          "failed": false
+        },
+        {
+          "domain": "native",
+          "units": 1,
+          "consumed": 3,
+          "exhausted": true,
+          "failed": true
+        },
+        {
+          "domain": "evm",
+          "units": 0,
+          "consumed": 3,
+          "exhausted": true,
+          "failed": true
+        }
+      ]
+    },
+    {
+      "name": "conversion_limit",
+      "ratios": [
+        [
+          18446744073709551615,
+          1
+        ],
+        [
+          18446744073709551615,
+          1
+        ],
+        [
+          18446744073709551615,
+          1
+        ]
+      ],
+      "max_weight": 18446744073709551615,
+      "intrinsic_weight": 0,
+      "events": [
+        {
+          "domain": "wasm",
+          "units": 2,
+          "consumed": 18446744073709551615,
+          "exhausted": true,
+          "failed": true
+        },
+        {
+          "domain": "common",
+          "units": 0,
+          "consumed": 18446744073709551615,
+          "exhausted": true,
+          "failed": true
+        }
+      ]
+    }
+  ]
+}

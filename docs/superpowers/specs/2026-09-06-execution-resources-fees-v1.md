@@ -85,7 +85,7 @@ Let `b` be the parent base fee, `u` the parent consumed normalized weight, `T` t
 - If `u > T`: return `min(max_base_fee, b + max(1, q))`.
 - If `u < T`: return `max(min_base_fee, b - q)`.
 
-The upward one-base-unit rounding minimum is explicit. Thus the per-block upward bound is `max(1, floor(b / D))`, with that one-unit exception at small prices; the downward bound is `floor(b / D)`. Clipping to price bounds can only reduce the movement. Evaluate addition in `u128` before narrowing so clamping cannot conceal integer wraparound.
+The upward one-base-unit rounding minimum is explicit. Thus the per-block upward bound is `max(1, floor(b / D))`, with that one-unit exception at small prices; the downward bound is `floor(b / D)`. Clipping to price bounds can only reduce the movement. Downward integer rounding may stall above the configured minimum when the computed decrease is zero; for example, repeated empty parents with D=8 stop decreasing at b=7. A floor is a lower bound, not a promised convergence point. Evaluate addition in `u128` before narrowing so clamping cannot conceal integer wraparound.
 
 `BlockWeightBudget::new(&parameters)` starts at zero. `include(actual_weight)` requires a positive weight not above the transaction maximum and an accumulated sum not above the block maximum. Invalid input leaves the budget unchanged. Inclusion uses consumed weight from the one execution meter, including consumption on revert/trap, never the sender's declared unused maximum. Exact limits succeed. Capacity is shared across all domains.
 
