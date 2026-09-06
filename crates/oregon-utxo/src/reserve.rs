@@ -125,9 +125,7 @@ pub enum ReserveTransitionError {
     ArithmeticOverflow,
     #[error("reserve arithmetic underflow")]
     ArithmeticUnderflow,
-    #[error(
-        "reserve amount {reserve_amount} does not match execution balance {execution_balance}"
-    )]
+    #[error("reserve amount {reserve_amount} does not match execution balance {execution_balance}")]
     ExecutionBalanceMismatch {
         reserve_amount: u64,
         execution_balance: u64,
@@ -162,7 +160,12 @@ fn encode_transition_parts(parts: &ReserveTransitionV1Parts) -> Vec<u8> {
         }
     }
 
-    bytes.extend_from_slice(&parts.previous.map_or(0, |previous| previous.amount).to_le_bytes());
+    bytes.extend_from_slice(
+        &parts
+            .previous
+            .map_or(0, |previous| previous.amount)
+            .to_le_bytes(),
+    );
     bytes.extend_from_slice(&parts.native_deposit_total.to_le_bytes());
     bytes.extend_from_slice(&parts.execution_withdrawal_total.to_le_bytes());
     bytes.extend_from_slice(&parts.execution_fee_total.to_le_bytes());
@@ -401,7 +404,15 @@ mod tests {
         apply_reserve_transition_v1(&mut state, &increase).unwrap();
         assert_eq!(reserve_count(&state), 1);
         let increased_outpoint = increase.new_reserve_outpoint().unwrap();
-        assert_eq!(state.get(&increased_outpoint).unwrap().output.value.base_units(), 150);
+        assert_eq!(
+            state
+                .get(&increased_outpoint)
+                .unwrap()
+                .output
+                .value
+                .base_units(),
+            150
+        );
 
         let decrease = ReserveTransitionV1::new(ReserveTransitionV1Parts {
             previous: Some(ReservePoolSnapshotV1 {
