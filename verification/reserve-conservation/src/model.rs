@@ -201,13 +201,7 @@ pub fn undo_state(state: &mut ModelState, undo: &ModelUndo) -> Result<(), StateE
             let Some(actual) = state.slots[index] else {
                 return Err(StateError::UndoMismatch);
             };
-            // Deliberately weakened RED model: production compares the complete
-            // created entry. This only pins identity, amount and reserve class,
-            // so tampered creation metadata can slip through.
-            if actual.key != expected.key
-                || actual.entry.amount != expected.entry.amount
-                || actual.entry.program != ProgramClass::Reserve
-            {
+            if actual != expected {
                 return Err(StateError::UndoMismatch);
             }
             Some(index)
