@@ -135,16 +135,14 @@ mod meter {
     use oregon_primitives::execution_envelope::ExecutionDomain;
     use oregon_primitives::execution_event::MAX_EXECUTION_EVENTS_V1;
     use oregon_runtime::{
-        RuntimeBackendFailureV1, RuntimeBackendV1, RuntimeCallContextV1,
-        RuntimeCallContextV1Parts, RuntimeCallResultV1, RuntimeHostSignalV1, RuntimeHostV1,
+        RuntimeBackendFailureV1, RuntimeBackendV1, RuntimeCallContextV1, RuntimeCallContextV1Parts,
+        RuntimeCallResultV1, RuntimeHostSignalV1, RuntimeHostV1,
     };
 
     use crate::{MeterScheduleV1, ResourceDomain, WeightMeter, WeightRatio};
 
     use super::super::effects::EffectStackV1;
-    use super::super::host::{
-        CoordinatorHostV1, HostChargeScheduleV1, HostChargeScheduleV1Parts,
-    };
+    use super::super::host::{CoordinatorHostV1, HostChargeScheduleV1, HostChargeScheduleV1Parts};
     use super::super::types::{CoordinatorLimitsV1, CoordinatorTerminalV1};
 
     fn address(kind: ExecutionAddressKind, byte: u8) -> ExecutionAddress {
@@ -192,7 +190,11 @@ mod meter {
         )
     }
 
-    fn host_charges(event_base: u64, event_data_byte: u64, context_query: u64) -> HostChargeScheduleV1 {
+    fn host_charges(
+        event_base: u64,
+        event_data_byte: u64,
+        context_query: u64,
+    ) -> HostChargeScheduleV1 {
         HostChargeScheduleV1::new(HostChargeScheduleV1Parts {
             version: 1,
             state_read_base: 1,

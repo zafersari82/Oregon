@@ -19,7 +19,9 @@ pub(super) fn read_balance<S: StateSource + ?Sized>(
         .read(ACCOUNTING_DOMAIN, &balance_key(&address))
         .map_err(|_| CoordinatorError::AccountingInvariant)?;
     match value {
-        Some(bytes) => decode_accounting_u64(&bytes).map_err(|_| CoordinatorError::AccountingInvariant),
+        Some(bytes) => {
+            decode_accounting_u64(&bytes).map_err(|_| CoordinatorError::AccountingInvariant)
+        }
         None => Ok(0),
     }
 }

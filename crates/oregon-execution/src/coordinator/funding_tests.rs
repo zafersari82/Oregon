@@ -2,11 +2,11 @@ use oregon_contract_state::{
     DomainSnapshot, StateError, StateNode, StateSource, empty_hashes, encode_accounting_u64,
     total_execution_balance_key,
 };
-use oregon_primitives::fee_settlement::FeeSourceKind;
+use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::execution_envelope::ExecutionDomain;
+use oregon_primitives::fee_settlement::FeeSourceKind;
 use oregon_primitives::state_commitment::CommitmentDomainId;
-use oregon_primitives::Hash256;
 
 use crate::{
     EscrowBookV1, ExecutionJournalV1, FeeTermsV1, FundingCapabilityV1, JournalContextV1,

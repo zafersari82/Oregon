@@ -81,10 +81,7 @@ impl HostChargeScheduleV1 {
         })
     }
 
-    fn checked_cost(
-        fixed: u64,
-        terms: &[(u64, usize)],
-    ) -> Result<u64, CoordinatorError> {
+    fn checked_cost(fixed: u64, terms: &[(u64, usize)]) -> Result<u64, CoordinatorError> {
         let mut total = u128::from(fixed);
         for &(coefficient, count) in terms {
             let count = u128::try_from(count).map_err(|_| CoordinatorError::HostChargeOverflow)?;

@@ -2,9 +2,9 @@ use oregon_contract_state::{
     DomainSnapshot, StateError, StateNode, StateSource, empty_hashes, encode_accounting_u64,
     total_execution_balance_key,
 };
+use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::state_commitment::CommitmentDomainId;
-use oregon_primitives::Hash256;
 
 use crate::{ExecutionJournalV1, JournalContextV1, JournalLimitsV1};
 

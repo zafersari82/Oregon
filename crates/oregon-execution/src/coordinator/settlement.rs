@@ -4,9 +4,7 @@ use oregon_primitives::execution_address::ExecutionAddress;
 use oregon_primitives::execution_envelope::ExecutionDomain;
 use oregon_primitives::fee_settlement::FeeSourceKind;
 
-use crate::{
-    EscrowBookV1, EscrowTicketV1, ExecutionJournalV1, FeeTermsV1, FundingCapabilityV1,
-};
+use crate::{EscrowBookV1, EscrowTicketV1, ExecutionJournalV1, FeeTermsV1, FundingCapabilityV1};
 
 use super::accounting::{read_balance, write_balance};
 use super::types::CoordinatorError;
@@ -65,7 +63,11 @@ where
 
     match request.source_kind {
         FeeSourceKind::ExecutionBalance => {
-            reserve_execution_funded_escrow(journal, request.payer, request.fee_terms.max_escrow())?;
+            reserve_execution_funded_escrow(
+                journal,
+                request.payer,
+                request.fee_terms.max_escrow(),
+            )?;
         }
         FeeSourceKind::NativeUtxo => {}
     }
