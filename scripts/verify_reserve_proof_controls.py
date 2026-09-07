@@ -323,12 +323,56 @@ def _common_output_checks(output, returncode, harness, expected_returncode):
     require(solvers and set(solvers) == {"CaDiCaL 2.0.0"}, "wrong or absent solver")
 
 
+def _summary_inventory(output, properties, expected_failures, allow_unsatisfiable_covers):
+    summaries = re.findall(
+        r"^ \*\* (\d+) of (\d+) failed(?: \((\d+) unreachable\))?$", output, re.M
+    )
+    require(len(summaries) == 1, "missing or repeated property summary")
+    failed, total, unreachable = (int(value or 0) for value in summaries[0])
+    require(failed == expected_failures, "inconsistent failure summary")
+    ordinary_properties = [item for item in properties if ".cover." not in item["property"]]
+    cover_properties = [item for item in properties if ".cover." in item["property"]]
+    require(total == len(ordinary_properties), "summary property total does not match inventory")
+    unreachable_properties = [
+        item for item in ordinary_properties if item["status"] == "UNREACHABLE"
+    ]
+    require(unreachable == len(unreachable_properties), "unreachable summary count mismatch")
+    require(
+        not any(item["status"] == "UNREACHABLE" for item in cover_properties),
+        "reachability property has unsupported unreachable status",
+    )
+    cover_summaries = re.findall(
+        r"^ \*\* (\d+) of (\d+) cover properties satisfied$", output, re.M
+    )
+    if cover_properties:
+        require(len(cover_summaries) == 1, "missing or repeated reachability summary")
+        satisfied, cover_total = (int(value) for value in cover_summaries[0])
+        require(cover_total == len(cover_properties), "reachability total does not match inventory")
+        require(
+            satisfied
+            == sum(item["status"] == "SATISFIED" for item in cover_properties),
+            "satisfied reachability count mismatch",
+        )
+        require(
+            allow_unsatisfiable_covers
+            or all(item["status"] == "SATISFIED" for item in cover_properties),
+            "positive reachability property is unsatisfied",
+        )
+    else:
+        require(not cover_summaries, "unexpected reachability summary")
+    return unreachable
+
+
 def parse_control(output, returncode, control):
     """Accept a killed control only for the intended semantic failure plus counterexample."""
     _common_output_checks(output, returncode, control["harness"], 1)
     properties = _property_inventory(output)
     require(
-        all(item["status"] in {"SUCCESS", "SATISFIED", "FAILURE"} for item in properties),
+        all(
+            item["status"]
+            in {"SUCCESS", "SATISFIED", "UNSATISFIABLE", "FAILURE", "UNREACHABLE"}
+            for item in properties
+        ),
         "unknown, unsatisfied, or unsupported property status",
     )
     failures = [item for item in properties if item["status"] == "FAILURE"]
@@ -343,8 +387,14 @@ def parse_control(output, returncode, control):
         set(descriptions).issubset(set(control["allowed_failures"])),
         "unrelated assertion failure in control",
     )
-    summaries = re.findall(r"^ \*\* (\d+) of (\d+) failed$", output, re.M)
-    require(len(summaries) == 1 and int(summaries[0][0]) == len(failures), "inconsistent failure summary")
+    require(
+        all(
+            item["status"] != "UNSATISFIABLE" or ".cover." in item["property"]
+            for item in properties
+        ),
+        "non-reachability property is unsatisfiable",
+    )
+    unreachable = _summary_inventory(output, properties, len(failures), True)
     require(re.findall(r"^VERIFICATION:- (.+)$", output, re.M) == ["FAILED"], "wrong control verdict")
     completion = "Complete - 0 successfully verified harnesses, 1 failures, 1 total."
     require(re.findall(r"^Complete - [^\n]*$", output, re.M) == [completion], "unexpected completion inventory")
@@ -377,6 +427,7 @@ def parse_control(output, returncode, control):
         ],
         "counterexample_bound": True,
         "playbacks": len(playbacks),
+        "unreachable": unreachable,
     }
 
 
@@ -385,7 +436,7 @@ def parse_positive(output, returncode, control):
     _common_output_checks(output, returncode, control["harness"], 0)
     properties = _property_inventory(output)
     require(
-        all(item["status"] in {"SUCCESS", "SATISFIED"} for item in properties),
+        all(item["status"] in {"SUCCESS", "SATISFIED", "UNREACHABLE"} for item in properties),
         "positive rerun contains a failed, unknown, or unsatisfied property",
     )
     require(
@@ -394,8 +445,7 @@ def parse_positive(output, returncode, control):
     )
     covers = [item for item in properties if item["status"] == "SATISFIED" and ".cover." in item["property"]]
     require(len(covers) == control["positive_covers"], "unexpected positive reachability inventory")
-    summaries = re.findall(r"^ \*\* (\d+) of (\d+) failed$", output, re.M)
-    require(len(summaries) == 1 and int(summaries[0][0]) == 0, "positive assertion summary is not green")
+    unreachable = _summary_inventory(output, properties, 0, False)
     require(re.findall(r"^VERIFICATION:- (.+)$", output, re.M) == ["SUCCESSFUL"], "wrong positive verdict")
     completion = "Complete - 1 successfully verified harnesses, 0 failures, 1 total."
     require(re.findall(r"^Complete - [^\n]*$", output, re.M) == [completion], "unexpected positive completion inventory")
@@ -405,6 +455,7 @@ def parse_positive(output, returncode, control):
         "harness": control["harness"],
         "properties": len(properties),
         "covers": len(covers),
+        "unreachable": unreachable,
     }
 
 

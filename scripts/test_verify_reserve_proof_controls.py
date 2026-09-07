@@ -81,6 +81,11 @@ def shaped_control_output(
         + properties
         + "SUMMARY:\n"
         f" ** {failed_count} of 1 failed\n"
+        + (
+            f" ** {cover_playbacks} of {cover_playbacks} cover properties satisfied\n"
+            if cover_playbacks
+            else ""
+        )
         + (f"Failed Checks: \"{description}\"\n" if return_verdict == "FAILED" else "")
         + f"VERIFICATION:- {return_verdict}\n"
         + playback
@@ -124,7 +129,12 @@ def shaped_positive_output(control):
         + properties
         + "SUMMARY:\n"
         " ** 0 of 1 failed\n"
-        "VERIFICATION:- SUCCESSFUL\n"
+        + (
+            f" ** {control['positive_covers']} of {control['positive_covers']} cover properties satisfied\n"
+            if control["positive_covers"]
+            else ""
+        )
+        + "VERIFICATION:- SUCCESSFUL\n"
         "Manual Harness Summary:\n"
         "Complete - 1 successfully verified harnesses, 0 failures, 1 total.\n"
     )
@@ -177,7 +187,7 @@ class ControlParserTests(unittest.TestCase):
                 "SUMMARY:\n"
             ),
             1,
-        )
+        ).replace(" ** 1 of 1 failed\n", " ** 1 of 2 failed\n", 1)
         parsed = parse_control(output, 1, control)
         self.assertEqual(parsed["id"], "RC03")
         self.assertTrue(parsed["counterexample_bound"])
@@ -195,10 +205,72 @@ class ControlParserTests(unittest.TestCase):
                 "SUMMARY:\n"
             ),
             1,
+        ).replace(" ** 1 of 1 failed\n", " ** 1 of 2 failed\n", 1)
+        parsed = parse_control(output, 1, control)
+        self.assertEqual(parsed["id"], "RC03")
+        self.assertTrue(parsed["counterexample_bound"])
+
+    def test_accepts_counted_unreachable_internal_property(self):
+        control = CONTROLS[2]
+        output = shaped_control_output(control).replace(
+            "SUMMARY:\n",
+            (
+                "Check 2: std::fmt::Arguments::from_str.assertion.1\n"
+                " - Status: UNREACHABLE\n"
+                " - Description: \"attempt to shift left with overflow\"\n"
+                " - Location: library/core/src/fmt/mod.rs:820:38 in function std::fmt::Arguments::from_str\n"
+                "SUMMARY:\n"
+            ),
+            1,
+        ).replace(" ** 1 of 1 failed\n", " ** 1 of 2 failed (1 unreachable)\n", 1)
+        parsed = parse_control(output, 1, control)
+        self.assertEqual(parsed["id"], "RC03")
+        self.assertEqual(parsed["unreachable"], 1)
+
+    def test_accepts_unsatisfiable_cover_when_target_assertion_has_counterexample(self):
+        control = CONTROLS[2]
+        output = shaped_control_output(control).replace(
+            "SUMMARY:\n",
+            (
+                f"Check 2: {control['harness']}.cover.1\n"
+                " - Status: UNSATISFIABLE\n"
+                " - Description: \"RC03 zero-result success is reachable\"\n"
+                f" - Location: verification/reserve-conservation/state.rs:1:1 in function {control['harness']}\n"
+                "SUMMARY:\n"
+            ),
+            1,
+        ).replace(
+            " ** 1 of 1 failed\n",
+            " ** 1 of 1 failed\n ** 0 of 1 cover properties satisfied\n",
+            1,
         )
         parsed = parse_control(output, 1, control)
         self.assertEqual(parsed["id"], "RC03")
         self.assertTrue(parsed["counterexample_bound"])
+
+    def test_rejects_unreachable_cover_property(self):
+        control = CONTROLS[2]
+        output = shaped_control_output(control).replace(
+            "SUMMARY:\n",
+            (
+                f"Check 2: {control['harness']}.cover.1\n"
+                " - Status: UNREACHABLE\n"
+                " - Description: \"RC03 positive result is reachable\"\n"
+                f" - Location: verification/reserve-conservation/state.rs:1:1 in function {control['harness']}\n"
+                "SUMMARY:\n"
+            ),
+            1,
+        ).replace(" ** 1 of 1 failed\n", " ** 1 of 2 failed (1 unreachable)\n", 1)
+        with self.assertRaises(GateError):
+            parse_control(output, 1, control)
+
+    def test_rejects_unreachable_summary_count_mismatch(self):
+        control = CONTROLS[2]
+        output = shaped_control_output(control).replace(
+            " ** 1 of 1 failed\n", " ** 1 of 1 failed (1 unreachable)\n", 1
+        )
+        with self.assertRaises(GateError):
+            parse_control(output, 1, control)
 
     def test_accepts_complete_positive_rerun(self):
         parsed = parse_positive(shaped_positive_output(self.control), 0, self.control)
