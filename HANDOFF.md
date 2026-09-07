@@ -4,7 +4,8 @@ Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ## Resume here
 
-- Current local work branch: `work/reserve-proof-runner-2026-09-07`.
+- Published work branch: `work/reserve-proof-publication-2026-09-07`.
+- Preserved local history branch: `work/reserve-proof-runner-2026-09-07`.
 - Owner-approved Reserve Conservation Proof V1 remains authorized; do not request
   the same approval again. All original continuation commits through `6a7770b`
   are preserved as ancestors.
@@ -127,3 +128,28 @@ Push of `0691c44` and its preserved ancestors to
 with terminal prompts disabled. GitHub read access works, but this session has no
 usable Git write credential. No remote branch creation or current-head CI is claimed.
 Continue from the local branch or its exported continuation bundle; main is unchanged.
+
+
+## September 7 connector publication and bootstrap CI
+
+GitHub connector writes succeeded after Git CLI authentication failed. Source
+snapshot `ed4e3b5af5c6e56d0404548866206766f902936d` has the exact original local
+`976d6e5` tree `975454b9224584dd20e0b24fd614cb9bb6fc65fb`. This is a new publication
+commit, not a claim that original local commit identities were pushed as Git refs.
+
+The complete original history is preserved remotely on
+`archive/reserve-continuation-2026-09-07` at
+`01451b8136cd93e22497704537f1f2a56ec0443a`, in
+`Oregon-continuation-2026-09-07.bundle`. Its Git blob identity
+`c8c71e1b0bdb1b14714560a5e1571a5cb06db577` matches the local bundle bytes.
+
+A dedicated `oregon-reserve-bootstrap.yml` CI workflow now prepares the pinned
+verifier, checks the archive digest before setup, and executes the bootstrap-only
+runner with positive/negative/positive checks and retained evidence. It does not
+execute RC01–RC10. Inspect its actual run before claiming live validation. The
+local Rust download was again stopped at network approval; CI is the intended
+execution environment for this continuation.
+
+Next: inspect and resolve bootstrap CI results, then continue the approved
+standalone-package and test-first production-correspondence work. Main integration
+and reserve-proof acceptance have not occurred.
