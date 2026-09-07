@@ -413,3 +413,402 @@ mod meter {
         assert_eq!(ResourceDomain::Wasm as u8, 2);
     }
 }
+
+mod settlement {
+    use oregon_contract_state::{
+        DomainSnapshot, StateError, StateNode, StateSource, empty_hashes, encode_accounting_u64,
+        total_execution_balance_key,
+    };
+    use oregon_primitives::Hash256;
+    use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
+    use oregon_primitives::execution_envelope::ExecutionDomain;
+    use oregon_primitives::execution_event::{ExecutionEventV1, MAX_EXECUTION_EVENTS_V1};
+    use oregon_primitives::fee_settlement::{ExecutionOutcome, FeeSourceKind};
+    use oregon_primitives::state_commitment::CommitmentDomainId;
+    use oregon_runtime::{RuntimeCallResultV1, RuntimeTrapCodeV1};
+
+    use crate::{
+        EscrowBookV1, ExecutionJournalV1, FeeTermsV1, FundingCapabilityV1, JournalContextV1,
+        JournalLimitsV1, MeterScheduleV1, WeightMeter, WeightRatio,
+    };
+
+    use super::super::accounting::{read_balance, read_total_execution_balance, write_balance};
+    use super::super::effects::EffectStackV1;
+    use super::super::settlement::{
+        FundingSourceValidatorV1, FundingValidationRequestV1, open_validated_escrow,
+        settle_top_level_execution,
+    };
+    use super::super::types::{
+        CoordinatorError, CoordinatorLimitsV1, CoordinatorOutcomeV1, CoordinatorSettlementV1,
+        CoordinatorTerminalV1,
+    };
+
+    #[derive(Debug, Default)]
+    struct EmptySource;
+
+    impl StateSource for EmptySource {
+        fn get_node(&self, _node_hash: &Hash256) -> Result<Option<StateNode>, StateError> {
+            Ok(None)
+        }
+
+        fn get_value(&self, _value_hash: &Hash256) -> Result<Option<Vec<u8>>, StateError> {
+            Ok(None)
+        }
+    }
+
+    fn address(kind: ExecutionAddressKind, byte: u8) -> ExecutionAddress {
+        match kind {
+            ExecutionAddressKind::Evm => ExecutionAddress::from_evm([byte; 20]),
+            _ => ExecutionAddress::new(kind, [byte; 32]).unwrap(),
+        }
+    }
+
+    fn payer() -> ExecutionAddress {
+        address(ExecutionAddressKind::Wasm, 0x77)
+    }
+
+    fn target() -> ExecutionAddress {
+        address(ExecutionAddressKind::Wasm, 0x88)
+    }
+
+    fn journal(source: &EmptySource) -> ExecutionJournalV1<'_, EmptySource> {
+        let domain = CommitmentDomainId::ExecutionAccounting;
+        ExecutionJournalV1::new(
+            source,
+            JournalContextV1 {
+                chain_id: 42,
+                height: 9001,
+                parent_block_hash: Hash256::from_bytes([0x11; 32]),
+                txid: Hash256::from_bytes([0x22; 32]),
+            },
+            &[DomainSnapshot {
+                domain,
+                root: empty_hashes(domain)[0],
+            }],
+            JournalLimitsV1::default(),
+        )
+        .unwrap()
+    }
+
+    fn effects() -> EffectStackV1 {
+        EffectStackV1::new(
+            CoordinatorLimitsV1::new(64, MAX_EXECUTION_EVENTS_V1, 2_097_152).unwrap(),
+        )
+    }
+
+    fn seed_accounting(journal: &mut ExecutionJournalV1<'_, EmptySource>, value: u64) {
+        write_balance(journal, payer(), value).unwrap();
+        journal
+            .put(
+                CommitmentDomainId::ExecutionAccounting,
+                total_execution_balance_key(),
+                &encode_accounting_u64(value),
+            )
+            .unwrap();
+    }
+
+    fn terms() -> FeeTermsV1 {
+        FeeTermsV1::new(1, 4, 1, 10).unwrap()
+    }
+
+    fn request(source_kind: FeeSourceKind) -> FundingValidationRequestV1 {
+        FundingValidationRequestV1 {
+            chain_id: 42,
+            height: 9001,
+            txid: Hash256::from_bytes([0x22; 32]),
+            execution_domain: ExecutionDomain::Wasm,
+            principal: address(ExecutionAddressKind::Wasm, 0x66),
+            payer: payer(),
+            authorization_commitment: Hash256::from_bytes([0x33; 32]),
+            source_kind,
+            source_commitment: Hash256::from_bytes([0x44; 32]),
+            source_sequence: 7,
+            fee_terms: terms(),
+        }
+    }
+
+    #[derive(Debug)]
+    struct Validator {
+        capability: FundingCapabilityV1,
+    }
+
+    impl FundingSourceValidatorV1 for Validator {
+        fn validate(
+            &mut self,
+            _request: &FundingValidationRequestV1,
+        ) -> Result<FundingCapabilityV1, CoordinatorError> {
+            Ok(self.capability)
+        }
+    }
+
+    fn validator(source_kind: FeeSourceKind, available_amount: u64) -> Validator {
+        let request = request(source_kind);
+        Validator {
+            capability: FundingCapabilityV1::new(
+                source_kind,
+                request.payer,
+                request.source_commitment,
+                available_amount,
+                request.source_sequence,
+                request.authorization_commitment,
+            )
+            .unwrap(),
+        }
+    }
+
+    fn open_ticket(
+        journal: &mut ExecutionJournalV1<'_, EmptySource>,
+        book: &mut EscrowBookV1,
+        source_kind: FeeSourceKind,
+    ) -> crate::EscrowTicketV1 {
+        let request = request(source_kind);
+        let mut validator = validator(source_kind, 100);
+        open_validated_escrow(journal, book, &mut validator, request).unwrap()
+    }
+
+    fn meter(actual_weight: u64) -> WeightMeter {
+        let schedule = MeterScheduleV1::new(
+            1,
+            WeightRatio::new(1, 1).unwrap(),
+            WeightRatio::new(1, 1).unwrap(),
+            WeightRatio::new(1, 1).unwrap(),
+        )
+        .unwrap();
+        WeightMeter::new(schedule, 10, actual_weight).unwrap()
+    }
+
+    fn stage_top_level_child(
+        journal: &mut ExecutionJournalV1<'_, EmptySource>,
+        effects: &mut EffectStackV1,
+    ) {
+        journal.begin_frame().unwrap();
+        effects.begin().unwrap();
+        write_balance(journal, target(), 7).unwrap();
+        effects
+            .push_event(ExecutionEventV1::new(target(), Vec::new(), vec![0x5a]).unwrap())
+            .unwrap();
+    }
+
+    fn run_case(
+        runtime_result: RuntimeCallResultV1,
+    ) -> (CoordinatorSettlementV1, u64, u64, u64, usize) {
+        let source = EmptySource;
+        let mut journal = journal(&source);
+        seed_accounting(&mut journal, 100);
+        let mut book = EscrowBookV1::new(4).unwrap();
+        let ticket = open_ticket(&mut journal, &mut book, FeeSourceKind::ExecutionBalance);
+        let mut effects = effects();
+        stage_top_level_child(&mut journal, &mut effects);
+        let meter = meter(5);
+        let mut terminal = CoordinatorTerminalV1::Running;
+
+        let settlement = settle_top_level_execution(
+            &mut journal,
+            &mut effects,
+            &mut book,
+            ticket,
+            &meter,
+            &mut terminal,
+            runtime_result,
+        )
+        .unwrap();
+
+        (
+            settlement,
+            read_balance(&journal, payer()).unwrap(),
+            read_total_execution_balance(&journal).unwrap(),
+            read_balance(&journal, target()).unwrap(),
+            effects.root_events().len(),
+        )
+    }
+
+    #[test]
+    fn committed_reverted_and_trapped_equal_weight_charge_equally_and_map_frames() {
+        let (committed, committed_payer, committed_total, committed_target, committed_events) =
+            run_case(RuntimeCallResultV1::Success(Vec::new()));
+        let (reverted, reverted_payer, reverted_total, reverted_target, reverted_events) =
+            run_case(RuntimeCallResultV1::Revert(Vec::new()));
+        let (trapped, trapped_payer, trapped_total, trapped_target, trapped_events) = run_case(
+            RuntimeCallResultV1::trap(RuntimeTrapCodeV1::ReadOnlyViolation),
+        );
+
+        assert_eq!(committed.outcome(), CoordinatorOutcomeV1::Committed);
+        assert_eq!(reverted.outcome(), CoordinatorOutcomeV1::Reverted);
+        assert_eq!(
+            trapped.outcome(),
+            CoordinatorOutcomeV1::Trapped(RuntimeTrapCodeV1::ReadOnlyViolation)
+        );
+        assert_eq!(committed.fee_receipt().outcome(), ExecutionOutcome::Committed);
+        assert_eq!(reverted.fee_receipt().outcome(), ExecutionOutcome::Reverted);
+        assert_eq!(trapped.fee_receipt().outcome(), ExecutionOutcome::Reverted);
+        assert_eq!(committed.fee_receipt().charged(), 10);
+        assert_eq!(reverted.fee_receipt().charged(), 10);
+        assert_eq!(trapped.fee_receipt().charged(), 10);
+        assert_eq!((committed_payer, committed_total), (90, 90));
+        assert_eq!((reverted_payer, reverted_total), (90, 90));
+        assert_eq!((trapped_payer, trapped_total), (90, 90));
+        assert_eq!((committed_target, committed_events), (7, 1));
+        assert_eq!((reverted_target, reverted_events), (0, 0));
+        assert_eq!((trapped_target, trapped_events), (0, 0));
+    }
+
+    #[test]
+    fn resource_exhaustion_forces_full_weight_revert_and_cannot_be_masked_by_success() {
+        let source = EmptySource;
+        let mut journal = journal(&source);
+        seed_accounting(&mut journal, 100);
+        let mut book = EscrowBookV1::new(4).unwrap();
+        let ticket = open_ticket(&mut journal, &mut book, FeeSourceKind::ExecutionBalance);
+        let mut effects = effects();
+        stage_top_level_child(&mut journal, &mut effects);
+        let mut meter = meter(0);
+        assert!(meter.charge_common(11).is_err());
+        let mut terminal = CoordinatorTerminalV1::ResourceExhausted;
+
+        let settlement = settle_top_level_execution(
+            &mut journal,
+            &mut effects,
+            &mut book,
+            ticket,
+            &meter,
+            &mut terminal,
+            RuntimeCallResultV1::Success(Vec::new()),
+        )
+        .unwrap();
+
+        assert_eq!(settlement.outcome(), CoordinatorOutcomeV1::ResourceExhausted);
+        assert_eq!(
+            settlement.fee_receipt().outcome(),
+            ExecutionOutcome::ResourceExhausted
+        );
+        assert_eq!(settlement.fee_receipt().actual_weight(), 10);
+        assert_eq!(settlement.fee_receipt().charged(), 20);
+        assert_eq!(read_balance(&journal, payer()).unwrap(), 80);
+        assert_eq!(read_total_execution_balance(&journal).unwrap(), 80);
+        assert_eq!(read_balance(&journal, target()).unwrap(), 0);
+        assert!(effects.root_events().is_empty());
+    }
+
+    #[test]
+    fn native_funded_settlement_does_not_touch_execution_accounting() {
+        let source = EmptySource;
+        let mut journal = journal(&source);
+        seed_accounting(&mut journal, 100);
+        let mut book = EscrowBookV1::new(4).unwrap();
+        let ticket = open_ticket(&mut journal, &mut book, FeeSourceKind::NativeUtxo);
+        let mut effects = effects();
+        journal.begin_frame().unwrap();
+        effects.begin().unwrap();
+        let meter = meter(5);
+        let mut terminal = CoordinatorTerminalV1::Running;
+
+        let settlement = settle_top_level_execution(
+            &mut journal,
+            &mut effects,
+            &mut book,
+            ticket,
+            &meter,
+            &mut terminal,
+            RuntimeCallResultV1::Success(Vec::new()),
+        )
+        .unwrap();
+
+        assert_eq!(settlement.fee_receipt().charged(), 10);
+        assert_eq!(read_balance(&journal, payer()).unwrap(), 100);
+        assert_eq!(read_total_execution_balance(&journal).unwrap(), 100);
+    }
+
+    #[test]
+    fn pre_escrow_invalidity_consumes_no_source_and_creates_no_settlement_path() {
+        let source = EmptySource;
+        let mut journal = journal(&source);
+        seed_accounting(&mut journal, 100);
+        let mut book = EscrowBookV1::new(4).unwrap();
+        let request = request(FeeSourceKind::ExecutionBalance);
+        let mut insufficient = validator(FeeSourceKind::ExecutionBalance, 39);
+
+        assert_eq!(
+            open_validated_escrow(&mut journal, &mut book, &mut insufficient, request),
+            Err(CoordinatorError::FundingCapabilityAmountTooSmall)
+        );
+        assert_eq!(read_balance(&journal, payer()).unwrap(), 100);
+        assert_eq!(read_total_execution_balance(&journal).unwrap(), 100);
+
+        let mut valid = validator(FeeSourceKind::ExecutionBalance, 100);
+        assert!(open_validated_escrow(&mut journal, &mut book, &mut valid, request).is_ok());
+    }
+
+    #[test]
+    fn double_settlement_fails_without_second_refund_or_total_debit() {
+        let source = EmptySource;
+        let mut journal = journal(&source);
+        seed_accounting(&mut journal, 100);
+        let mut book = EscrowBookV1::new(4).unwrap();
+        let ticket = open_ticket(&mut journal, &mut book, FeeSourceKind::ExecutionBalance);
+        let mut effects = effects();
+        journal.begin_frame().unwrap();
+        effects.begin().unwrap();
+        let meter = meter(5);
+        let mut terminal = CoordinatorTerminalV1::Running;
+        settle_top_level_execution(
+            &mut journal,
+            &mut effects,
+            &mut book,
+            ticket,
+            &meter,
+            &mut terminal,
+            RuntimeCallResultV1::Success(Vec::new()),
+        )
+        .unwrap();
+        assert_eq!(read_balance(&journal, payer()).unwrap(), 90);
+        assert_eq!(read_total_execution_balance(&journal).unwrap(), 90);
+
+        journal.begin_frame().unwrap();
+        effects.begin().unwrap();
+        let mut terminal = CoordinatorTerminalV1::Running;
+        assert_eq!(
+            settle_top_level_execution(
+                &mut journal,
+                &mut effects,
+                &mut book,
+                ticket,
+                &meter,
+                &mut terminal,
+                RuntimeCallResultV1::Success(Vec::new()),
+            ),
+            Err(CoordinatorError::FeeSettlementFailed)
+        );
+        assert_eq!(read_balance(&journal, payer()).unwrap(), 90);
+        assert_eq!(read_total_execution_balance(&journal).unwrap(), 90);
+    }
+
+    #[test]
+    fn fatal_after_escrow_returns_no_settlement_and_discards_top_level_child() {
+        let source = EmptySource;
+        let mut journal = journal(&source);
+        seed_accounting(&mut journal, 100);
+        let mut book = EscrowBookV1::new(4).unwrap();
+        let ticket = open_ticket(&mut journal, &mut book, FeeSourceKind::ExecutionBalance);
+        let mut effects = effects();
+        stage_top_level_child(&mut journal, &mut effects);
+        let meter = meter(5);
+        let mut terminal = CoordinatorTerminalV1::Fatal;
+
+        assert_eq!(
+            settle_top_level_execution(
+                &mut journal,
+                &mut effects,
+                &mut book,
+                ticket,
+                &meter,
+                &mut terminal,
+                RuntimeCallResultV1::Success(Vec::new()),
+            ),
+            Err(CoordinatorError::FatalExecution)
+        );
+        assert_eq!(read_balance(&journal, payer()).unwrap(), 60);
+        assert_eq!(read_total_execution_balance(&journal).unwrap(), 100);
+        assert_eq!(read_balance(&journal, target()).unwrap(), 0);
+        assert!(effects.root_events().is_empty());
+    }
+}
