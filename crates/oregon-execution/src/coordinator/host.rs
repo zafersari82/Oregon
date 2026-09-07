@@ -13,7 +13,9 @@ use oregon_runtime::{
 use crate::{ResourceDomain, WeightMeter};
 
 use super::accounting::CoordinatorJournalV1;
-use super::calls::{RuntimeDispatchTableV1, execute_nested_call, scoped_wasm_storage_key};
+use super::calls::{
+    NestedCallExecutionV1, RuntimeDispatchTableV1, execute_nested_call, scoped_wasm_storage_key,
+};
 use super::effects::EffectStackV1;
 use super::types::{CoordinatorError, CoordinatorTerminalV1};
 
@@ -405,12 +407,14 @@ impl RuntimeHostV1 for CoordinatorHostV1<'_> {
             execute_nested_call(
                 self.context,
                 spec,
-                journal,
-                self.meter,
-                self.effects,
-                self.terminal,
-                self.charges,
-                dispatch,
+                NestedCallExecutionV1::new(
+                    journal,
+                    self.meter,
+                    self.effects,
+                    self.terminal,
+                    self.charges,
+                    dispatch,
+                ),
             )?
         };
 

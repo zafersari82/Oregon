@@ -49,6 +49,35 @@ impl RuntimeDispatchTableV1 {
     }
 }
 
+pub(super) struct NestedCallExecutionV1<'a> {
+    journal: &'a mut dyn CoordinatorJournalV1,
+    meter: &'a mut WeightMeter,
+    effects: &'a mut EffectStackV1,
+    terminal: &'a mut CoordinatorTerminalV1,
+    charges: HostChargeScheduleV1,
+    dispatch: &'a RuntimeDispatchTableV1,
+}
+
+impl<'a> NestedCallExecutionV1<'a> {
+    pub(super) fn new(
+        journal: &'a mut dyn CoordinatorJournalV1,
+        meter: &'a mut WeightMeter,
+        effects: &'a mut EffectStackV1,
+        terminal: &'a mut CoordinatorTerminalV1,
+        charges: HostChargeScheduleV1,
+        dispatch: &'a RuntimeDispatchTableV1,
+    ) -> Self {
+        Self {
+            journal,
+            meter,
+            effects,
+            terminal,
+            charges,
+            dispatch,
+        }
+    }
+}
+
 pub(super) fn scoped_wasm_storage_key(
     target: ExecutionAddress,
     local_key: &[u8],
@@ -216,13 +245,17 @@ fn commit_child_frames(
 pub(super) fn execute_nested_call(
     parent_context: &RuntimeCallContextV1,
     spec: RuntimeCallSpecV1,
-    journal: &mut dyn CoordinatorJournalV1,
-    meter: &mut WeightMeter,
-    effects: &mut EffectStackV1,
-    terminal: &mut CoordinatorTerminalV1,
-    charges: HostChargeScheduleV1,
-    dispatch: &RuntimeDispatchTableV1,
+    execution: NestedCallExecutionV1<'_>,
 ) -> Result<RuntimeCallResultV1, RuntimeHostSignalV1> {
+    let NestedCallExecutionV1 {
+        journal,
+        meter,
+        effects,
+        terminal,
+        charges,
+        dispatch,
+    } = execution;
+
     if *terminal != CoordinatorTerminalV1::Running {
         return Err(RuntimeHostSignalV1::Abort);
     }
