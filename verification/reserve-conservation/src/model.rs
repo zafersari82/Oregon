@@ -19,9 +19,10 @@ pub enum ArithmeticError {
 }
 
 pub fn construct_arithmetic(input: ArithmeticInput) -> Result<u64, ArithmeticError> {
-    // Deliberately weakened RED model: the production constructor rejects a present
-    // zero snapshot before arithmetic. Omitting that guard must be caught by the
-    // correspondence test before the real bounded model is implemented.
+    if input.previous == Some(0) {
+        return Err(ArithmeticError::InvalidPreviousSnapshot);
+    }
+
     let previous = input.previous.unwrap_or(0);
     let after_deposit = previous
         .checked_add(input.native_deposit_total)
