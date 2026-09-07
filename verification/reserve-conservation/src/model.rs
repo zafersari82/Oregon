@@ -230,12 +230,6 @@ pub fn undo_state(state: &mut ModelState, undo: &ModelUndo) -> Result<(), StateE
     if let Some(index) = created_index {
         overlay.slots[index] = None;
     }
-    if let Some(previous) = undo.previous {
-        let Some(index) = overlay.slots.iter().position(Option::is_none) else {
-            return Err(StateError::UndoMismatch);
-        };
-        overlay.slots[index] = Some(previous);
-    }
 
     *state = overlay;
     Ok(())
