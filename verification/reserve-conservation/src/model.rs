@@ -116,8 +116,9 @@ pub fn apply_state_with_undo(
             .map(|_| index)
     });
 
-    // Deliberately weakened for semantic RED evidence: two live reserves are
-    // allowed to continue into ordinary previous-snapshot matching.
+    if reserve_indices.iter().flatten().count() > 1 {
+        return Err(StateError::MultipleLiveReserves);
+    }
 
     let previous_index = match transition.previous {
         None => {
