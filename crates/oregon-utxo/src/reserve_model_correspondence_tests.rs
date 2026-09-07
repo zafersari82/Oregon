@@ -389,3 +389,90 @@ fn correspondence_pins_apply_undo_round_trip_restores_full_pre_state() {
     reserve_model::undo_state(&mut model_state, &model_undo).unwrap();
     assert_eq!(model_state, model_before);
 }
+
+#[test]
+fn correspondence_pins_created_reserve_exact_metadata_and_program() {
+    let ordinary = tagged_outpoint(0xc1);
+    let transition = ReserveTransitionV1::new(ReserveTransitionV1Parts {
+        chain_id: 7,
+        height: 100,
+        parent_block_hash: Hash256::from_bytes([0x10; 32]),
+        previous: None,
+        native_deposit_total: 10,
+        execution_withdrawal_total: 0,
+        execution_fee_total: 0,
+        new_execution_balance_total: 10,
+        producer_coinbase_txid: Hash256::from_bytes([0x20; 32]),
+    })
+    .unwrap();
+
+    let mut production_state =
+        UtxoState::try_from_entries([(ordinary, ordinary_entry(7))]).unwrap();
+    crate::reserve::apply_reserve_transition_v1(&mut production_state, &transition).unwrap();
+    let created = transition.new_reserve_outpoint().unwrap();
+    let production_created = production_state
+        .entries()
+        .find(|(outpoint, _)| **outpoint == created)
+        .map(|(_, entry)| entry)
+        .unwrap();
+    assert_eq!(
+        production_created.output.value,
+        Amount::from_base_units(10).unwrap()
+    );
+    assert_eq!(
+        production_created.output.locking_program,
+        EXECUTION_RESERVE_LOCKING_PROGRAM_V1
+    );
+    assert_eq!(production_created.creation_height, 100);
+    assert!(!production_created.is_coinbase);
+    assert_eq!(
+        production_state
+            .entries()
+            .find(|(outpoint, _)| **outpoint == ordinary)
+            .map(|(_, entry)| entry),
+        Some(&ordinary_entry(7))
+    );
+
+    let ordinary_slot = ModelSlot {
+        key: 2,
+        entry: ModelEntry {
+            amount: 7,
+            creation_height: 88,
+            is_coinbase: true,
+            program: ProgramClass::Ordinary,
+        },
+    };
+    let mut model_state = ModelState {
+        slots: [Some(ordinary_slot), None, None, None],
+    };
+    let model_undo = reserve_model::apply_state_with_undo(
+        &mut model_state,
+        StateTransition {
+            previous: None,
+            new_key: Some(7),
+            new_amount: 10,
+            height: 100,
+        },
+    )
+    .unwrap();
+    let expected_created = ModelSlot {
+        key: 7,
+        entry: ModelEntry {
+            amount: 10,
+            creation_height: 100,
+            is_coinbase: false,
+            program: ProgramClass::Reserve,
+        },
+    };
+    assert_eq!(model_undo.created, Some(expected_created));
+    assert_eq!(
+        model_state
+            .slots
+            .iter()
+            .flatten()
+            .find(|slot| slot.key == 7)
+            .copied(),
+        Some(expected_created)
+    );
+    assert!(model_state.slots.contains(&Some(ordinary_slot)));
+}
