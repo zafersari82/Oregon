@@ -12,7 +12,7 @@ permissions:
 jobs:
   proofs:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
@@ -92,6 +92,20 @@ jobs:
               verification/reserve-conservation/state.rs \
               --harness "$harness" 2>&1 | tee "$RUNNER_TEMP/reserve-state-proofs/$harness.log"
           done
+      - name: Run RC01-RC10 semantic controls and restore positive suite
+        run: |
+          proof_rustc="$(rustup which --toolchain nightly-2025-11-21-x86_64-unknown-linux-gnu rustc)"
+          python3 scripts/verify_reserve_proof_controls.py \
+            --kani-home "$HOME/.kani/kani-0.67.0" \
+            --archive "$RUNNER_TEMP/kani-pinned.tar.gz" \
+            --rustc "$proof_rustc" \
+            --output "$RUNNER_TEMP/reserve-proof-controls"
+      - name: Show semantic control summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/reserve-proof-controls/summary.json" ]; then
+            cat "$RUNNER_TEMP/reserve-proof-controls/summary.json"
+          fi
       - name: Retain reserve proof evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -101,4 +115,5 @@ jobs:
             ${{ runner.temp }}/reserve-proof-bootstrap/
             ${{ runner.temp }}/reserve-arithmetic-proofs/
             ${{ runner.temp }}/reserve-state-proofs/
+            ${{ runner.temp }}/reserve-proof-controls/
           if-no-files-found: error
