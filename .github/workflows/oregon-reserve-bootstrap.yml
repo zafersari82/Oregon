@@ -54,6 +54,12 @@ jobs:
             --archive "$RUNNER_TEMP/kani-pinned.tar.gz" \
             --rustc "$proof_rustc" \
             --output "$RUNNER_TEMP/reserve-bootstrap-evidence"
+      - name: Show bootstrap diagnostics
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/reserve-bootstrap-evidence/summary.json" ]; then
+            cat "$RUNNER_TEMP/reserve-bootstrap-evidence/summary.json"
+          fi
       - name: Retain bootstrap evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
