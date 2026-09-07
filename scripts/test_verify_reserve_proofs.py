@@ -21,6 +21,12 @@ class ParserTests(unittest.TestCase):
         for name in ('positive', 'positive_after_negative'):
             self.assertEqual(len(parse_bootstrap(output(name), 0, 'bootstrap_positive')), 3)
 
+    def test_real_ci_infrastructure_failure_is_not_a_kill(self):
+        fixture = json.loads((FIXTURES.parent / 'runner/missing-backend.json').read_text())
+        for harness in ('bootstrap_positive', 'bootstrap_negative'):
+            with self.assertRaises(GateError):
+                parse_bootstrap(fixture['output'], fixture['returncode'], harness)
+
     def test_real_negative(self):
         self.assertEqual(len(parse_bootstrap(output('negative'), 1, 'bootstrap_negative')), 1)
 
