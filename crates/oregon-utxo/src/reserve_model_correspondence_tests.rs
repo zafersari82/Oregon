@@ -317,3 +317,75 @@ fn correspondence_pins_tampered_undo_rejection_and_atomicity() {
     assert_eq!(model_undo_result, production_undo_result);
     assert_eq!(model_state, model_before);
 }
+
+#[test]
+fn correspondence_pins_apply_undo_round_trip_restores_full_pre_state() {
+    let previous = tagged_outpoint(0xb1);
+    let ordinary = tagged_outpoint(0xb2);
+    let transition = ReserveTransitionV1::new(ReserveTransitionV1Parts {
+        chain_id: 7,
+        height: 100,
+        parent_block_hash: Hash256::from_bytes([0x10; 32]),
+        previous: Some(ReservePoolSnapshotV1 {
+            outpoint: previous,
+            amount: 100,
+        }),
+        native_deposit_total: 30,
+        execution_withdrawal_total: 10,
+        execution_fee_total: 5,
+        new_execution_balance_total: 115,
+        producer_coinbase_txid: Hash256::from_bytes([0x20; 32]),
+    })
+    .unwrap();
+
+    let mut production_state = UtxoState::try_from_entries([
+        (previous, reserve_entry(100)),
+        (ordinary, ordinary_entry(7)),
+    ])
+    .unwrap();
+    let production_before = production_state.clone();
+    let production_undo =
+        crate::reserve::apply_reserve_transition_v1(&mut production_state, &transition).unwrap();
+    assert_ne!(production_state, production_before);
+    crate::reserve::undo_reserve_transition_v1(&mut production_state, &production_undo).unwrap();
+    assert_eq!(production_state, production_before);
+
+    let reserve = ModelSlot {
+        key: 1,
+        entry: ModelEntry {
+            amount: 100,
+            creation_height: 99,
+            is_coinbase: false,
+            program: ProgramClass::Reserve,
+        },
+    };
+    let ordinary = ModelSlot {
+        key: 2,
+        entry: ModelEntry {
+            amount: 7,
+            creation_height: 88,
+            is_coinbase: true,
+            program: ProgramClass::Ordinary,
+        },
+    };
+    let mut model_state = ModelState {
+        slots: [Some(reserve), Some(ordinary), None, None],
+    };
+    let model_before = model_state;
+    let model_undo = reserve_model::apply_state_with_undo(
+        &mut model_state,
+        StateTransition {
+            previous: Some(StateSnapshot {
+                key: 1,
+                amount: 100,
+            }),
+            new_key: Some(7),
+            new_amount: 115,
+            height: 100,
+        },
+    )
+    .unwrap();
+    assert_ne!(model_state, model_before);
+    reserve_model::undo_state(&mut model_state, &model_undo).unwrap();
+    assert_eq!(model_state, model_before);
+}
