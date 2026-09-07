@@ -515,11 +515,9 @@ fn correspondence_pins_zero_result_has_no_live_reserve() {
     })
     .unwrap();
 
-    let mut production_state = UtxoState::try_from_entries([
-        (previous, reserve_entry(10)),
-        (ordinary, ordinary_entry(7)),
-    ])
-    .unwrap();
+    let mut production_state =
+        UtxoState::try_from_entries([(previous, reserve_entry(10)), (ordinary, ordinary_entry(7))])
+            .unwrap();
     crate::reserve::apply_reserve_transition_v1(&mut production_state, &transition).unwrap();
 
     assert_eq!(transition.new_reserve_outpoint(), None);
@@ -550,10 +548,7 @@ fn correspondence_pins_zero_result_has_no_live_reserve() {
     reserve_model::apply_state(
         &mut model_state,
         StateTransition {
-            previous: Some(StateSnapshot {
-                key: 1,
-                amount: 10,
-            }),
+            previous: Some(StateSnapshot { key: 1, amount: 10 }),
             new_key: None,
             new_amount: 0,
             height: 100,
