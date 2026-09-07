@@ -34,8 +34,6 @@ mod block_tests;
 #[cfg(test)]
 mod reserve_model_correspondence_tests;
 #[cfg(test)]
-mod reserve_model_singleton_correspondence_tests;
-#[cfg(test)]
 mod test_support;
 #[cfg(test)]
 mod undo_tests;

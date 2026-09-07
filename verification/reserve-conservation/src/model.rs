@@ -165,9 +165,7 @@ pub fn apply_state_with_undo(
 
     let mut overlay = *state;
     if let Some(index) = previous_index {
-        if transition.new_amount != 0 {
-            overlay.slots[index] = None;
-        }
+        overlay.slots[index] = None;
     }
 
     if let Some(created) = created {

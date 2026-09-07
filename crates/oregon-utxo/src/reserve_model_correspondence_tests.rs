@@ -476,3 +476,150 @@ fn correspondence_pins_created_reserve_exact_metadata_and_program() {
     );
     assert!(model_state.slots.contains(&Some(ordinary_slot)));
 }
+
+fn production_reserve_count(state: &UtxoState) -> usize {
+    state
+        .entries()
+        .filter(|(_, entry)| {
+            entry.output.locking_program.as_slice() == EXECUTION_RESERVE_LOCKING_PROGRAM_V1
+        })
+        .count()
+}
+
+fn model_reserve_count(state: &ModelState) -> usize {
+    state
+        .slots
+        .iter()
+        .flatten()
+        .filter(|slot| slot.entry.program == ProgramClass::Reserve)
+        .count()
+}
+
+#[test]
+fn correspondence_pins_zero_result_has_no_live_reserve() {
+    let previous = tagged_outpoint(0xd1);
+    let ordinary = tagged_outpoint(0xd2);
+    let transition = ReserveTransitionV1::new(ReserveTransitionV1Parts {
+        chain_id: 7,
+        height: 100,
+        parent_block_hash: Hash256::from_bytes([0x10; 32]),
+        previous: Some(ReservePoolSnapshotV1 {
+            outpoint: previous,
+            amount: 10,
+        }),
+        native_deposit_total: 0,
+        execution_withdrawal_total: 10,
+        execution_fee_total: 0,
+        new_execution_balance_total: 0,
+        producer_coinbase_txid: Hash256::from_bytes([0x20; 32]),
+    })
+    .unwrap();
+
+    let mut production_state = UtxoState::try_from_entries([
+        (previous, reserve_entry(10)),
+        (ordinary, ordinary_entry(7)),
+    ])
+    .unwrap();
+    crate::reserve::apply_reserve_transition_v1(&mut production_state, &transition).unwrap();
+
+    assert_eq!(transition.new_reserve_outpoint(), None);
+    assert_eq!(production_reserve_count(&production_state), 0);
+    assert_eq!(production_state.get(&ordinary), Some(&ordinary_entry(7)));
+
+    let reserve_slot = ModelSlot {
+        key: 1,
+        entry: ModelEntry {
+            amount: 10,
+            creation_height: 99,
+            is_coinbase: false,
+            program: ProgramClass::Reserve,
+        },
+    };
+    let ordinary_slot = ModelSlot {
+        key: 2,
+        entry: ModelEntry {
+            amount: 7,
+            creation_height: 88,
+            is_coinbase: true,
+            program: ProgramClass::Ordinary,
+        },
+    };
+    let mut model_state = ModelState {
+        slots: [Some(reserve_slot), Some(ordinary_slot), None, None],
+    };
+    reserve_model::apply_state(
+        &mut model_state,
+        StateTransition {
+            previous: Some(StateSnapshot {
+                key: 1,
+                amount: 10,
+            }),
+            new_key: None,
+            new_amount: 0,
+            height: 100,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(model_reserve_count(&model_state), 0);
+    assert_eq!(
+        model_reserve_count(&model_state),
+        production_reserve_count(&production_state)
+    );
+    assert!(model_state.slots.contains(&Some(ordinary_slot)));
+}
+
+#[test]
+fn correspondence_pins_positive_result_has_exactly_one_live_reserve() {
+    let ordinary = tagged_outpoint(0xe1);
+    let transition = ReserveTransitionV1::new(ReserveTransitionV1Parts {
+        chain_id: 7,
+        height: 100,
+        parent_block_hash: Hash256::from_bytes([0x10; 32]),
+        previous: None,
+        native_deposit_total: 10,
+        execution_withdrawal_total: 0,
+        execution_fee_total: 0,
+        new_execution_balance_total: 10,
+        producer_coinbase_txid: Hash256::from_bytes([0x20; 32]),
+    })
+    .unwrap();
+
+    let mut production_state =
+        UtxoState::try_from_entries([(ordinary, ordinary_entry(7))]).unwrap();
+    crate::reserve::apply_reserve_transition_v1(&mut production_state, &transition).unwrap();
+
+    assert!(transition.new_reserve_outpoint().is_some());
+    assert_eq!(production_reserve_count(&production_state), 1);
+    assert_eq!(production_state.get(&ordinary), Some(&ordinary_entry(7)));
+
+    let ordinary_slot = ModelSlot {
+        key: 2,
+        entry: ModelEntry {
+            amount: 7,
+            creation_height: 88,
+            is_coinbase: true,
+            program: ProgramClass::Ordinary,
+        },
+    };
+    let mut model_state = ModelState {
+        slots: [Some(ordinary_slot), None, None, None],
+    };
+    reserve_model::apply_state(
+        &mut model_state,
+        StateTransition {
+            previous: None,
+            new_key: Some(7),
+            new_amount: 10,
+            height: 100,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(model_reserve_count(&model_state), 1);
+    assert_eq!(
+        model_reserve_count(&model_state),
+        production_reserve_count(&production_state)
+    );
+    assert!(model_state.slots.contains(&Some(ordinary_slot)));
+}
