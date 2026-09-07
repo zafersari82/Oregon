@@ -1,0 +1,81 @@
+name: Oregon Reserve Arithmetic Proofs
+
+on:
+  push:
+    branches: [work/reserve-evidence-gate-2026-09-07]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  arithmetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install pinned verifier installer
+        run: |
+          rustup toolchain install 1.88.0 --profile minimal
+          cargo +1.88.0 install --locked kani-verifier --version 0.67.0
+      - name: Download and verify pinned archive before setup
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import urllib.request
+          lock = json.loads(Path('verification/reserve-conservation/toolchain-lock.json').read_text())
+          asset = lock['release_asset']
+          archive = Path(os.environ['RUNNER_TEMP']) / 'kani-pinned.tar.gz'
+          urllib.request.urlretrieve(asset['url'], archive)
+          if archive.stat().st_size != asset['size_bytes']:
+              raise SystemExit('Kani archive size mismatch')
+          with archive.open('rb') as data:
+              actual = hashlib.file_digest(data, 'sha256').hexdigest()
+          if actual != asset['sha256']:
+              raise SystemExit('Kani archive digest mismatch')
+          PY
+          cargo kani setup --use-local-bundle "$RUNNER_TEMP/kani-pinned.tar.gz"
+      - name: Revalidate pinned bootstrap before proofs
+        run: |
+          proof_rustc="$(rustup which --toolchain nightly-2025-11-21-x86_64-unknown-linux-gnu rustc)"
+          python3 scripts/verify_reserve_proofs.py --bootstrap \
+            --kani-home "$HOME/.kani/kani-0.67.0" \
+            --archive "$RUNNER_TEMP/kani-pinned.tar.gz" \
+            --rustc "$proof_rustc" \
+            --output "$RUNNER_TEMP/reserve-arithmetic-bootstrap"
+      - name: Run RC01 RC02 RC08 RC09 arithmetic proof slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.kani/kani-0.67.0/bin:$HOME/.kani/kani-0.67.0/pyroot/bin:$PATH"
+          export PYTHONPATH="$HOME/.kani/kani-0.67.0/pyroot${PYTHONPATH:+:$PYTHONPATH}"
+          export RUSTUP_TOOLCHAIN="nightly-2025-11-21-x86_64-unknown-linux-gnu"
+          mkdir -p "$RUNNER_TEMP/reserve-arithmetic-proofs"
+          for harness in \
+            rc01_accepted_arithmetic_matches_mathematical_equation \
+            rc02_accepted_result_equals_claimed_execution_total \
+            rc08_accepted_transition_conserves_reserve_arithmetic \
+            rc09_invalid_arithmetic_and_endpoints_reject
+          do
+            "$HOME/.kani/kani-0.67.0/bin/kani-driver" \
+              verification/reserve-conservation/arithmetic.rs \
+              --harness "$harness" 2>&1 | tee "$RUNNER_TEMP/reserve-arithmetic-proofs/$harness.log"
+          done
+      - name: Retain arithmetic proof evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reserve-arithmetic-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/reserve-arithmetic-bootstrap/
+            ${{ runner.temp }}/reserve-arithmetic-proofs/
+          if-no-files-found: error

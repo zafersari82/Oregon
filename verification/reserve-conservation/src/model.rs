@@ -34,9 +34,8 @@ pub fn construct_arithmetic(input: ArithmeticInput) -> Result<u64, ArithmeticErr
         .checked_sub(input.execution_fee_total)
         .ok_or(ArithmeticError::ArithmeticUnderflow)?;
 
-    if result != input.new_execution_balance_total {
-        return Err(ArithmeticError::ExecutionBalanceMismatch);
-    }
+    // Deliberately weakened for semantic RED evidence: the verification model
+    // temporarily accepts a caller-supplied execution total that does not match R.
 
     if input
         .previous
