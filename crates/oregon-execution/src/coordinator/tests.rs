@@ -222,16 +222,16 @@ mod meter {
         let mut meter = WeightMeter::new(meter_schedule(2, 1), 100, 0).unwrap();
         let mut effects = effects();
         let mut terminal = CoordinatorTerminalV1::Running;
-        let mut host = CoordinatorHostV1::new(
-            &context,
-            &mut meter,
-            &mut effects,
-            &mut terminal,
-            host_charges(1, 1, 1),
-        );
-
-        host.charge_vm_units(3).unwrap();
-        drop(host);
+        {
+            let mut host = CoordinatorHostV1::new(
+                &context,
+                &mut meter,
+                &mut effects,
+                &mut terminal,
+                host_charges(1, 1, 1),
+            );
+            host.charge_vm_units(3).unwrap();
+        }
         assert_eq!(meter.consumed(), 6);
     }
 
@@ -241,15 +241,16 @@ mod meter {
         let mut meter = WeightMeter::new(meter_schedule(1, 1), 100, 0).unwrap();
         let mut effects = effects();
         let mut terminal = CoordinatorTerminalV1::Running;
-        let mut host = CoordinatorHostV1::new(
-            &context,
-            &mut meter,
-            &mut effects,
-            &mut terminal,
-            host_charges(1, 1, 1),
-        );
-        host.charge_vm_units(7).unwrap();
-        drop(host);
+        {
+            let mut host = CoordinatorHostV1::new(
+                &context,
+                &mut meter,
+                &mut effects,
+                &mut terminal,
+                host_charges(1, 1, 1),
+            );
+            host.charge_vm_units(7).unwrap();
+        }
 
         effects.begin().unwrap();
         effects.revert().unwrap();
@@ -262,17 +263,17 @@ mod meter {
         let mut meter = WeightMeter::new(meter_schedule(1, 1), 10, 0).unwrap();
         let mut effects = effects();
         let mut terminal = CoordinatorTerminalV1::Running;
-        let mut host = CoordinatorHostV1::new(
-            &context,
-            &mut meter,
-            &mut effects,
-            &mut terminal,
-            host_charges(1, 1, 1),
-        );
-
-        host.charge_common(3).unwrap();
-        host.charge_vm_units(2).unwrap();
-        drop(host);
+        {
+            let mut host = CoordinatorHostV1::new(
+                &context,
+                &mut meter,
+                &mut effects,
+                &mut terminal,
+                host_charges(1, 1, 1),
+            );
+            host.charge_common(3).unwrap();
+            host.charge_vm_units(2).unwrap();
+        }
         assert_eq!(meter.consumed(), 5);
     }
 
@@ -282,18 +283,18 @@ mod meter {
         let mut meter = WeightMeter::new(meter_schedule(1, 1), 10, 0).unwrap();
         let mut effects = effects();
         let mut terminal = CoordinatorTerminalV1::Running;
-        let mut host = CoordinatorHostV1::new(
-            &context,
-            &mut meter,
-            &mut effects,
-            &mut terminal,
-            host_charges(1, 1, 1),
-        );
-
-        host.charge_common(10).unwrap();
-        assert_eq!(host.charge_common(1), Err(RuntimeHostSignalV1::Abort));
-        assert_eq!(host.charge_vm_units(1), Err(RuntimeHostSignalV1::Abort));
-        drop(host);
+        {
+            let mut host = CoordinatorHostV1::new(
+                &context,
+                &mut meter,
+                &mut effects,
+                &mut terminal,
+                host_charges(1, 1, 1),
+            );
+            host.charge_common(10).unwrap();
+            assert_eq!(host.charge_common(1), Err(RuntimeHostSignalV1::Abort));
+            assert_eq!(host.charge_vm_units(1), Err(RuntimeHostSignalV1::Abort));
+        }
 
         assert_eq!(meter.consumed(), 10);
         assert!(meter.is_exhausted());
@@ -318,18 +319,19 @@ mod meter {
         let mut meter = WeightMeter::new(meter_schedule(1, 1), 10, 0).unwrap();
         let mut effects = effects();
         let mut terminal = CoordinatorTerminalV1::Running;
-        let mut host = CoordinatorHostV1::new(
-            &context,
-            &mut meter,
-            &mut effects,
-            &mut terminal,
-            host_charges(1, 1, 1),
-        );
         let mut backend = CatchAbortAndReturnSuccess;
 
-        let result = backend.execute(&mut host).unwrap();
+        let result = {
+            let mut host = CoordinatorHostV1::new(
+                &context,
+                &mut meter,
+                &mut effects,
+                &mut terminal,
+                host_charges(1, 1, 1),
+            );
+            backend.execute(&mut host).unwrap()
+        };
         assert!(matches!(result, RuntimeCallResultV1::Success(_)));
-        drop(host);
 
         assert_eq!(terminal, CoordinatorTerminalV1::ResourceExhausted);
         assert_eq!(meter.consumed(), 10);
@@ -341,19 +343,19 @@ mod meter {
         let mut meter = WeightMeter::new(meter_schedule(1, 1), 5, 0).unwrap();
         let mut effects = effects();
         let mut terminal = CoordinatorTerminalV1::Running;
-        let mut host = CoordinatorHostV1::new(
-            &context,
-            &mut meter,
-            &mut effects,
-            &mut terminal,
-            host_charges(1, 1, 1),
-        );
-
-        assert_eq!(
-            host.emit_event(&[], &[0u8; 5]),
-            Err(RuntimeHostSignalV1::Abort)
-        );
-        drop(host);
+        {
+            let mut host = CoordinatorHostV1::new(
+                &context,
+                &mut meter,
+                &mut effects,
+                &mut terminal,
+                host_charges(1, 1, 1),
+            );
+            assert_eq!(
+                host.emit_event(&[], &[0u8; 5]),
+                Err(RuntimeHostSignalV1::Abort)
+            );
+        }
 
         assert_eq!(terminal, CoordinatorTerminalV1::ResourceExhausted);
         assert_eq!(meter.consumed(), 5);
@@ -367,16 +369,16 @@ mod meter {
         let mut meter = WeightMeter::new(meter_schedule(1, 1), 10, 0).unwrap();
         let mut effects = effects();
         let mut terminal = CoordinatorTerminalV1::Running;
-        let mut host = CoordinatorHostV1::new(
-            &context,
-            &mut meter,
-            &mut effects,
-            &mut terminal,
-            host_charges(1, 1, 2),
-        );
-
-        host.charge_context_query().unwrap();
-        drop(host);
+        {
+            let mut host = CoordinatorHostV1::new(
+                &context,
+                &mut meter,
+                &mut effects,
+                &mut terminal,
+                host_charges(1, 1, 2),
+            );
+            host.charge_context_query().unwrap();
+        }
         assert_eq!(meter.consumed(), 2);
     }
 
@@ -386,19 +388,19 @@ mod meter {
         let mut meter = WeightMeter::new(meter_schedule(1, 1), 100, 0).unwrap();
         let mut effects = effects();
         let mut terminal = CoordinatorTerminalV1::Running;
-        let mut host = CoordinatorHostV1::new(
-            &context,
-            &mut meter,
-            &mut effects,
-            &mut terminal,
-            host_charges(1, u64::MAX, 1),
-        );
-
-        assert_eq!(
-            host.emit_event(&[], &[0u8; 2]),
-            Err(RuntimeHostSignalV1::Abort)
-        );
-        drop(host);
+        {
+            let mut host = CoordinatorHostV1::new(
+                &context,
+                &mut meter,
+                &mut effects,
+                &mut terminal,
+                host_charges(1, u64::MAX, 1),
+            );
+            assert_eq!(
+                host.emit_event(&[], &[0u8; 2]),
+                Err(RuntimeHostSignalV1::Abort)
+            );
+        }
 
         assert_eq!(terminal, CoordinatorTerminalV1::Fatal);
         assert_eq!(meter.consumed(), 0);
