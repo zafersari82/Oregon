@@ -158,7 +158,11 @@ pub fn apply_state_with_undo(
                 amount: transition.new_amount,
                 creation_height: transition.height,
                 is_coinbase: false,
-                program: ProgramClass::Ordinary,
+                program: if transition.previous.is_none() {
+                    ProgramClass::Ordinary
+                } else {
+                    ProgramClass::Reserve
+                },
             },
         })
     };
