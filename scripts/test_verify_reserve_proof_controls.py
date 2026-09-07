@@ -15,8 +15,11 @@ from verify_reserve_proof_controls import (
 def playback_block(control, kind, description, suffix):
     return (
         f"Concrete playback unit test for `{control['harness']}`:\n"
-        "```rust\n"
+        "```\n"
+        f"/// Test generated for harness `{control['harness']}` \n"
+        "///\n"
         f"/// Check for `{kind}`: \"\"{description}\"\"\n"
+        "\n"
         "#[test]\n"
         f"fn kani_concrete_playback_{control['harness']}_{suffix}() {{\n"
         "    let concrete_vals: Vec<Vec<u8>> = vec![\n"
@@ -40,6 +43,19 @@ def shaped_control_output(
     description = failure or control["target_failure"]
     status = "FAILURE" if return_verdict == "FAILED" else "SUCCESS"
     failed_count = 1 if return_verdict == "FAILED" else 0
+    properties = (
+        f"Check 1: {control['harness']}.assertion.1\n"
+        f" - Status: {status}\n"
+        f" - Description: \"{description}\"\n"
+        f" - Location: verification/reserve-conservation/control.rs:1:1 in function {control['harness']}\n"
+    )
+    for index in range(cover_playbacks):
+        properties += (
+            f"Check {index + 2}: {control['harness']}.cover.{index + 1}\n"
+            " - Status: SATISFIED\n"
+            f" - Description: \"{control['id']} reachability {index + 1}\"\n"
+            f" - Location: verification/reserve-conservation/control.rs:2:1 in function {control['harness']}\n"
+        )
     playback = ""
     if concrete:
         playback = playback_block(control, "assertion", description, "assertion")
@@ -62,11 +78,8 @@ def shaped_control_output(
         "CBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux\n"
         "Solving with CaDiCaL 2.0.0\n"
         "RESULTS:\n"
-        f"Check 1: {control['harness']}.assertion.1\n"
-        f" - Status: {status}\n"
-        f" - Description: \"{description}\"\n"
-        f" - Location: verification/reserve-conservation/control.rs:1:1 in function {control['harness']}\n"
-        "SUMMARY:\n"
+        + properties
+        + "SUMMARY:\n"
         f" ** {failed_count} of 1 failed\n"
         + (f"Failed Checks: \"{description}\"\n" if return_verdict == "FAILED" else "")
         + f"VERIFICATION:- {return_verdict}\n"
@@ -150,6 +163,7 @@ class ControlParserTests(unittest.TestCase):
         )
         self.assertEqual(parsed["id"], "RC01")
         self.assertTrue(parsed["counterexample_bound"])
+        self.assertEqual(parsed["playbacks"], 1 + control["positive_covers"])
 
     def test_accepts_complete_positive_rerun(self):
         parsed = parse_positive(shaped_positive_output(self.control), 0, self.control)
