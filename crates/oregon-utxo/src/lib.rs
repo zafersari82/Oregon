@@ -32,6 +32,13 @@ impl ReserveTransitionV1 {
 #[cfg(test)]
 mod block_tests;
 #[cfg(test)]
+#[path = "../../../verification/reserve-conservation/src/model.rs"]
+mod reserve_model;
+#[cfg(test)]
+mod reserve_model_correspondence_tests;
+#[cfg(test)]
+mod reserve_model_rc06_correspondence_tests;
+#[cfg(test)]
 mod test_support;
 #[cfg(test)]
 mod undo_tests;

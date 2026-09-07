@@ -13,6 +13,8 @@ Read these files before proposing or implementing Oregon changes:
 3. `docs/superpowers/specs/2026-09-05-execution-architecture-design.md` whenever work touches execution, VM, fees, contract state, token/NFT/DeFi integration, privacy boundaries, bridge boundaries, or AI/oracle boundaries
 4. the latest accepted checkpoint under `docs/checkpoints/` for every subsystem you will touch
 5. any additional versioned design/spec named by the current task
+6. `docs/architecture/OREGON_OWNER_DIRECTION.md` for the current owner-approved scope,
+   enduring engineering objective and cross-session continuity requirements
 
 These documents are normative. Do not infer a different architecture from surrounding code, another blockchain, a framework default, or a convenience shortcut.
 

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "scope": "bootstrap parser and process runner tests only",
+  "source_sha": "0691c44ca12a4f4c91c048062f64a9895db6c0f3",
+  "test_command": "python3 -m unittest discover -s scripts -p test_verify_reserve_proofs.py",
+  "test_methods_passed": 6,
+  "malformed_output_cases_rejected": 19,
+  "red_evidence": "19 semantic assertion failures against deliberately permissive parser before implementation",
+  "live_kani_executed": false,
+  "reserve_proofs_executed": [],
+  "limitations": [
+    "No Rust or Kani installed in this continuation environment.",
+    "Rust download attempt stopped by network approval.",
+    "Pinned preflight and live invocation still require validation with installed tools.",
+    "Workspace Rust, Clippy, mutation and exact-head CI gates have not run for this change."
+  ]
+}
