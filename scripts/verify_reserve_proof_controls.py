@@ -229,7 +229,8 @@ CONTROLS = (
 
 PROPERTY_PATTERN = re.compile(
     r"Check (\d+): ([^\n]+)\n\s+- Status: ([A-Z]+)\n"
-    r"\s+- Description: ([^\n]+)\n\s+- Location: ([^\n]+)\n"
+    r"\s+- Description: (.+?)\n\s+- Location: ([^\n]+)\n",
+    re.S,
 )
 PLAYBACK_PATTERN = re.compile(
     r"Concrete playback unit test for `([^`]+)`:\n(.*?)"
