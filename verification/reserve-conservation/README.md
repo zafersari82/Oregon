@@ -2,8 +2,9 @@
 
 The owner approved the design and plan under `docs/superpowers/` on 2026-09-06.
 This directory currently contains a pinned toolchain and bootstrap checks.
-The reserve model, RC01–RC10 proofs, production differential matrix, full runner
-and CI workflow are still pending. Bootstrap results are not reserve proof evidence.
+The reserve model, RC01–RC10 proofs, production differential matrix and CI workflow
+are still pending. The fail-closed repository runner is present, but refuses the
+incomplete RC suite. Bootstrap results are not reserve proof evidence.
 
 ## Toolchain
 
@@ -32,12 +33,12 @@ Verify installed binary digests against the manifest before running proofs.
 From the repository root:
 
 ```bash
-kani verification/reserve-conservation/bootstrap.rs --harness bootstrap_positive
-kani verification/reserve-conservation/bootstrap.rs --harness bootstrap_negative -Z concrete-playback --concrete-playback=print
-kani verification/reserve-conservation/bootstrap.rs --harness bootstrap_positive
+python3 scripts/verify_reserve_proofs.py --bootstrap
 ```
 
-The middle command must exit 1 with failure of
+The runner verifies the pinned Kani, CBMC, compiler and toolchain identities before
+executing the exact manifest-listed sequence. The middle Kani invocation must exit 1
+with failure of
 `bootstrap_negative.assertion.1`, the named wrapping-increment assertion and
 the concrete byte input `255`. Compilation failure or another failed property
 does not satisfy this control. The other commands must exit 0 with both assertions

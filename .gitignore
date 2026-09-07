@@ -1,1 +1,6 @@
 /target/
+__pycache__/
+verification/reserve-conservation/*.out
+verification/reserve-conservation/*.pretty_name_map.json
+verification/reserve-conservation/*.symtab.out
+verification/reserve-conservation/*.type_map.json

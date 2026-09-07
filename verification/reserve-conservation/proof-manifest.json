@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "toolchain_lock": "verification/reserve-conservation/toolchain-lock.json",
+  "timeout_seconds": 300,
+  "bootstrap": {
+    "source": "verification/reserve-conservation/bootstrap.rs",
+    "expected_harnesses": [
+      "bootstrap_negative",
+      "bootstrap_positive"
+    ],
+    "runs": [
+      {
+        "label": "positive-before-control",
+        "source": "verification/reserve-conservation/bootstrap.rs",
+        "harness": "bootstrap_positive",
+        "arguments": [],
+        "expected_exit_code": 0,
+        "terminal_status": "SUCCESSFUL",
+        "properties": {
+          "bootstrap_positive.assertion.1": "SUCCESS",
+          "bootstrap_positive.assertion.2": "SUCCESS",
+          "bootstrap_positive.cover.1": "SATISFIED"
+        },
+        "expected_failed_properties": [],
+        "expected_concrete_values": [],
+        "manual_summary": {
+          "successful_harnesses": 1,
+          "failures": 0,
+          "total": 1
+        }
+      },
+      {
+        "label": "intentional-negative-control",
+        "source": "verification/reserve-conservation/bootstrap.rs",
+        "harness": "bootstrap_negative",
+        "arguments": [
+          "-Z",
+          "concrete-playback",
+          "--concrete-playback=print"
+        ],
+        "expected_exit_code": 1,
+        "terminal_status": "FAILED",
+        "properties": {
+          "bootstrap_negative.assertion.1": "FAILURE"
+        },
+        "expected_failed_properties": [
+          "bootstrap_negative.assertion.1"
+        ],
+        "expected_concrete_values": [
+          255
+        ],
+        "manual_summary": {
+          "successful_harnesses": 0,
+          "failures": 1,
+          "total": 1
+        }
+      },
+      {
+        "label": "positive-after-control",
+        "source": "verification/reserve-conservation/bootstrap.rs",
+        "harness": "bootstrap_positive",
+        "arguments": [],
+        "expected_exit_code": 0,
+        "terminal_status": "SUCCESSFUL",
+        "properties": {
+          "bootstrap_positive.assertion.1": "SUCCESS",
+          "bootstrap_positive.assertion.2": "SUCCESS",
+          "bootstrap_positive.cover.1": "SATISFIED"
+        },
+        "expected_failed_properties": [],
+        "expected_concrete_values": [],
+        "manual_summary": {
+          "successful_harnesses": 1,
+          "failures": 0,
+          "total": 1
+        }
+      }
+    ]
+  },
+  "proof_suite": {
+    "complete": false,
+    "incomplete_reason": "The bounded reserve model and RC01-RC10 harnesses are not implemented.",
+    "sources": [],
+    "expected_harnesses": [],
+    "runs": []
+  }
+}
