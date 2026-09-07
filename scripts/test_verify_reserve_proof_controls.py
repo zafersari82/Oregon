@@ -12,18 +12,44 @@ from verify_reserve_proof_controls import (
 )
 
 
-def shaped_control_output(control, *, return_verdict="FAILED", failure=None, concrete=True, diagnostic=""):
+def playback_block(control, kind, description, suffix):
+    return (
+        f"Concrete playback unit test for `{control['harness']}`:\n"
+        "```rust\n"
+        f"/// Check for `{kind}`: \"\"{description}\"\"\n"
+        "#[test]\n"
+        f"fn kani_concrete_playback_{control['harness']}_{suffix}() {{\n"
+        "    let concrete_vals: Vec<Vec<u8>> = vec![\n"
+        "        vec![1],\n"
+        "    ];\n"
+        f"    kani::concrete_playback_run(concrete_vals, {control['harness']});\n"
+        "}\n"
+        "```\n"
+    )
+
+
+def shaped_control_output(
+    control,
+    *,
+    return_verdict="FAILED",
+    failure=None,
+    concrete=True,
+    cover_playbacks=0,
+    diagnostic="",
+):
     description = failure or control["target_failure"]
     status = "FAILURE" if return_verdict == "FAILED" else "SUCCESS"
     failed_count = 1 if return_verdict == "FAILED" else 0
     playback = ""
     if concrete:
-        playback = (
-            "let concrete_vals: Vec<Vec<u8>> = vec![\n"
-            "    vec![1],\n"
-            "];\n"
-            f"kani::concrete_playback_run(concrete_vals, {control['harness']});\n"
-        )
+        playback = playback_block(control, "assertion", description, "assertion")
+        for index in range(cover_playbacks):
+            playback += playback_block(
+                control,
+                "cover",
+                f"{control['id']} reachability {index + 1}",
+                f"cover_{index + 1}",
+            )
     completion = (
         "Complete - 0 successfully verified harnesses, 1 failures, 1 total."
         if return_verdict == "FAILED"
@@ -113,6 +139,16 @@ class ControlParserTests(unittest.TestCase):
     def test_accepts_only_target_semantic_failure_with_counterexample(self):
         parsed = parse_control(shaped_control_output(self.control), 1, self.control)
         self.assertEqual(parsed["id"], "RC02")
+        self.assertTrue(parsed["counterexample_bound"])
+
+    def test_accepts_target_assertion_playback_with_additional_cover_playbacks(self):
+        control = CONTROLS[0]
+        parsed = parse_control(
+            shaped_control_output(control, cover_playbacks=control["positive_covers"]),
+            1,
+            control,
+        )
+        self.assertEqual(parsed["id"], "RC01")
         self.assertTrue(parsed["counterexample_bound"])
 
     def test_accepts_complete_positive_rerun(self):
