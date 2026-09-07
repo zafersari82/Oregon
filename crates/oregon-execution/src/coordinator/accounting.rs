@@ -5,14 +5,72 @@ use oregon_contract_state::{
 use oregon_primitives::execution_address::ExecutionAddress;
 use oregon_primitives::state_commitment::CommitmentDomainId;
 
-use crate::ExecutionJournalV1;
+use crate::{ExecutionJournalV1, JournalError};
 
 use super::types::CoordinatorError;
 
 const ACCOUNTING_DOMAIN: CommitmentDomainId = CommitmentDomainId::ExecutionAccounting;
 
-pub(super) fn read_balance<S: StateSource + ?Sized>(
-    journal: &ExecutionJournalV1<'_, S>,
+pub(super) trait CoordinatorJournalV1 {
+    fn read(
+        &self,
+        domain: CommitmentDomainId,
+        key: &[u8],
+    ) -> Result<Option<Vec<u8>>, JournalError>;
+
+    fn put(
+        &mut self,
+        domain: CommitmentDomainId,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<(), JournalError>;
+
+    fn delete(&mut self, domain: CommitmentDomainId, key: &[u8]) -> Result<(), JournalError>;
+
+    fn begin_frame(&mut self) -> Result<(), JournalError>;
+
+    fn commit_frame(&mut self) -> Result<(), JournalError>;
+
+    fn revert_frame(&mut self) -> Result<(), JournalError>;
+}
+
+impl<S: StateSource + ?Sized> CoordinatorJournalV1 for ExecutionJournalV1<'_, S> {
+    fn read(
+        &self,
+        domain: CommitmentDomainId,
+        key: &[u8],
+    ) -> Result<Option<Vec<u8>>, JournalError> {
+        ExecutionJournalV1::read(self, domain, key)
+    }
+
+    fn put(
+        &mut self,
+        domain: CommitmentDomainId,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<(), JournalError> {
+        ExecutionJournalV1::put(self, domain, key, value)
+    }
+
+    fn delete(&mut self, domain: CommitmentDomainId, key: &[u8]) -> Result<(), JournalError> {
+        ExecutionJournalV1::delete(self, domain, key)
+    }
+
+    fn begin_frame(&mut self) -> Result<(), JournalError> {
+        ExecutionJournalV1::begin_frame(self)
+    }
+
+    fn commit_frame(&mut self) -> Result<(), JournalError> {
+        ExecutionJournalV1::commit_frame(self)
+    }
+
+    fn revert_frame(&mut self) -> Result<(), JournalError> {
+        ExecutionJournalV1::revert_frame(self)
+    }
+}
+
+pub(super) fn read_balance(
+    journal: &dyn CoordinatorJournalV1,
     address: ExecutionAddress,
 ) -> Result<u64, CoordinatorError> {
     let value = journal
@@ -26,8 +84,8 @@ pub(super) fn read_balance<S: StateSource + ?Sized>(
     }
 }
 
-pub(super) fn write_balance<S: StateSource + ?Sized>(
-    journal: &mut ExecutionJournalV1<'_, S>,
+pub(super) fn write_balance(
+    journal: &mut dyn CoordinatorJournalV1,
     address: ExecutionAddress,
     value: u64,
 ) -> Result<(), CoordinatorError> {
@@ -43,8 +101,8 @@ pub(super) fn write_balance<S: StateSource + ?Sized>(
     }
 }
 
-pub(super) fn read_total_execution_balance<S: StateSource + ?Sized>(
-    journal: &ExecutionJournalV1<'_, S>,
+pub(super) fn read_total_execution_balance(
+    journal: &dyn CoordinatorJournalV1,
 ) -> Result<u64, CoordinatorError> {
     let bytes = journal
         .read(ACCOUNTING_DOMAIN, total_execution_balance_key())

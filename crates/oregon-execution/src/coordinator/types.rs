@@ -51,6 +51,10 @@ pub(super) enum CoordinatorError {
     UnsupportedHostChargeScheduleVersion(u16),
     #[error("host charge arithmetic overflowed the V1 u64 weight boundary")]
     HostChargeOverflow,
+    #[error("runtime dispatch target must be EVM or WASM")]
+    InvalidRuntimeTarget,
+    #[error("runtime dispatch table contains a duplicate target")]
+    DuplicateRuntimeTarget,
     #[error("execution-funded payer balance is below max escrow")]
     InsufficientExecutionFunding,
     #[error("validated funding capability does not match the trusted funding request")]
