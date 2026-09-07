@@ -1,3 +1,0 @@
-[submodule "vendor/RandomX"]
-	path = vendor/RandomX
-	url = https://github.com/tevador/RandomX.git
