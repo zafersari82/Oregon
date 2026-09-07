@@ -1,9 +1,7 @@
-#[path = "../../../verification/reserve-conservation/src/model.rs"]
-mod reserve_model;
-
 use oregon_primitives::execution_reserve::EXECUTION_RESERVE_LOCKING_PROGRAM_V1;
 use oregon_primitives::{Amount, Hash256, OutPoint, TxOutput};
 
+use crate::reserve_model;
 use crate::{
     ReservePoolSnapshotV1, ReserveTransitionError, ReserveTransitionV1, ReserveTransitionV1Parts,
     UtxoEntry, UtxoState,
