@@ -30,9 +30,7 @@ pub fn construct_arithmetic(input: ArithmeticInput) -> Result<u64, ArithmeticErr
     let after_withdrawal = after_deposit
         .checked_sub(input.execution_withdrawal_total)
         .ok_or(ArithmeticError::ArithmeticUnderflow)?;
-    let result = after_withdrawal
-        .checked_sub(input.execution_fee_total)
-        .ok_or(ArithmeticError::ArithmeticUnderflow)?;
+    let result = after_withdrawal.saturating_sub(input.execution_fee_total);
 
     if result != input.new_execution_balance_total {
         return Err(ArithmeticError::ExecutionBalanceMismatch);
