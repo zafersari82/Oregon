@@ -638,7 +638,10 @@ mod settlement {
             trapped.outcome(),
             CoordinatorOutcomeV1::Trapped(RuntimeTrapCodeV1::ReadOnlyViolation)
         );
-        assert_eq!(committed.fee_receipt().outcome(), ExecutionOutcome::Committed);
+        assert_eq!(
+            committed.fee_receipt().outcome(),
+            ExecutionOutcome::Committed
+        );
         assert_eq!(reverted.fee_receipt().outcome(), ExecutionOutcome::Reverted);
         assert_eq!(trapped.fee_receipt().outcome(), ExecutionOutcome::Reverted);
         assert_eq!(committed.fee_receipt().charged(), 10);
@@ -676,7 +679,10 @@ mod settlement {
         )
         .unwrap();
 
-        assert_eq!(settlement.outcome(), CoordinatorOutcomeV1::ResourceExhausted);
+        assert_eq!(
+            settlement.outcome(),
+            CoordinatorOutcomeV1::ResourceExhausted
+        );
         assert_eq!(
             settlement.fee_receipt().outcome(),
             ExecutionOutcome::ResourceExhausted

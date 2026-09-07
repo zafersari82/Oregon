@@ -12,11 +12,8 @@ use super::types::CoordinatorError;
 const ACCOUNTING_DOMAIN: CommitmentDomainId = CommitmentDomainId::ExecutionAccounting;
 
 pub(super) trait CoordinatorJournalV1 {
-    fn read(
-        &self,
-        domain: CommitmentDomainId,
-        key: &[u8],
-    ) -> Result<Option<Vec<u8>>, JournalError>;
+    fn read(&self, domain: CommitmentDomainId, key: &[u8])
+    -> Result<Option<Vec<u8>>, JournalError>;
 
     fn put(
         &mut self,

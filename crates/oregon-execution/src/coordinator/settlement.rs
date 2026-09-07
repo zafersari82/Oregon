@@ -6,8 +6,7 @@ use oregon_primitives::fee_settlement::{ExecutionOutcome, FeeSourceKind};
 use oregon_runtime::RuntimeCallResultV1;
 
 use crate::{
-    EscrowBookV1, EscrowTicketV1, ExecutionJournalV1, FeeTermsV1, FundingCapabilityV1,
-    WeightMeter,
+    EscrowBookV1, EscrowTicketV1, ExecutionJournalV1, FeeTermsV1, FundingCapabilityV1, WeightMeter,
 };
 
 use super::accounting::{
