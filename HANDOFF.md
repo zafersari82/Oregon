@@ -4,7 +4,8 @@ Updated: 2026-09-06 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ## Resume here
 
-- Current local work branch: `work/reserve-conservation-proof-v1-2026-09-06`.
+- Current local work branch: `work/reserve-proof-continuation-2026-09-07`;
+  publication target remains `work/reserve-conservation-proof-v1-2026-09-06`.
 - Owner approved Reserve Conservation Proof V1 after reviewing design commit
   `7743aaa`; implementation is authorized. Do not request the same approval again.
 - Read `docs/architecture/OREGON_OWNER_DIRECTION.md` for the persistent engineering
@@ -22,9 +23,22 @@ Updated: 2026-09-06 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
   tests before the bounded model, beginning with a semantic RED against a deliberately
   incorrect model. A Rust-capable environment is required to observe that RED.
   RC01–RC10 remain unimplemented; do not count bootstrap harnesses as reserve proofs.
-- Publication limitation: commit `448e516` is local. Its push was blocked by the
-  current environment's external-publication authorization gate. Earlier branch
-  commits through `6a7770b` are present on origin.
+- Publication verified: local `448e516` and `6453525` were reproduced on GitHub
+  as `ce118b6` and `2471aef`, with identical respective tree identities. Original
+  local history remains on `archive/reserve-runner-local-6453525`.
+- 2026-09-07 continuation: Rust 1.85.0, rustfmt and Clippy are now installed.
+  Three constructor characterization tests pin error precedence, endpoint-only
+  supply checks and intermediate-overflow rejection. No production behavior changed.
+  Local checks: 13 reserve tests, all 35 UTXO unit tests plus one independent
+  vector test, 21 runner tests, workspace format and UTXO Clippy passed.
+  These are characterization tests, not model correspondence or Kani proofs.
+- Full workspace test attempt was blocked in the RocksDB build by missing
+  libclang. Kani is not installed in this environment. Exact-head CI and the
+  bounded-model semantic RED remain pending; no acceptance checkpoint is claimed.
+- The Stage 3B mutation runner stopped before injecting any mutation: its
+  execution-fee vector baseline could not compile (`E0463`, missing `serde` crate).
+  This is unresolved build evidence, not a killed mutation or a production
+  regression diagnosis. Reproduce with a fresh build directory before proceeding.
 
 - Repository: `zafersari82/Oregon`.
 - Stage 3B main integration: `fe762f7a5670d94a486423327e3a525cec24afb5`.
