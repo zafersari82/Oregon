@@ -20,6 +20,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Test reserve proof control fail-closed parser
+        run: python3 -m unittest discover -s scripts -p 'test_verify_reserve_proof_controls.py'
       - name: Install pinned verifier installer
         run: |
           rustup toolchain install 1.88.0 --profile minimal
