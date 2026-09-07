@@ -53,6 +53,12 @@ pub(super) enum CoordinatorError {
     HostChargeOverflow,
     #[error("execution-funded payer balance is below max escrow")]
     InsufficientExecutionFunding,
+    #[error("validated funding capability does not match the trusted funding request")]
+    FundingCapabilityMismatch,
+    #[error("validated funding capability amount is below max escrow")]
+    FundingCapabilityAmountTooSmall,
+    #[error("validated funding could not open fee escrow")]
+    EscrowOpenFailed,
     #[error("the root effect frame cannot be ended through child lifecycle operations")]
     RootFrameLifecycle,
     #[error("coordinator call depth limit exceeded")]
