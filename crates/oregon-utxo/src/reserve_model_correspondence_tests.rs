@@ -169,17 +169,15 @@ fn correspondence_pins_multiple_live_reserve_rejection_and_atomicity() {
     ])
     .unwrap();
     let production_before = production_state.clone();
-    let production_apply = crate::reserve::apply_reserve_transition_v1(
-        &mut production_state,
-        &transition,
-    )
-    .map(|_| ())
-    .map_err(|error| match error {
-        ReserveTransitionError::MultipleLiveReserves => "multiple_live_reserves",
-        ReserveTransitionError::PreviousReserveMismatch => "previous_reserve_mismatch",
-        ReserveTransitionError::OutputCollision(_) => "output_collision",
-        _ => "other_state_error",
-    });
+    let production_apply =
+        crate::reserve::apply_reserve_transition_v1(&mut production_state, &transition)
+            .map(|_| ())
+            .map_err(|error| match error {
+                ReserveTransitionError::MultipleLiveReserves => "multiple_live_reserves",
+                ReserveTransitionError::PreviousReserveMismatch => "previous_reserve_mismatch",
+                ReserveTransitionError::OutputCollision(_) => "output_collision",
+                _ => "other_state_error",
+            });
 
     let reserve = |key, amount| ModelSlot {
         key,
@@ -306,14 +304,13 @@ fn correspondence_pins_tampered_undo_rejection_and_atomicity() {
         .entry
         .creation_height = 101;
     let model_before = model_state;
-    let model_undo_result = reserve_model::undo_state(&mut model_state, &model_undo).map_err(|error| {
-        match error {
+    let model_undo_result =
+        reserve_model::undo_state(&mut model_state, &model_undo).map_err(|error| match error {
             StateError::UndoMismatch => "undo_mismatch",
             StateError::MultipleLiveReserves => "multiple_live_reserves",
             StateError::PreviousReserveMismatch => "previous_reserve_mismatch",
             StateError::OutputCollision => "output_collision",
-        }
-    });
+        });
 
     assert_eq!(production_undo_result, Err("undo_mismatch"));
     assert_eq!(production_state, production_before);

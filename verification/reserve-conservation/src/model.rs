@@ -38,7 +38,9 @@ pub fn construct_arithmetic(input: ArithmeticInput) -> Result<u64, ArithmeticErr
         return Err(ArithmeticError::ExecutionBalanceMismatch);
     }
 
-    if input.previous.is_some_and(|amount| amount > MAX_SUPPLY_BASE_UNITS)
+    if input
+        .previous
+        .is_some_and(|amount| amount > MAX_SUPPLY_BASE_UNITS)
         || result > MAX_SUPPLY_BASE_UNITS
     {
         return Err(ArithmeticError::AmountOutOfRange);
@@ -100,10 +102,7 @@ pub enum StateError {
     UndoMismatch,
 }
 
-pub fn apply_state(
-    state: &mut ModelState,
-    transition: StateTransition,
-) -> Result<(), StateError> {
+pub fn apply_state(state: &mut ModelState, transition: StateTransition) -> Result<(), StateError> {
     apply_state_with_undo(state, transition).map(|_| ())
 }
 
@@ -134,17 +133,14 @@ pub fn apply_state_with_undo(
                     slot.key == expected.key && slot.entry.amount == expected.amount
                 })
             });
-            matching.ok_or(StateError::PreviousReserveMismatch).map(Some)?
+            matching
+                .ok_or(StateError::PreviousReserveMismatch)
+                .map(Some)?
         }
     };
 
     if let Some(new_key) = transition.new_key {
-        if state
-            .slots
-            .iter()
-            .flatten()
-            .any(|slot| slot.key == new_key)
-        {
+        if state.slots.iter().flatten().any(|slot| slot.key == new_key) {
             return Err(StateError::OutputCollision);
         }
     }
