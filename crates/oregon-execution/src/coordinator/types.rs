@@ -1,5 +1,6 @@
 use oregon_primitives::execution_event::MAX_EXECUTION_EVENTS_V1;
-use oregon_runtime::MAX_RUNTIME_CALL_DEPTH;
+use oregon_primitives::fee_settlement::FeeSettlementReceiptV1;
+use oregon_runtime::{MAX_RUNTIME_CALL_DEPTH, RuntimeTrapCodeV1};
 use thiserror::Error;
 
 pub(super) const MAX_COORDINATOR_EFFECT_BYTES_V1: usize = 2_097_152;
@@ -43,6 +44,40 @@ pub(super) enum CoordinatorTerminalV1 {
     Fatal,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CoordinatorOutcomeV1 {
+    Committed,
+    Reverted,
+    Trapped(RuntimeTrapCodeV1),
+    ResourceExhausted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct CoordinatorSettlementV1 {
+    outcome: CoordinatorOutcomeV1,
+    fee_receipt: FeeSettlementReceiptV1,
+}
+
+impl CoordinatorSettlementV1 {
+    pub(super) const fn new(
+        outcome: CoordinatorOutcomeV1,
+        fee_receipt: FeeSettlementReceiptV1,
+    ) -> Self {
+        Self {
+            outcome,
+            fee_receipt,
+        }
+    }
+
+    pub(super) const fn outcome(&self) -> CoordinatorOutcomeV1 {
+        self.outcome
+    }
+
+    pub(super) const fn fee_receipt(&self) -> &FeeSettlementReceiptV1 {
+        &self.fee_receipt
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub(super) enum CoordinatorError {
     #[error("coordinator limits must be positive and within Stage 4B structural ceilings")]
@@ -63,6 +98,10 @@ pub(super) enum CoordinatorError {
     FundingCapabilityAmountTooSmall,
     #[error("validated funding could not open fee escrow")]
     EscrowOpenFailed,
+    #[error("fee escrow settlement failed or was attempted more than once")]
+    FeeSettlementFailed,
+    #[error("fatal execution state prevents a publishable settlement result")]
+    FatalExecution,
     #[error("the root effect frame cannot be ended through child lifecycle operations")]
     RootFrameLifecycle,
     #[error("coordinator call depth limit exceeded")]

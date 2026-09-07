@@ -12,8 +12,11 @@ use super::types::CoordinatorError;
 const ACCOUNTING_DOMAIN: CommitmentDomainId = CommitmentDomainId::ExecutionAccounting;
 
 pub(super) trait CoordinatorJournalV1 {
-    fn read(&self, domain: CommitmentDomainId, key: &[u8])
-    -> Result<Option<Vec<u8>>, JournalError>;
+    fn read(
+        &self,
+        domain: CommitmentDomainId,
+        key: &[u8],
+    ) -> Result<Option<Vec<u8>>, JournalError>;
 
     fn put(
         &mut self,
@@ -106,4 +109,17 @@ pub(super) fn read_total_execution_balance(
         .map_err(|_| CoordinatorError::AccountingInvariant)?
         .ok_or(CoordinatorError::AccountingInvariant)?;
     decode_accounting_u64(&bytes).map_err(|_| CoordinatorError::AccountingInvariant)
+}
+
+pub(super) fn write_total_execution_balance(
+    journal: &mut dyn CoordinatorJournalV1,
+    value: u64,
+) -> Result<(), CoordinatorError> {
+    journal
+        .put(
+            ACCOUNTING_DOMAIN,
+            total_execution_balance_key(),
+            &encode_accounting_u64(value),
+        )
+        .map_err(|_| CoordinatorError::AccountingInvariant)
 }
