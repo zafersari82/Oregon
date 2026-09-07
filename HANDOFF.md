@@ -1,8 +1,31 @@
 # Oregon — current continuation record
 
-Updated: 2026-09-06 UTC. Stage 3B and Stage 4A are integrated into `main` as **inactive foundations**. Stage 4A remains unpublished/non-activated: it adds a bounded execution journal and verification infrastructure, not VM execution, persistence or protocol activation.
+Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **inactive foundations**. Stage 4A remains unpublished/non-activated: it adds a bounded execution journal and verification infrastructure, not VM execution, persistence or protocol activation.
 
 ## Resume here
+
+- Current local work branch: `work/reserve-proof-runner-2026-09-07`.
+- Owner-approved Reserve Conservation Proof V1 remains authorized; do not request
+  the same approval again. All original continuation commits through `6a7770b`
+  are preserved as ancestors.
+- Latest code slice: `0691c44`, fail-closed bootstrap result parser and process runner
+  in `scripts/verify_reserve_proofs.py`. Six Python test methods pass, including
+  19 corrupted-output cases and timeout/missing-tool/compile-failure rejection.
+  Semantic red evidence preceded implementation. Evidence is recorded in
+  `verification/reserve-conservation/evidence/runner/`.
+- Historical live bootstrap remains source `e816a9c`, Kani 0.67.0 / CBMC 6.8.0 /
+  CaDiCaL 2.0.0. No live Kani execution occurred in the September 7 continuation.
+- Current environment blocker: Rust/Kani executables are absent; the Rust download
+  attempt was stopped at network approval. Live pinned preflight/invocation and
+  inherited Rust/Clippy/mutation gates are unvalidated for the new code slice.
+- Next incomplete action: validate the bootstrap runner with the pinned archive,
+  installed Kani and nightly rustc, then add the standalone package and write the
+  approved production correspondence tests before implementing the reserve model.
+  The full RC01–RC10 runner, model, controls and proof CI remain unimplemented.
+- On September 7 the live GitHub main was checked at `dd7cdcb` with seven successful
+  checks at that exact source. PR #20 remains a separate Stage 4B draft. Those checks
+  do not validate the new local runner.
+- Publication status: see the latest continuation publication record below.
 
 - Repository: `zafersari82/Oregon`.
 - Stage 3B main integration: `fe762f7a5670d94a486423327e3a525cec24afb5`.
@@ -70,6 +93,25 @@ The accepted Stage 4B/4C architecture remains valid but is not the default immed
 
 ## Preserved cautions
 
+### Approved reserve-proof design
+
+The branch `design/reserve-conservation-proof-v1-2026-09-06` prepares Workstream A
+from main `dd7cdcb566273c39d5a38cf0c0036058b08a7d89`:
+
+- Design: `docs/superpowers/specs/2026-09-06-reserve-conservation-proof-v1.md`.
+- Plan: `docs/superpowers/plans/2026-09-06-reserve-conservation-proof-v1.md`.
+- State: owner-approved bounded-model proof with Kani 0.67.0 and production
+  differential tests; verifier bootstrap works locally, reserve proofs remain pending.
+- Next action: execute the approved test-first plan on
+  `work/reserve-conservation-proof-v1-2026-09-06`, continuing after the recorded
+  bootstrap checks.
+
+Open draft PR #20 remains separate Stage 4B work at
+`fc2cc1564de69eee1482a445bb0c08b49b667ab0`; it does not supersede main's default
+trust-roadmap priority. Neither that branch nor historical checkpoints were moved.
+
+### Existing implementation cautions
+
 - `FundingCapabilityV1::new` validates data; it does not verify a live payer source. Future coordination must obtain authority from source validation.
 - Existing `WeightMeter` exhaustion is sticky and charges the maximum. Child rollback cannot reset it or cumulative conversion counters.
 - No generic VM-facing unrestricted system-domain write or non-revertible write API is permitted.
@@ -77,3 +119,11 @@ The accepted Stage 4B/4C architecture remains valid but is not the default immed
 - Never force-push or move accepted historical checkpoint refs.
 
 Keep this record and the integration checkpoint in the repository so another conversation can resume from exact evidence rather than chat memory.
+
+## September 7 publication record
+
+Push of `0691c44` and its preserved ancestors to
+`work/reserve-proof-runner-2026-09-07` failed: Git HTTPS could not read a username
+with terminal prompts disabled. GitHub read access works, but this session has no
+usable Git write credential. No remote branch creation or current-head CI is claimed.
+Continue from the local branch or its exported continuation bundle; main is unchanged.
