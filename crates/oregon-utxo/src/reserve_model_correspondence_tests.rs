@@ -35,6 +35,17 @@ fn reserve_entry(amount: u64) -> UtxoEntry {
     }
 }
 
+fn ordinary_entry(amount: u64) -> UtxoEntry {
+    UtxoEntry {
+        output: TxOutput {
+            value: Amount::from_base_units(amount).unwrap(),
+            locking_program: vec![0x01, 0x02, 0x03],
+        },
+        creation_height: 88,
+        is_coinbase: true,
+    }
+}
+
 fn production_result(input: ArithmeticInput) -> Result<u64, &'static str> {
     ReserveTransitionV1::new(ReserveTransitionV1Parts {
         chain_id: 7,
@@ -134,6 +145,7 @@ fn correspondence_does_not_invent_supply_caps_for_flow_amounts() {
 fn correspondence_pins_multiple_live_reserve_rejection_and_atomicity() {
     let first = tagged_outpoint(0x91);
     let second = tagged_outpoint(0x92);
+    let ordinary = tagged_outpoint(0x93);
     let transition = ReserveTransitionV1::new(ReserveTransitionV1Parts {
         chain_id: 7,
         height: 100,
@@ -153,6 +165,7 @@ fn correspondence_pins_multiple_live_reserve_rejection_and_atomicity() {
     let mut production_state = UtxoState::try_from_entries([
         (first, reserve_entry(100)),
         (second, reserve_entry(50)),
+        (ordinary, ordinary_entry(7)),
     ])
     .unwrap();
     let production_before = production_state.clone();
@@ -177,8 +190,22 @@ fn correspondence_pins_multiple_live_reserve_rejection_and_atomicity() {
             program: ProgramClass::Reserve,
         },
     };
+    let ordinary = ModelSlot {
+        key: 3,
+        entry: ModelEntry {
+            amount: 7,
+            creation_height: 88,
+            is_coinbase: true,
+            program: ProgramClass::Ordinary,
+        },
+    };
     let mut model_state = ModelState {
-        slots: [Some(reserve(1, 100)), Some(reserve(2, 50)), None, None],
+        slots: [
+            Some(reserve(1, 100)),
+            Some(reserve(2, 50)),
+            Some(ordinary),
+            None,
+        ],
     };
     let model_before = model_state;
     let model_apply = reserve_model::apply_state(

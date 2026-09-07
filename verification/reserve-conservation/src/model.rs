@@ -103,9 +103,10 @@ pub fn apply_state(
             .map(|_| index)
     });
 
-    // Deliberately weakened RED model: production rejects more than one live
-    // reserve before matching the claimed previous snapshot. This version
-    // intentionally continues with a matching reserve so correspondence must fail.
+    if reserve_indices.iter().flatten().count() > 1 {
+        return Err(StateError::MultipleLiveReserves);
+    }
+
     let previous_index = match transition.previous {
         None => {
             if reserve_indices.iter().flatten().next().is_some() {
