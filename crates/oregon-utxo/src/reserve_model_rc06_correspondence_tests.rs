@@ -240,7 +240,8 @@ fn correspondence_pins_amount_tampered_undo_rejection_and_atomicity() {
         .entry
         .amount = 11;
     let model_before = model_state;
-    let model_undo_result = reserve_model::undo_state(&mut model_state, &model_undo).map_err(model_error);
+    let model_undo_result =
+        reserve_model::undo_state(&mut model_state, &model_undo).map_err(model_error);
 
     assert_eq!(model_undo_result, production_undo_result);
     assert_eq!(model_state, model_before);

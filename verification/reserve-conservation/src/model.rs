@@ -141,9 +141,6 @@ pub fn apply_state_with_undo(
 
     if let Some(new_key) = transition.new_key {
         if state.slots.iter().flatten().any(|slot| slot.key == new_key) {
-            if let Some(index) = previous_index {
-                state.slots[index] = None;
-            }
             return Err(StateError::OutputCollision);
         }
     }
