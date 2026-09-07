@@ -1,4 +1,4 @@
-name: Oregon Reserve Arithmetic Proofs
+name: Oregon Reserve Proof Slices
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  arithmetic:
+  proofs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -51,7 +51,7 @@ jobs:
             --kani-home "$HOME/.kani/kani-0.67.0" \
             --archive "$RUNNER_TEMP/kani-pinned.tar.gz" \
             --rustc "$proof_rustc" \
-            --output "$RUNNER_TEMP/reserve-arithmetic-bootstrap"
+            --output "$RUNNER_TEMP/reserve-proof-bootstrap"
       - name: Run RC01 RC02 RC08 RC09 arithmetic proof slice
         shell: bash
         run: |
@@ -70,12 +70,33 @@ jobs:
               verification/reserve-conservation/arithmetic.rs \
               --harness "$harness" 2>&1 | tee "$RUNNER_TEMP/reserve-arithmetic-proofs/$harness.log"
           done
-      - name: Retain arithmetic proof evidence
+      - name: Run RC03 RC04 RC05 RC06 RC07 RC10 state proof slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.kani/kani-0.67.0/bin:$HOME/.kani/kani-0.67.0/pyroot/bin:$PATH"
+          export PYTHONPATH="$HOME/.kani/kani-0.67.0/pyroot${PYTHONPATH:+:$PYTHONPATH}"
+          export RUSTUP_TOOLCHAIN="nightly-2025-11-21-x86_64-unknown-linux-gnu"
+          mkdir -p "$RUNNER_TEMP/reserve-state-proofs"
+          for harness in \
+            rc03_successful_result_has_exact_reserve_cardinality \
+            rc04_two_live_reserves_reject_unchanged \
+            rc05_successful_creation_has_exact_program_value_and_metadata \
+            rc06_failed_apply_and_failed_undo_are_atomic \
+            rc07_apply_then_untampered_undo_restores_full_pre_state \
+            rc10_occupied_output_and_tampered_undo_reject_unchanged
+          do
+            "$HOME/.kani/kani-0.67.0/bin/kani-driver" \
+              verification/reserve-conservation/state.rs \
+              --harness "$harness" 2>&1 | tee "$RUNNER_TEMP/reserve-state-proofs/$harness.log"
+          done
+      - name: Retain reserve proof evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: reserve-arithmetic-${{ github.event.pull_request.head.sha || github.sha }}
+          name: reserve-proofs-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            ${{ runner.temp }}/reserve-arithmetic-bootstrap/
+            ${{ runner.temp }}/reserve-proof-bootstrap/
             ${{ runner.temp }}/reserve-arithmetic-proofs/
+            ${{ runner.temp }}/reserve-state-proofs/
           if-no-files-found: error
