@@ -6,6 +6,17 @@
 
 **Design:** `docs/superpowers/specs/2026-09-06-reserve-conservation-proof-v1.md`.
 
+## September 7 continuation status
+
+PR #21 integrated the bootstrap, standalone model package and 12 initial
+correspondence tests at `a530ae1d20e5a1648cf9cfea045221ec13326d25` with successful
+actual-main CI. See `docs/checkpoints/OREGON_RESERVE_TOOLING_MAIN_INTEGRATION.md`.
+The original checklist below is not a claim that the package/runner are absent:
+partial implementations now exist, but full obligation/matrix acceptance remains
+open. The runner executes bootstrap only; RC01-RC10 remain unimplemented.
+The current evidence-gate branch adds test-first output-inventory rejection and
+updates HANDOFF. Its own exact-head CI and separate integration are required.
+
 ## 1. Resume and verify the baseline
 
 - [x] Read `AGENTS.md`, `HANDOFF.md`, normative architecture, Stage 3B design and
@@ -71,9 +82,9 @@ RC01–RC10 results or exact-head CI acceptance. The installer required separate
 - [ ] Run Kani with explicit solver and per-harness unwind bounds, preserving all
   safety checks. Commit the actual successful bounds and invocation to the manifest.
 
-The initial runner surface should be a repository command, for example
+The full runner surface extends the existing bootstrap-only repository command
 `python3 scripts/verify_reserve_proofs.py`, that reads the committed manifest and
-executes the exact discovered harnesses. This command does not exist yet.
+executes the exact discovered harnesses. Full RC01-RC10 mode does not exist yet.
 
 ## 5. Prove the negative controls are meaningful
 

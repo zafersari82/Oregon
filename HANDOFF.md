@@ -4,6 +4,39 @@ Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ## Resume here
 
+- Current work branch: `work/reserve-evidence-gate-2026-09-07`, based on main
+  `a530ae1d20e5a1648cf9cfea045221ec13326d25` (PR #21 integrated).
+- PR #21 verified head: `51659a39dd0c41bbf607e75f2a4d5b3589e53f27`.
+  Head and merge share tree `628f3b54e1a3c96c129368c66ad8f55991426afc`.
+  See `docs/checkpoints/OREGON_RESERVE_TOOLING_MAIN_INTEGRATION.md` for exact CI.
+- The standalone verification-only package, arithmetic/four-slot apply/undo model,
+  and 12 crate-local production correspondence tests now exist. The model is
+  included once under `cfg(test)`; the duplicate-mod wiring fix is integrated.
+- RC01-RC10 Kani harnesses, full proof runner/manifest, production differential
+  matrix completion and ten semantic model controls are still incomplete.
+  No RC01-RC10 formal proof completion is claimed. Bootstrap is tooling evidence.
+- This branch hardens bootstrap output acceptance: reject contradictory/repeated
+  backend identities, property blocks outside RESULTS and extra completion lines.
+  Local regression evidence: 14 new corrupted-output variants accepted by the old
+  parser (semantic RED), then 11 test methods passed with the fix (GREEN).
+  Retained logs: `verification/reserve-conservation/evidence/output-inventory/`.
+- New branch CI must be checked at its exact published head; baseline CI does not
+  validate this branch. Rust/Kani are absent locally; use the existing GitHub CI
+  workflow for live pinned bootstrap and inherited Rust gates.
+- Next: verify this parser slice in live pinned CI; then expand the constructor
+  correspondence matrix and implement the first arithmetic proof harnesses with
+  independent i128 assertions, reachability, named negative controls and exact
+  evidence. Keep all ten obligations pending until their real artifacts exist.
+- PR #20 remains separate Stage 4B work (observed head
+  `912e9d01791c954e8432e3f80f6913e3b87c8db6`); do not import it into Workstream A.
+- The approved reserve-proof design remains authorized. This new branch has no
+  separate main-integration decision; do not merge it automatically.
+
+## Historical September 7 pre-integration continuation
+
+The following record describes the earlier runner/publication state, not current
+pending work. The resume section above supersedes its status and next-action text.
+
 - Published work branch: `work/reserve-proof-publication-2026-09-07`.
 - Preserved local history branch: `work/reserve-proof-runner-2026-09-07`.
 - Owner-approved Reserve Conservation Proof V1 remains authorized; do not request

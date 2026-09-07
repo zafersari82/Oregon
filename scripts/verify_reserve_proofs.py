@@ -36,7 +36,10 @@ def parse_bootstrap(output, returncode, harness):
         require(output.count(marker) == 1, 'missing or repeated output marker: ' + marker)
     require(re.findall(r'^Checking harness (.+)\.\.\.$', output, re.M) == [harness],
             'unexpected harness inventory')
-    require('CBMC 6.8.0 (cbmc-6.8.0)' in output, 'wrong backend')
+    require(re.findall(r'^CBMC[^\n]*$', output, re.M) == [
+        'CBMC 6.8.0 (cbmc-6.8.0)',
+        'CBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux',
+    ], 'wrong or repeated backend inventory')
     solvers = re.findall(r'^Solving with (.+)$', output, re.M)
     require(solvers and set(solvers) == {'CaDiCaL 2.0.0'}, 'wrong or absent solver')
     section = output.split('RESULTS:\n', 1)[-1].split('SUMMARY:', 1)[0]
@@ -45,6 +48,9 @@ def parse_bootstrap(output, returncode, harness):
         r'\s+- Description: ([^\n]+)\n\s+- Location: ([^\n]+)\n')
     matches = list(pattern.finditer(section))
     require(not pattern.sub('', section).strip(), 'unparsed property output')
+    require(re.findall(r'^Check [^\n]*$', output, re.M)
+            == re.findall(r'^Check [^\n]*$', section, re.M),
+            'property output outside results section')
     if negative:
         expected = [('bootstrap_negative.assertion.1', 'FAILURE',
                      'bootstrap wrapping increment must produce a counterexample')]
@@ -64,6 +70,8 @@ def parse_bootstrap(output, returncode, harness):
     require(re.findall(r'^VERIFICATION:- (.+)$', output, re.M) == [verdict], 'wrong verdict')
     completed = ('Complete - 0 successfully verified harnesses, 1 failures, 1 total.' if negative
                  else 'Complete - 1 successfully verified harnesses, 0 failures, 1 total.')
+    require(re.findall(r'^Complete - [^\n]*$', output, re.M) == [completed],
+            'unexpected completion inventory')
     require(output.rstrip().endswith(completed), 'incomplete harness summary')
     if negative:
         require(re.search(r'let concrete_vals: Vec<Vec<u8>> = vec!\[\s*// 255\s*vec!\[255\],\s*\];', output),

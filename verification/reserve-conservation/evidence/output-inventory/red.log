@@ -1,0 +1,131 @@
+...FFFFFFFFFF.FFFF....
+======================================================================
+FAIL: test_reject_conflicting_completion_before_valid_suffix (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_completion_before_valid_suffix) (name='positive')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 52, in test_reject_conflicting_completion_before_valid_suffix
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_conflicting_completion_before_valid_suffix (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_completion_before_valid_suffix) (name='negative')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 52, in test_reject_conflicting_completion_before_valid_suffix
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_conflicting_or_repeated_backend_inventory (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_or_repeated_backend_inventory) (name='positive', log='CBMC 6.9.0 (cbmc-6.9.0)\nKani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_positive...\nCBMC 6.8.0 (cbmc-6.8.0)\nCBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux\nReading GOTO program f')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 31, in test_reject_conflicting_or_repeated_backend_inventory
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_conflicting_or_repeated_backend_inventory (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_or_repeated_backend_inventory) (name='positive', log='CBMC 6.8.0 (cbmc-6.8.0)\nKani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_positive...\nCBMC 6.8.0 (cbmc-6.8.0)\nCBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux\nReading GOTO program f')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 31, in test_reject_conflicting_or_repeated_backend_inventory
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_conflicting_or_repeated_backend_inventory (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_or_repeated_backend_inventory) (name='positive', log='Kani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_positive...\nCBMC 6.8.0 (cbmc-6.8.0)\nCBMC version 6.9.0 (cbmc-6.8.0) 64-bit x86_64 linux\nReading GOTO program from file /workspace/scra')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 31, in test_reject_conflicting_or_repeated_backend_inventory
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_conflicting_or_repeated_backend_inventory (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_or_repeated_backend_inventory) (name='positive', log='Kani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_positive...\nCBMC 6.8.0 (cbmc-6.8.0)\nReading GOTO program from file /workspace/scratch/6fb76c82236f/Oregon/verification/reserve-conserv')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 31, in test_reject_conflicting_or_repeated_backend_inventory
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_conflicting_or_repeated_backend_inventory (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_or_repeated_backend_inventory) (name='negative', log='CBMC 6.9.0 (cbmc-6.9.0)\nKani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_negative...\nCBMC 6.8.0 (cbmc-6.8.0)\nCBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux\nReading GOTO program f')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 31, in test_reject_conflicting_or_repeated_backend_inventory
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_conflicting_or_repeated_backend_inventory (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_or_repeated_backend_inventory) (name='negative', log='CBMC 6.8.0 (cbmc-6.8.0)\nKani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_negative...\nCBMC 6.8.0 (cbmc-6.8.0)\nCBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux\nReading GOTO program f')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 31, in test_reject_conflicting_or_repeated_backend_inventory
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_conflicting_or_repeated_backend_inventory (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_or_repeated_backend_inventory) (name='negative', log='Kani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_negative...\nCBMC 6.8.0 (cbmc-6.8.0)\nCBMC version 6.9.0 (cbmc-6.8.0) 64-bit x86_64 linux\nReading GOTO program from file /workspace/scra')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 31, in test_reject_conflicting_or_repeated_backend_inventory
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_conflicting_or_repeated_backend_inventory (test_verify_reserve_proofs.ParserTests.test_reject_conflicting_or_repeated_backend_inventory) (name='negative', log='Kani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_negative...\nCBMC 6.8.0 (cbmc-6.8.0)\nReading GOTO program from file /workspace/scratch/6fb76c82236f/Oregon/verification/reserve-conserv')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 31, in test_reject_conflicting_or_repeated_backend_inventory
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_property_blocks_outside_results (test_verify_reserve_proofs.ParserTests.test_reject_property_blocks_outside_results) (name='positive', log='Check 99: unrelated.assertion.1\n - Status: FAILURE\n - Description: unrelated assertion\n - Location: ')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 43, in test_reject_property_blocks_outside_results
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_property_blocks_outside_results (test_verify_reserve_proofs.ParserTests.test_reject_property_blocks_outside_results) (name='positive', log='Kani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_positive...\nCBMC 6.8.0 (cbmc-6.8.0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 43, in test_reject_property_blocks_outside_results
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_property_blocks_outside_results (test_verify_reserve_proofs.ParserTests.test_reject_property_blocks_outside_results) (name='negative', log='Check 99: unrelated.assertion.1\n - Status: FAILURE\n - Description: unrelated assertion\n - Location: ')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 43, in test_reject_property_blocks_outside_results
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_property_blocks_outside_results (test_verify_reserve_proofs.ParserTests.test_reject_property_blocks_outside_results) (name='negative', log='Kani Rust Verifier 0.67.0 (standalone)\nChecking harness bootstrap_negative...\nCBMC 6.8.0 (cbmc-6.8.0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/3e24f0e3f7e2/Oregon/scripts/test_verify_reserve_proofs.py", line 43, in test_reject_property_blocks_outside_results
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.227s
+
+FAILED (failures=14)
