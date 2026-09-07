@@ -165,6 +165,23 @@ class ControlParserTests(unittest.TestCase):
         self.assertTrue(parsed["counterexample_bound"])
         self.assertEqual(parsed["playbacks"], 1 + control["positive_covers"])
 
+    def test_accepts_successful_kani_unreachable_property_description(self):
+        control = CONTROLS[2]
+        output = shaped_control_output(control).replace(
+            "SUMMARY:\n",
+            (
+                f"Check 2: {control['harness']}.unreachable.1\n"
+                " - Status: SUCCESS\n"
+                " - Description: \"internal error: entered unreachable code\"\n"
+                f" - Location: verification/reserve-conservation/control.rs:2:1 in function {control['harness']}\n"
+                "SUMMARY:\n"
+            ),
+            1,
+        )
+        parsed = parse_control(output, 1, control)
+        self.assertEqual(parsed["id"], "RC03")
+        self.assertTrue(parsed["counterexample_bound"])
+
     def test_accepts_complete_positive_rerun(self):
         parsed = parse_positive(shaped_positive_output(self.control), 0, self.control)
         self.assertEqual(parsed["id"], "RC02")
