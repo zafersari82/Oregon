@@ -296,7 +296,8 @@ impl RuntimeHostV1 for CoordinatorHostV1<'_> {
         };
 
         if let Some(bytes) = value.as_ref() {
-            let copy_cost = self.checked_host_cost(self.charges.state_read_copy_cost(bytes.len()))?;
+            let copy_cost =
+                self.checked_host_cost(self.charges.state_read_copy_cost(bytes.len()))?;
             self.charge_common_weight(copy_cost)?;
         }
         Ok(value)

@@ -1,6 +1,6 @@
 use oregon_contract_state::{
-    DomainSnapshot, StateError, StateNode, StateSource, empty_hashes, encode_accounting_u64,
-    total_execution_balance_key, MAX_STATE_KEY_BYTES,
+    DomainSnapshot, MAX_STATE_KEY_BYTES, StateError, StateNode, StateSource, empty_hashes,
+    encode_accounting_u64, total_execution_balance_key,
 };
 use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
@@ -120,9 +120,7 @@ fn meter() -> WeightMeter {
 }
 
 fn effects() -> EffectStackV1 {
-    EffectStackV1::new(
-        CoordinatorLimitsV1::new(64, MAX_EXECUTION_EVENTS_V1, 2_097_152).unwrap(),
-    )
+    EffectStackV1::new(CoordinatorLimitsV1::new(64, MAX_EXECUTION_EVENTS_V1, 2_097_152).unwrap())
 }
 
 fn host_charges() -> HostChargeScheduleV1 {
@@ -170,7 +168,10 @@ fn wasm_scope_rejects_one_over_owner_key_limit_before_copy() {
     let exact = vec![0u8; MAX_STATE_KEY_BYTES - overhead];
     let one_over = vec![0u8; MAX_STATE_KEY_BYTES - overhead + 1];
 
-    assert_eq!(scoped_wasm_storage_key(target, &exact).unwrap().len(), MAX_STATE_KEY_BYTES);
+    assert_eq!(
+        scoped_wasm_storage_key(target, &exact).unwrap().len(),
+        MAX_STATE_KEY_BYTES
+    );
     assert_eq!(
         scoped_wasm_storage_key(target, &one_over),
         Err(RuntimeTrapCodeV1::InvalidHostInput)
@@ -260,15 +261,21 @@ fn evm_labelled_backend_is_denied_production_state_access() {
 
     assert_eq!(
         host.state_get(b"key"),
-        Err(RuntimeHostSignalV1::Trap(RuntimeTrapCodeV1::StateAccessDenied))
+        Err(RuntimeHostSignalV1::Trap(
+            RuntimeTrapCodeV1::StateAccessDenied
+        ))
     );
     assert_eq!(
         host.state_put(b"key", b"value"),
-        Err(RuntimeHostSignalV1::Trap(RuntimeTrapCodeV1::StateAccessDenied))
+        Err(RuntimeHostSignalV1::Trap(
+            RuntimeTrapCodeV1::StateAccessDenied
+        ))
     );
     assert_eq!(
         host.state_delete(b"key"),
-        Err(RuntimeHostSignalV1::Trap(RuntimeTrapCodeV1::StateAccessDenied))
+        Err(RuntimeHostSignalV1::Trap(
+            RuntimeTrapCodeV1::StateAccessDenied
+        ))
     );
 }
 
@@ -304,11 +311,15 @@ fn read_only_is_monotonic_across_nested_calls_and_blocks_writes() {
 
     assert_eq!(
         host.state_put(b"key", b"value"),
-        Err(RuntimeHostSignalV1::Trap(RuntimeTrapCodeV1::ReadOnlyViolation))
+        Err(RuntimeHostSignalV1::Trap(
+            RuntimeTrapCodeV1::ReadOnlyViolation
+        ))
     );
     assert_eq!(
         host.state_delete(b"key"),
-        Err(RuntimeHostSignalV1::Trap(RuntimeTrapCodeV1::ReadOnlyViolation))
+        Err(RuntimeHostSignalV1::Trap(
+            RuntimeTrapCodeV1::ReadOnlyViolation
+        ))
     );
 }
 
@@ -433,10 +444,7 @@ fn trap_factory() -> Box<dyn RuntimeBackendV1> {
     Box::new(EmitTrap)
 }
 
-fn dispatch(
-    target: ExecutionAddress,
-    factory: RuntimeBackendFactoryV1,
-) -> RuntimeDispatchTableV1 {
+fn dispatch(target: ExecutionAddress, factory: RuntimeBackendFactoryV1) -> RuntimeDispatchTableV1 {
     RuntimeDispatchTableV1::new(&[(target, factory)]).unwrap()
 }
 

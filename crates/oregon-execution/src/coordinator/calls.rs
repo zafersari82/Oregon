@@ -127,14 +127,16 @@ pub(super) fn transfer_attached_value(
         return Ok(());
     }
 
-    let spendable_kind = |kind| matches!(kind, ExecutionAddressKind::Evm | ExecutionAddressKind::Wasm);
+    let spendable_kind =
+        |kind| matches!(kind, ExecutionAddressKind::Evm | ExecutionAddressKind::Wasm);
     if !spendable_kind(caller.kind()) || !spendable_kind(target.kind()) {
         return Err(AttachedValueTransferErrorV1::Trap(
             RuntimeTrapCodeV1::AttachedValueTransferFailed,
         ));
     }
 
-    let caller_balance = read_balance(journal, caller).map_err(|_| AttachedValueTransferErrorV1::Fatal)?;
+    let caller_balance =
+        read_balance(journal, caller).map_err(|_| AttachedValueTransferErrorV1::Fatal)?;
     if caller_balance < value {
         return Err(AttachedValueTransferErrorV1::Trap(
             RuntimeTrapCodeV1::AttachedValueTransferFailed,
@@ -145,7 +147,8 @@ pub(super) fn transfer_attached_value(
         return Ok(());
     }
 
-    let target_balance = read_balance(journal, target).map_err(|_| AttachedValueTransferErrorV1::Fatal)?;
+    let target_balance =
+        read_balance(journal, target).map_err(|_| AttachedValueTransferErrorV1::Fatal)?;
     let next_caller = caller_balance
         .checked_sub(value)
         .ok_or(AttachedValueTransferErrorV1::Fatal)?;
@@ -236,7 +239,12 @@ pub(super) fn execute_nested_call(
 
     begin_child_frames(journal, effects, terminal)?;
 
-    match transfer_attached_value(journal, parent_context.target(), spec.target(), spec.value()) {
+    match transfer_attached_value(
+        journal,
+        parent_context.target(),
+        spec.target(),
+        spec.value(),
+    ) {
         Ok(()) => {}
         Err(AttachedValueTransferErrorV1::Trap(code)) => {
             rollback_child_frames(journal, effects, terminal)?;
