@@ -14,11 +14,17 @@ Updated: 2026-09-06 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
   intended negative counterexample (255); the positive rerun also passed.
 - Evidence: `verification/reserve-conservation/evidence/bootstrap/summary.json` and
   raw logs. These are local tool checks, not reserve proofs or CI acceptance.
-- Current next action: complete the fail-closed tooling runner and standalone model
-  package, then write the approved production correspondence tests before the model.
+- Fail-closed runner/standalone package slice is committed locally at `448e516`.
+  Its 21 Python behavior tests pass, and the default command rejects the incomplete
+  RC01–RC10 suite with exit 2 before tool lookup. Real bootstrap execution was not
+  repeated in that environment because Rust, rustup and Kani were unavailable.
+- Current next action: write the approved crate-local production correspondence
+  tests before the bounded model, beginning with a semantic RED against a deliberately
+  incorrect model. A Rust-capable environment is required to observe that RED.
   RC01–RC10 remain unimplemented; do not count bootstrap harnesses as reserve proofs.
-- Publication limitation: the design push failed because GitHub write authentication
-  was unavailable. These continuation changes are local until a push succeeds.
+- Publication limitation: commit `448e516` is local. Its push was blocked by the
+  current environment's external-publication authorization gate. Earlier branch
+  commits through `6a7770b` are present on origin.
 
 - Repository: `zafersari82/Oregon`.
 - Stage 3B main integration: `fe762f7a5670d94a486423327e3a525cec24afb5`.
