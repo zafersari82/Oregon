@@ -1,6 +1,7 @@
 """Fail-closed semantic negative-control gate for Reserve Conservation Proof V1."""
 
 import argparse
+from collections import Counter
 import json
 from pathlib import Path
 import re
@@ -230,6 +231,11 @@ PROPERTY_PATTERN = re.compile(
     r"Check (\d+): ([^\n]+)\n\s+- Status: ([A-Z]+)\n"
     r"\s+- Description: ([^\n]+)\n\s+- Location: ([^\n]+)\n"
 )
+PLAYBACK_PATTERN = re.compile(
+    r"Concrete playback unit test for `([^`]+)`:\n(.*?)"
+    r"(?=Concrete playback unit test for `|INFO: To automatically add|Manual Harness Summary:)",
+    re.S,
+)
 INFRA_PATTERN = re.compile(r"(?im)^.*(?:error:|error\[|unsupported operation|timed out).*$")
 
 
@@ -255,6 +261,36 @@ def _property_inventory(output):
         }
         for match in matches
     ]
+
+
+def _playback_inventory(output, control):
+    blocks = list(PLAYBACK_PATTERN.finditer(output))
+    require(blocks, "missing concrete playback")
+    require(
+        output.count("Concrete playback unit test for `") == len(blocks),
+        "unparsed concrete playback header",
+    )
+    require(
+        output.count("let concrete_vals: Vec<Vec<u8>> = vec![") == len(blocks),
+        "missing, repeated, or unscoped concrete values",
+    )
+    playbacks = []
+    for match in blocks:
+        harness = match[1]
+        body = match[2]
+        require(harness == control["harness"], "playback belongs to a different harness")
+        checks = re.findall(r"^/// Check for `([^`]+)`: (.+)$", body, re.M)
+        require(len(checks) == 1, "missing or repeated playback property binding")
+        kind, description = checks[0]
+        require(kind in {"assertion", "cover"}, "unexpected playback property kind")
+        description = description.strip().strip('"')
+        require(body.count("let concrete_vals: Vec<Vec<u8>> = vec![") == 1, "malformed playback values")
+        values = body.split("let concrete_vals: Vec<Vec<u8>> = vec![", 1)[1].split("];", 1)[0]
+        require("vec![" in values, "empty concrete counterexample")
+        bindings = re.findall(r"kani::concrete_playback_run\(concrete_vals,\s*(\w+)\);", body)
+        require(bindings == [control["harness"]], "counterexample is not bound to target harness")
+        playbacks.append({"kind": kind, "description": description})
+    return playbacks
 
 
 def _common_output_checks(output, returncode, harness, expected_returncode):
@@ -310,11 +346,26 @@ def parse_control(output, returncode, control):
     completion = "Complete - 0 successfully verified harnesses, 1 failures, 1 total."
     require(re.findall(r"^Complete - [^\n]*$", output, re.M) == [completion], "unexpected completion inventory")
     require(output.rstrip().endswith(completion), "incomplete control output")
-    require(output.count("let concrete_vals: Vec<Vec<u8>> = vec![") == 1, "missing or repeated concrete playback")
-    playback_body = output.split("let concrete_vals: Vec<Vec<u8>> = vec![", 1)[1].split("];", 1)[0]
-    require("vec![" in playback_body, "empty concrete counterexample")
-    bindings = re.findall(r"kani::concrete_playback_run\(concrete_vals,\s*(\w+)\);", output)
-    require(bindings == [control["harness"]], "counterexample is not bound to target harness")
+
+    playbacks = _playback_inventory(output, control)
+    expected_playbacks = [
+        ("assertion", item["description"])
+        for item in properties
+        if item["status"] == "FAILURE"
+    ] + [
+        ("cover", item["description"])
+        for item in properties
+        if item["status"] == "SATISFIED" and ".cover." in item["property"]
+    ]
+    actual_playbacks = [(item["kind"], item["description"]) for item in playbacks]
+    require(
+        Counter(actual_playbacks) == Counter(expected_playbacks),
+        "concrete playback inventory does not match failed assertions and satisfied covers",
+    )
+    require(
+        actual_playbacks.count(("assertion", control["target_failure"])) == 1,
+        "target semantic counterexample is missing or repeated",
+    )
     return {
         "id": control["id"],
         "harness": control["harness"],
@@ -322,6 +373,7 @@ def parse_control(output, returncode, control):
             {"property": item["property"], "description": item["description"]} for item in failures
         ],
         "counterexample_bound": True,
+        "playbacks": len(playbacks),
     }
 
 
