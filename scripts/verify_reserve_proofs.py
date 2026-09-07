@@ -81,10 +81,10 @@ def digest(path):
         return hashlib.file_digest(source, 'sha256').hexdigest()
 
 
-def run(command, cwd, timeout):
+def run(command, cwd, timeout, env=None):
     """Kill the whole verifier process group on timeout; preserve partial output."""
     with subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                          text=True, start_new_session=True) as process:
+                          text=True, start_new_session=True, env=env) as process:
         try:
             output, _ = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -103,6 +103,24 @@ def checked(command, cwd, timeout=30):
     return result['output'].strip()
 
 
+
+def proof_environment(kani_home, toolchain):
+    """Match the pinned release proxy's subprocess search paths (Kani src/lib.rs)."""
+    env = os.environ.copy()
+    for name, paths in (
+        ('PATH', [kani_home / 'bin', kani_home / 'pyroot/bin']),
+        ('PYTHONPATH', [kani_home / 'pyroot']),
+    ):
+        env[name] = os.pathsep.join([*(str(p) for p in paths), *([env[name]] if env.get(name) else [])])
+    env['RUSTUP_TOOLCHAIN'] = toolchain
+    if 'LD_LIBRARY_PATH' in env:
+        env['LD_LIBRARY_PATH'] = os.pathsep.join(
+            p for p in env['LD_LIBRARY_PATH'].split(os.pathsep)
+            if not (len(Path(p).parts) >= 3 and Path(p).parts[-1] == 'lib'
+                    and Path(p).parts[-3] == 'toolchains'))
+    return env
+
+
 def preflight(kani_home, archive, rustc):
     lock = json.loads((PROOF / 'toolchain-lock.json').read_text())
     require(platform.system() == 'Linux' and platform.machine() == 'x86_64', 'unsupported host')
@@ -115,6 +133,8 @@ def preflight(kani_home, archive, rustc):
             require(checked([str(binary), '--version'], ROOT) == identity['version'],
                     'binary version mismatch: ' + relative)
     require(checked([str(rustc), '--version'], ROOT) == lock['rustc_version'], 'wrong proof rustc')
+    require((kani_home / 'toolchain/bin/rustc').resolve() == rustc.resolve(),
+            'Kani compiler toolchain differs from checked rustc')
     source = (PROOF / 'bootstrap.rs').read_text()
     require(re.findall(r'^fn (\w+)\(', source, re.M) == ['bootstrap_positive', 'bootstrap_negative']
             and source.count('#[kani::proof]') == 2
@@ -153,7 +173,8 @@ def main():
                 command = [str(kani_home / 'bin/kani-driver'), str(source), '--harness', name]
                 if name == 'bootstrap_negative':
                     command += ['-Z', 'concrete-playback', '--concrete-playback=print']
-                result = run(command, temp, 120)
+                result = run(command, temp, 120,
+                             env=proof_environment(kani_home, evidence['tool_lock']['rust_toolchain']))
                 evidence['runs'].append(result)
                 require(not result['timed_out'], 'verifier timed out')
                 result['properties'] = parse_bootstrap(result['output'], result['returncode'], name)

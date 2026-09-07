@@ -4,8 +4,10 @@ from pathlib import Path
 import unittest
 import sys
 import tempfile
+import os
+from unittest.mock import patch
 
-from verify_reserve_proofs import GateError, parse_bootstrap, run
+from verify_reserve_proofs import GateError, parse_bootstrap, run, proof_environment
 
 FIXTURES = Path(__file__).resolve().parents[1] / 'verification/reserve-conservation/evidence/bootstrap'
 
@@ -53,6 +55,22 @@ class ParserTests(unittest.TestCase):
 
 
 class ProcessTests(unittest.TestCase):
+    def test_pinned_backend_is_available_to_driver_children(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            (home / 'bin').mkdir()
+            backend = home / 'bin/goto-cc'
+            backend.write_text('#!/bin/sh\necho pinned-backend\n')
+            backend.chmod(0o755)
+            with patch.dict(os.environ, {'PATH': '/usr/bin',
+                                         'LD_LIBRARY_PATH': '/x/toolchains/wrong/lib:/usr/lib'}):
+                env = proof_environment(home, 'nightly-2025-11-21')
+                result = run(['goto-cc'], directory, 1, env=env)
+            self.assertEqual(result['output'].strip(), 'pinned-backend')
+            self.assertEqual(result['returncode'], 0)
+            self.assertEqual(env['RUSTUP_TOOLCHAIN'], 'nightly-2025-11-21')
+            self.assertEqual(env['LD_LIBRARY_PATH'], '/usr/lib')
+
     def test_timeout_is_not_a_control_kill(self):
         result = run([sys.executable, '-c', 'import time; print("started", flush=True); time.sleep(10)'],
                      FIXTURES, 0.2)
