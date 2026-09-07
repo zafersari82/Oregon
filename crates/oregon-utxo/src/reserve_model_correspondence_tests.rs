@@ -224,10 +224,99 @@ fn correspondence_pins_multiple_live_reserve_rejection_and_atomicity() {
         StateError::MultipleLiveReserves => "multiple_live_reserves",
         StateError::PreviousReserveMismatch => "previous_reserve_mismatch",
         StateError::OutputCollision => "output_collision",
+        StateError::UndoMismatch => "undo_mismatch",
     });
 
     assert_eq!(production_apply, Err("multiple_live_reserves"));
     assert_eq!(production_state, production_before);
     assert_eq!(model_apply, production_apply);
+    assert_eq!(model_state, model_before);
+}
+
+#[test]
+fn correspondence_pins_tampered_undo_rejection_and_atomicity() {
+    let ordinary = tagged_outpoint(0xa1);
+    let transition = ReserveTransitionV1::new(ReserveTransitionV1Parts {
+        chain_id: 7,
+        height: 100,
+        parent_block_hash: Hash256::from_bytes([0x10; 32]),
+        previous: None,
+        native_deposit_total: 10,
+        execution_withdrawal_total: 0,
+        execution_fee_total: 0,
+        new_execution_balance_total: 10,
+        producer_coinbase_txid: Hash256::from_bytes([0x20; 32]),
+    })
+    .unwrap();
+
+    let mut production_state =
+        UtxoState::try_from_entries([(ordinary, ordinary_entry(7))]).unwrap();
+    let production_undo =
+        crate::reserve::apply_reserve_transition_v1(&mut production_state, &transition).unwrap();
+    let created = transition.new_reserve_outpoint().unwrap();
+    let mut tampered_entries: Vec<_> = production_state
+        .entries()
+        .map(|(outpoint, entry)| (*outpoint, entry.clone()))
+        .collect();
+    let created_entry = tampered_entries
+        .iter_mut()
+        .find(|(outpoint, _)| *outpoint == created)
+        .map(|(_, entry)| entry)
+        .unwrap();
+    created_entry.creation_height = 101;
+    production_state = UtxoState::try_from_entries(tampered_entries).unwrap();
+    let production_before = production_state.clone();
+    let production_undo_result =
+        crate::reserve::undo_reserve_transition_v1(&mut production_state, &production_undo)
+            .map_err(|error| match error {
+                ReserveTransitionError::UndoMismatch => "undo_mismatch",
+                _ => "other_state_error",
+            });
+
+    let ordinary = ModelSlot {
+        key: 3,
+        entry: ModelEntry {
+            amount: 7,
+            creation_height: 88,
+            is_coinbase: true,
+            program: ProgramClass::Ordinary,
+        },
+    };
+    let mut model_state = ModelState {
+        slots: [Some(ordinary), None, None, None],
+    };
+    let model_undo = reserve_model::apply_state_with_undo(
+        &mut model_state,
+        StateTransition {
+            previous: None,
+            new_key: Some(7),
+            new_amount: 10,
+            height: 100,
+        },
+    )
+    .unwrap();
+    let created_index = model_state
+        .slots
+        .iter()
+        .position(|slot| slot.is_some_and(|slot| slot.key == 7))
+        .unwrap();
+    model_state.slots[created_index]
+        .as_mut()
+        .unwrap()
+        .entry
+        .creation_height = 101;
+    let model_before = model_state;
+    let model_undo_result = reserve_model::undo_state(&mut model_state, &model_undo).map_err(|error| {
+        match error {
+            StateError::UndoMismatch => "undo_mismatch",
+            StateError::MultipleLiveReserves => "multiple_live_reserves",
+            StateError::PreviousReserveMismatch => "previous_reserve_mismatch",
+            StateError::OutputCollision => "output_collision",
+        }
+    });
+
+    assert_eq!(production_undo_result, Err("undo_mismatch"));
+    assert_eq!(production_state, production_before);
+    assert_eq!(model_undo_result, production_undo_result);
     assert_eq!(model_state, model_before);
 }

@@ -87,16 +87,30 @@ pub struct StateTransition {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModelUndo {
+    pub previous: Option<ModelSlot>,
+    pub created: Option<ModelSlot>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StateError {
     PreviousReserveMismatch,
     MultipleLiveReserves,
     OutputCollision,
+    UndoMismatch,
 }
 
 pub fn apply_state(
     state: &mut ModelState,
     transition: StateTransition,
 ) -> Result<(), StateError> {
+    apply_state_with_undo(state, transition).map(|_| ())
+}
+
+pub fn apply_state_with_undo(
+    state: &mut ModelState,
+    transition: StateTransition,
+) -> Result<ModelUndo, StateError> {
     let reserve_indices: [Option<usize>; 4] = core::array::from_fn(|index| {
         state.slots[index]
             .filter(|slot| slot.entry.program == ProgramClass::Reserve)
@@ -135,19 +149,14 @@ pub fn apply_state(
         }
     }
 
-    let mut overlay = *state;
-    if let Some(index) = previous_index {
-        overlay.slots[index] = None;
-    }
-
-    if transition.new_amount != 0 {
+    let previous = previous_index.and_then(|index| state.slots[index]);
+    let created = if transition.new_amount == 0 {
+        None
+    } else {
         let new_key = transition
             .new_key
             .ok_or(StateError::PreviousReserveMismatch)?;
-        let Some(index) = overlay.slots.iter().position(Option::is_none) else {
-            return Err(StateError::OutputCollision);
-        };
-        overlay.slots[index] = Some(ModelSlot {
+        Some(ModelSlot {
             key: new_key,
             entry: ModelEntry {
                 amount: transition.new_amount,
@@ -155,7 +164,87 @@ pub fn apply_state(
                 is_coinbase: false,
                 program: ProgramClass::Reserve,
             },
-        });
+        })
+    };
+
+    let mut overlay = *state;
+    if let Some(index) = previous_index {
+        overlay.slots[index] = None;
+    }
+
+    if let Some(created) = created {
+        let Some(index) = overlay.slots.iter().position(Option::is_none) else {
+            return Err(StateError::OutputCollision);
+        };
+        overlay.slots[index] = Some(created);
+    }
+
+    *state = overlay;
+    Ok(ModelUndo { previous, created })
+}
+
+pub fn undo_state(state: &mut ModelState, undo: &ModelUndo) -> Result<(), StateError> {
+    let created_index = match undo.created {
+        Some(expected) => {
+            let live: [Option<usize>; 4] = core::array::from_fn(|index| {
+                state.slots[index]
+                    .filter(|slot| slot.entry.program == ProgramClass::Reserve)
+                    .map(|_| index)
+            });
+            let mut live_indices = live.iter().flatten().copied();
+            let Some(index) = live_indices.next() else {
+                return Err(StateError::UndoMismatch);
+            };
+            if live_indices.next().is_some() {
+                return Err(StateError::UndoMismatch);
+            }
+            let Some(actual) = state.slots[index] else {
+                return Err(StateError::UndoMismatch);
+            };
+            // Deliberately weakened RED model: production compares the complete
+            // created entry. This only pins identity, amount and reserve class,
+            // so tampered creation metadata can slip through.
+            if actual.key != expected.key
+                || actual.entry.amount != expected.entry.amount
+                || actual.entry.program != ProgramClass::Reserve
+            {
+                return Err(StateError::UndoMismatch);
+            }
+            Some(index)
+        }
+        None => {
+            if state
+                .slots
+                .iter()
+                .flatten()
+                .any(|slot| slot.entry.program == ProgramClass::Reserve)
+            {
+                return Err(StateError::UndoMismatch);
+            }
+            None
+        }
+    };
+
+    if let Some(previous) = undo.previous {
+        if state
+            .slots
+            .iter()
+            .flatten()
+            .any(|slot| slot.key == previous.key)
+        {
+            return Err(StateError::UndoMismatch);
+        }
+    }
+
+    let mut overlay = *state;
+    if let Some(index) = created_index {
+        overlay.slots[index] = None;
+    }
+    if let Some(previous) = undo.previous {
+        let Some(index) = overlay.slots.iter().position(Option::is_none) else {
+            return Err(StateError::UndoMismatch);
+        };
+        overlay.slots[index] = Some(previous);
     }
 
     *state = overlay;
