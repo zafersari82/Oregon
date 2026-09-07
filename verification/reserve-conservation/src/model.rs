@@ -141,6 +141,9 @@ pub fn apply_state_with_undo(
 
     if let Some(new_key) = transition.new_key {
         if state.slots.iter().flatten().any(|slot| slot.key == new_key) {
+            if let Some(index) = previous_index {
+                state.slots[index] = None;
+            }
             return Err(StateError::OutputCollision);
         }
     }
@@ -239,4 +242,63 @@ pub fn undo_state(state: &mut ModelState, undo: &ModelUndo) -> Result<(), StateE
 
     *state = overlay;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ModelEntry, ModelSlot, ModelState, ProgramClass, StateError, StateSnapshot,
+        StateTransition, apply_state_with_undo,
+    };
+
+    #[test]
+    fn collision_rejection_preserves_full_model_state() {
+        let reserve = ModelSlot {
+            key: 1,
+            entry: ModelEntry {
+                amount: 100,
+                creation_height: 99,
+                is_coinbase: false,
+                program: ProgramClass::Reserve,
+            },
+        };
+        let collision = ModelSlot {
+            key: 7,
+            entry: ModelEntry {
+                amount: 3,
+                creation_height: 77,
+                is_coinbase: true,
+                program: ProgramClass::Ordinary,
+            },
+        };
+        let unrelated = ModelSlot {
+            key: 3,
+            entry: ModelEntry {
+                amount: 11,
+                creation_height: 55,
+                is_coinbase: false,
+                program: ProgramClass::Ordinary,
+            },
+        };
+        let mut state = ModelState {
+            slots: [Some(reserve), Some(collision), Some(unrelated), None],
+        };
+        let before = state;
+
+        let result = apply_state_with_undo(
+            &mut state,
+            StateTransition {
+                previous: Some(StateSnapshot {
+                    key: 1,
+                    amount: 100,
+                }),
+                new_key: Some(7),
+                new_amount: 100,
+                height: 100,
+            },
+        );
+
+        assert_eq!(result, Err(StateError::OutputCollision));
+        assert_eq!(state, before);
+    }
 }
