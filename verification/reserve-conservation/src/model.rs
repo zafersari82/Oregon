@@ -46,3 +46,117 @@ pub fn construct_arithmetic(input: ArithmeticInput) -> Result<u64, ArithmeticErr
 
     Ok(result)
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramClass {
+    Reserve,
+    Ordinary,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModelEntry {
+    pub amount: u64,
+    pub creation_height: u64,
+    pub is_coinbase: bool,
+    pub program: ProgramClass,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModelSlot {
+    pub key: u8,
+    pub entry: ModelEntry,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModelState {
+    pub slots: [Option<ModelSlot>; 4],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StateSnapshot {
+    pub key: u8,
+    pub amount: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StateTransition {
+    pub previous: Option<StateSnapshot>,
+    pub new_key: Option<u8>,
+    pub new_amount: u64,
+    pub height: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StateError {
+    PreviousReserveMismatch,
+    MultipleLiveReserves,
+    OutputCollision,
+}
+
+pub fn apply_state(
+    state: &mut ModelState,
+    transition: StateTransition,
+) -> Result<(), StateError> {
+    let reserve_indices: [Option<usize>; 4] = core::array::from_fn(|index| {
+        state.slots[index]
+            .filter(|slot| slot.entry.program == ProgramClass::Reserve)
+            .map(|_| index)
+    });
+
+    // Deliberately weakened RED model: production rejects more than one live
+    // reserve before matching the claimed previous snapshot. This version
+    // intentionally continues with a matching reserve so correspondence must fail.
+    let previous_index = match transition.previous {
+        None => {
+            if reserve_indices.iter().flatten().next().is_some() {
+                return Err(StateError::PreviousReserveMismatch);
+            }
+            None
+        }
+        Some(expected) => {
+            let matching = reserve_indices.iter().flatten().copied().find(|index| {
+                state.slots[*index].is_some_and(|slot| {
+                    slot.key == expected.key && slot.entry.amount == expected.amount
+                })
+            });
+            matching.ok_or(StateError::PreviousReserveMismatch).map(Some)?
+        }
+    };
+
+    if let Some(new_key) = transition.new_key {
+        if state
+            .slots
+            .iter()
+            .flatten()
+            .any(|slot| slot.key == new_key)
+        {
+            return Err(StateError::OutputCollision);
+        }
+    }
+
+    let mut overlay = *state;
+    if let Some(index) = previous_index {
+        overlay.slots[index] = None;
+    }
+
+    if transition.new_amount != 0 {
+        let new_key = transition
+            .new_key
+            .ok_or(StateError::PreviousReserveMismatch)?;
+        let Some(index) = overlay.slots.iter().position(Option::is_none) else {
+            return Err(StateError::OutputCollision);
+        };
+        overlay.slots[index] = Some(ModelSlot {
+            key: new_key,
+            entry: ModelEntry {
+                amount: transition.new_amount,
+                creation_height: transition.height,
+                is_coinbase: false,
+                program: ProgramClass::Reserve,
+            },
+        });
+    }
+
+    *state = overlay;
+    Ok(())
+}
