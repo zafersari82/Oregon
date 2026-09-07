@@ -3,6 +3,7 @@
 
 #![forbid(unsafe_code)]
 
+#[allow(dead_code)]
 #[path = "src/model.rs"]
 mod model;
 
