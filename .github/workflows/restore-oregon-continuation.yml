@@ -1,0 +1,38 @@
+name: Restore approved Oregon continuation
+on:
+  push:
+    branches: [recovery/reserve-continuation-2026-09-07]
+permissions:
+  contents: read
+jobs:
+  restore:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Verify exact owner-provided bundle and publish preserved commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          data = Path('recovery/Oregon-continuation.bundle').read_bytes()
+          assert hashlib.sha256(data).hexdigest() == '53631ad389694e4ed7a440908f0aabe1273be62e997def28dc7bda1e92bfc1b2'
+          PY
+          git bundle verify recovery/Oregon-continuation.bundle
+          git fetch recovery/Oregon-continuation.bundle HEAD:refs/oregon/verified-continuation
+          test "$(git rev-parse refs/oregon/verified-continuation)" = "6a7770b8ed5a1ead656a8fc3136b7050aad06233"
+          test "$(git rev-parse refs/oregon/verified-continuation^{tree})" = "5f1c2a1405ac93a873bea5d532eba7e3ce72eb37"
+          git merge-base --is-ancestor dd7cdcb566273c39d5a38cf0c0036058b08a7d89 refs/oregon/verified-continuation
+          test "$(git rev-list --count dd7cdcb566273c39d5a38cf0c0036058b08a7d89..refs/oregon/verified-continuation)" = 4
+          branch=work/reserve-conservation-proof-v1-2026-09-06
+          existing="$(git ls-remote origin "refs/heads/$branch" | cut -f1)"
+          if [ -n "$existing" ]; then
+            test "$existing" = "6a7770b8ed5a1ead656a8fc3136b7050aad06233"
+          else
+            git push origin "refs/oregon/verified-continuation:refs/heads/$branch"
+          fi
