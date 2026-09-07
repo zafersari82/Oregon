@@ -236,7 +236,9 @@ PLAYBACK_PATTERN = re.compile(
     r"(?=Concrete playback unit test for `|INFO: To automatically add|Manual Harness Summary:)",
     re.S,
 )
-INFRA_PATTERN = re.compile(r"(?im)^.*(?:error:|error\[|unsupported operation|timed out).*$")
+INFRA_PATTERN = re.compile(
+    r"(?im)^(?!\s*-\s+Description:).*(?:error:|error\[|unsupported operation|timed out).*$"
+)
 
 
 def _property_inventory(output):
