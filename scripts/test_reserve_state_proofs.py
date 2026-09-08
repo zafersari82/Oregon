@@ -3,6 +3,8 @@ from pathlib import Path
 import re
 import unittest
 
+import verify_reserve_proofs as verifier
+
 ROOT = Path(__file__).resolve().parents[1]
 PROOFS = ROOT / 'verification/reserve-conservation/proofs.rs'
 
@@ -30,6 +32,41 @@ class StateProofInventoryTests(unittest.TestCase):
                 prefix = source[max(0, body_start - 96):body_start]
                 self.assertIn('#[kani::proof]', prefix)
                 self.assertIn('#[kani::solver(cadical)]', prefix)
+
+    def test_runner_exposes_the_exact_state_harness_inventory(self):
+        self.assertEqual(
+            list(getattr(verifier, 'STATE_HARNESSES', ())),
+            EXPECTED_STATE_HARNESSES,
+        )
+
+    def test_positive_parser_accepts_named_state_assertions_and_reachability(self):
+        harness = 'rc04_multiple_live_reserves_reject_unchanged'
+        output = f'''Kani Rust Verifier 0.67.0 (standalone)
+Checking harness {harness}...
+CBMC 6.8.0 (cbmc-6.8.0)
+Solving with CaDiCaL 2.0.0
+RESULTS:
+Check 1: {harness}.assertion.1
+ - Status: SUCCESS
+ - Description: "RC04 two live reserves reject with the multiple-reserve error"
+ - Location: proofs.rs:1:1 in function {harness}
+Check 2: {harness}.assertion.2
+ - Status: SUCCESS
+ - Description: "RC04 two-live-reserve rejection leaves the full state unchanged"
+ - Location: proofs.rs:2:1 in function {harness}
+Check 3: {harness}.cover.1
+ - Status: SATISFIED
+ - Description: "RC04 multiple-live-reserve rejection is reachable"
+ - Location: proofs.rs:3:1 in function {harness}
+SUMMARY:
+ ** 0 of 2 failed
+ ** 1 of 1 cover properties satisfied
+VERIFICATION:- SUCCESSFUL
+Manual Harness Summary:
+Complete - 1 successfully verified harnesses, 0 failures, 1 total.
+'''
+        properties = verifier.parse_successful_proof(output, 0, harness)
+        self.assertEqual(len(properties), 3)
 
 
 if __name__ == '__main__':
