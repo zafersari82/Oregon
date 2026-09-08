@@ -25,7 +25,7 @@ jobs:
       - name: Install native prerequisites
         run: sudo apt-get update && sudo apt-get install -y clang libclang-dev
       - name: Test mutation evidence fail-closed logic
-        run: python3 -m unittest scripts/test_mutation_evidence_manifest.py scripts/test_mutation_evidence_publisher.py -v
+        run: python3 -m unittest discover -s scripts -p 'test_mutation_evidence*.py' -v
       - name: Validate published manifest
         run: python3 scripts/verify_mutation_evidence_manifest.py
       - name: Reproduce all published mutations
