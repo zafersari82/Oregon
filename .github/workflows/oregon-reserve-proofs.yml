@@ -10,9 +10,9 @@ permissions:
   contents: read
 
 jobs:
-  arithmetic-proofs:
+  reserve-proofs:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
@@ -53,7 +53,15 @@ jobs:
             --kani-home "$HOME/.kani/kani-0.67.0" \
             --archive "$RUNNER_TEMP/kani-pinned.tar.gz" \
             --rustc "$proof_rustc" \
-            --output "$RUNNER_TEMP/reserve-proof-evidence"
+            --output "$RUNNER_TEMP/reserve-arithmetic-evidence"
+      - name: Run RC03 RC04 RC05 RC06 RC07 RC10 state proofs
+        run: |
+          proof_rustc="$(rustup which --toolchain nightly-2025-11-21-x86_64-unknown-linux-gnu rustc)"
+          python3 scripts/verify_reserve_proofs.py --state \
+            --kani-home "$HOME/.kani/kani-0.67.0" \
+            --archive "$RUNNER_TEMP/kani-pinned.tar.gz" \
+            --rustc "$proof_rustc" \
+            --output "$RUNNER_TEMP/reserve-state-evidence"
       - name: Run RC01 RC02 RC08 RC09 mutation controls
         run: |
           proof_rustc="$(rustup which --toolchain nightly-2025-11-21-x86_64-unknown-linux-gnu rustc)"
@@ -65,18 +73,19 @@ jobs:
       - name: Show proof diagnostics
         if: always()
         run: |
-          for evidence in reserve-proof-evidence reserve-mutation-evidence; do
+          for evidence in reserve-arithmetic-evidence reserve-state-evidence reserve-mutation-evidence; do
             if [ -f "$RUNNER_TEMP/$evidence/summary.json" ]; then
               echo "===== $evidence ====="
               cat "$RUNNER_TEMP/$evidence/summary.json"
             fi
           done
-      - name: Retain arithmetic proof evidence
+      - name: Retain reserve proof evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: reserve-arithmetic-${{ github.event.pull_request.head.sha || github.sha }}
+          name: reserve-conservation-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            ${{ runner.temp }}/reserve-proof-evidence/
+            ${{ runner.temp }}/reserve-arithmetic-evidence/
+            ${{ runner.temp }}/reserve-state-evidence/
             ${{ runner.temp }}/reserve-mutation-evidence/
           if-no-files-found: error
