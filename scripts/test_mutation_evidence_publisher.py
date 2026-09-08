@@ -1,10 +1,12 @@
 """Fail-closed parser and publisher tests for Mutation Evidence V1."""
 from copy import deepcopy
 import hashlib
+import json
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from mutation_evidence import (
     AuthoritySpec,
@@ -14,10 +16,12 @@ from mutation_evidence import (
     parse_authority_output,
 )
 from publish_mutation_evidence import (
+    ROOT,
     build_result,
     ensure_output_outside_root,
     git_identity,
     git_is_clean,
+    main,
     run_authority,
     validate_result_v1,
     write_result_atomic,
@@ -345,6 +349,58 @@ class ResultV1Tests(unittest.TestCase):
             with self.assertRaises(EvidenceError):
                 write_result_atomic(result, output)
             self.assertFalse((output / "result-v1.json").exists())
+
+
+class PublicationCliTests(unittest.TestCase):
+    def test_output_inside_checkout_is_rejected_before_any_authority_runs(self):
+        with patch("publish_mutation_evidence.run_authority") as run:
+            status = main(["--output", str(ROOT / "mutation-evidence-test-output")])
+        self.assertNotEqual(status, 0)
+        run.assert_not_called()
+
+    def test_five_passes_then_failure_leave_no_canonical_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "result-v1.json").write_text('{"stale":true}\n')
+            calls = 0
+
+            def fail_sixth(root, spec, log_dir):
+                nonlocal calls
+                calls += 1
+                if calls == 6:
+                    raise EvidenceError("sixth authority failed")
+                return fake_run(spec)
+
+            with patch("publish_mutation_evidence.run_authority", side_effect=fail_sixth):
+                status = main(["--output", str(output)])
+
+            self.assertNotEqual(status, 0)
+            self.assertEqual(calls, 6)
+            self.assertFalse((output / "result-v1.json").exists())
+
+    def test_six_passes_write_canonical_68_of_68_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with patch("publish_mutation_evidence.run_authority", side_effect=lambda root, spec, log_dir: fake_run(spec)):
+                status = main(["--output", str(output)])
+
+            self.assertEqual(status, 0)
+            result_path = output / "result-v1.json"
+            self.assertTrue(result_path.is_file())
+            result = json.loads(result_path.read_text())
+            self.assertEqual(result["overall_status"], "passed")
+            self.assertEqual(result["totals"], {"killed": 68, "total": 68})
+            self.assertEqual(result["source"]["commit"], git_identity(ROOT)[0])
+
+    def test_all_runner_digests_are_preflighted_before_first_authority(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("publish_mutation_evidence.sha256_file", return_value="0" * 64), patch(
+                "publish_mutation_evidence.run_authority"
+            ) as run:
+                status = main(["--output", directory])
+
+        self.assertNotEqual(status, 0)
+        run.assert_not_called()
 
 
 if __name__ == "__main__":
