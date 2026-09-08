@@ -277,8 +277,11 @@ def parse_negative_control(output, returncode, control_id):
 def control_preflight(kani_home, archive, rustc):
     lock = preflight(kani_home, archive, rustc, 'all')
     baseline = (PROOF / 'src/model.rs').read_text()
+    control_harnesses = [case['harness'] for case in CONTROL_CASES]
     require(
-        [case['harness'] for case in CONTROL_CASES] == list(PROOF_HARNESSES),
+        len(control_harnesses) == len(PROOF_HARNESSES)
+        and len(set(control_harnesses)) == len(control_harnesses)
+        and set(control_harnesses) == set(PROOF_HARNESSES),
         'unexpected mutation-control harness mapping',
     )
     for case in CONTROL_CASES:
