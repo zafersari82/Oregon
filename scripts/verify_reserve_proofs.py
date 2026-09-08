@@ -28,6 +28,7 @@ STATE_HARNESSES = (
     'rc07_apply_then_undo_restores_full_state',
     'rc10_collisions_and_tampered_undo_reject_unchanged',
 )
+STATE_UNWIND = 5
 PROOF_HARNESSES = ARITHMETIC_HARNESSES + STATE_HARNESSES
 PROOF_COVER_COUNTS = {
     'rc01_arithmetic_matches_integer_equation': 2,
@@ -338,6 +339,8 @@ def preflight(kani_home, archive, rustc, mode):
 
 def _run_harness(kani_home, source, harness, lock, timeout=300, concrete=False):
     command = [str(kani_home / 'bin/kani-driver'), str(source), '--harness', harness]
+    if harness in STATE_HARNESSES:
+        command += ['--unwind', str(STATE_UNWIND)]
     if concrete:
         command += ['-Z', 'concrete-playback', '--concrete-playback=print']
     return run(
