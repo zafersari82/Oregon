@@ -62,7 +62,7 @@ jobs:
             --archive "$RUNNER_TEMP/kani-pinned.tar.gz" \
             --rustc "$proof_rustc" \
             --output "$RUNNER_TEMP/reserve-state-evidence"
-      - name: Run RC01 RC02 RC08 RC09 mutation controls
+      - name: Run RC01-RC10 mutation controls
         run: |
           proof_rustc="$(rustup which --toolchain nightly-2025-11-21-x86_64-unknown-linux-gnu rustc)"
           python3 scripts/verify_reserve_mutation_controls.py \
