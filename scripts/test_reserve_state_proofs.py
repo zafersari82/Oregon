@@ -103,6 +103,39 @@ Complete - 1 successfully verified harnesses, 0 failures, 1 total.
         properties = verifier.parse_successful_proof(output, 0, harness)
         self.assertEqual(len(properties), 5)
 
+    def test_positive_parser_accepts_successful_unsupported_safety_property(self):
+        harness = 'rc03_zero_and_positive_reserve_cardinality'
+        output = f'''Kani Rust Verifier 0.67.0 (standalone)
+Checking harness {harness}...
+CBMC 6.8.0 (cbmc-6.8.0)
+Solving with CaDiCaL 2.0.0
+RESULTS:
+Check 1: core::panic::caller_location.unsupported.1
+ - Status: SUCCESS
+ - Description: "caller_location is not currently supported by Kani"
+ - Location: core/panic/location.rs:1:1 in function core::panic::caller_location
+Check 2: {harness}.assertion.1
+ - Status: SUCCESS
+ - Description: "RC03 constructed valid state transition is accepted"
+ - Location: proofs.rs:1:1 in function {harness}
+Check 3: {harness}.cover.1
+ - Status: SATISFIED
+ - Description: "RC03 accepted zero-result branch is reachable"
+ - Location: proofs.rs:2:1 in function {harness}
+Check 4: {harness}.cover.2
+ - Status: SATISFIED
+ - Description: "RC03 accepted positive-result branch is reachable"
+ - Location: proofs.rs:3:1 in function {harness}
+SUMMARY:
+ ** 0 of 2 failed
+ ** 2 of 2 cover properties satisfied
+VERIFICATION:- SUCCESSFUL
+Manual Harness Summary:
+Complete - 1 successfully verified harnesses, 0 failures, 1 total.
+'''
+        properties = verifier.parse_successful_proof(output, 0, harness)
+        self.assertEqual(len(properties), 4)
+
     def test_positive_parser_accepts_named_state_assertions_and_reachability(self):
         harness = 'rc04_multiple_live_reserves_reject_unchanged'
         output = f'''Kani Rust Verifier 0.67.0 (standalone)
