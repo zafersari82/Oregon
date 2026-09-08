@@ -4,9 +4,10 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from mutation_evidence import EvidenceError, load_manifest
+from mutation_evidence import EvidenceError, load_manifest, sha256_file
 
 
+ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = [('EA', 3), ('EE', 9), ('CS', 17), ('ER', 13), ('FS', 14), ('RJ', 12)]
 
 
@@ -59,6 +60,15 @@ class ManifestValidationTests(unittest.TestCase):
         _, authorities = self.validate()
         self.assertEqual([a.id for a in authorities], [p for p, _ in EXPECTED])
         self.assertEqual(sum(a.expected_count for a in authorities), 68)
+
+    def test_repository_manifest_is_exact_v1_inventory(self):
+        path = ROOT / 'verification/mutation-evidence/manifest-v1.json'
+        _, authorities = load_manifest(path, ROOT)
+        self.assertEqual([a.id for a in authorities], [p for p, _ in EXPECTED])
+        self.assertEqual([a.expected_count for a in authorities], [c for _, c in EXPECTED])
+        self.assertEqual(sum(a.expected_count for a in authorities), 68)
+        for authority in authorities:
+            self.assertEqual(sha256_file(ROOT / authority.runner), authority.runner_sha256)
 
     def test_duplicate_mutation_id_is_rejected(self):
         def mutate(document):
