@@ -116,6 +116,36 @@ class StateProofInventoryTests(unittest.TestCase):
         )
         self.assertEqual(len(properties), 4)
 
+    def test_positive_parser_accepts_exact_kani_unsupported_warning_when_property_is_safe(self):
+        harness = EXPECTED_STATE_HARNESSES[0]
+        output = rc03_output('''Check 1: std::panic::Location::caller.unsupported_construct.1
+ - Status: SUCCESS
+ - Description: "caller_location is not currently supported by Kani"
+ - Location: core/panic/location.rs:147:9 in function std::panic::Location::caller
+''')
+        warning = '''warning: Found the following unsupported constructs:
+             - caller_location (1)
+         
+         Verification will fail if one or more of these constructs is reachable.
+         See https://model-checking.github.io/kani/rust-feature-support.html for more details.
+
+warning: 1 warning emitted
+
+'''
+        output = output.replace(
+            f'Checking harness {harness}...',
+            warning + f'Checking harness {harness}...',
+        )
+        properties = verifier.parse_successful_proof(output, 0, harness)
+        self.assertEqual(len(properties), 4)
+
+        malformed = output.replace(
+            'Verification will fail if one or more of these constructs is reachable.',
+            'unsupported operation escaped proof instrumentation.',
+        )
+        with self.assertRaises(verifier.GateError):
+            verifier.parse_successful_proof(malformed, 0, harness)
+
     def test_positive_parser_accepts_multiline_internal_safety_description(self):
         output = rc03_output('''Check 1: kani::rustc_intrinsics::ptr_offset_from.safety_check.2
  - Status: SUCCESS
