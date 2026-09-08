@@ -15,8 +15,14 @@ class MutationControlTests(unittest.TestCase):
             [
                 'control_rc01_wrapping_add',
                 'control_rc02_missing_execution_equality',
+                'control_rc03_retain_zero_reserve',
+                'control_rc04_remove_multiple_reserve_rejection',
+                'control_rc05_create_ordinary_program_reserve',
+                'control_rc06_remove_previous_before_collision',
+                'control_rc07_omit_previous_restoration',
                 'control_rc08_omit_fee_subtraction',
                 'control_rc09_saturating_subtraction',
+                'control_rc10_skip_created_entry_equality',
             ],
         )
         self.assertEqual(
@@ -24,8 +30,14 @@ class MutationControlTests(unittest.TestCase):
             [
                 'rc01_arithmetic_matches_integer_equation',
                 'rc02_result_matches_claimed_execution_total',
+                'rc03_zero_and_positive_reserve_cardinality',
+                'rc04_multiple_live_reserves_reject_unchanged',
+                'rc05_created_reserve_exact_entry',
+                'rc06_failed_apply_and_undo_are_atomic',
+                'rc07_apply_then_undo_restores_full_state',
                 'rc08_conservation_identity',
                 'rc09_invalid_arithmetic_and_endpoints_reject',
+                'rc10_collisions_and_tampered_undo_reject_unchanged',
             ],
         )
         baseline = MODEL.read_text()
@@ -83,6 +95,48 @@ Complete - 0 successfully verified harnesses, 1 failures, 1 total.
         )
         with self.assertRaises(GateError):
             parse_negative_control(extra_failure, 1, control)
+
+    def test_negative_parser_accepts_exact_multi_assertion_state_kill(self):
+        control = 'control_rc04_remove_multiple_reserve_rejection'
+        harness = 'rc04_multiple_live_reserves_reject_unchanged'
+        output = f'''Kani Rust Verifier 0.67.0 (standalone)
+Checking harness {harness}...
+CBMC 6.8.0 (cbmc-6.8.0)
+Solving with CaDiCaL 2.0.0
+RESULTS:
+Check 1: {harness}.assertion.1
+ - Status: FAILURE
+ - Description: "RC04 two live reserves reject with the multiple-reserve error"
+ - Location: proofs.rs:1:1 in function {harness}
+Check 2: {harness}.assertion.2
+ - Status: FAILURE
+ - Description: "RC04 two-live-reserve rejection leaves the full state unchanged"
+ - Location: proofs.rs:2:1 in function {harness}
+Check 3: {harness}.cover.1
+ - Status: UNSATISFIABLE
+ - Description: "RC04 multiple-live-reserve rejection is reachable"
+ - Location: proofs.rs:3:1 in function {harness}
+SUMMARY:
+ ** 2 of 2 failed
+ ** 0 of 1 cover properties satisfied
+VERIFICATION:- FAILED
+Concrete playback for harness `{harness}`:
+```
+let concrete_vals: Vec<Vec<u8>> = vec![vec![1], vec![2]];
+kani::concrete_playback_run(concrete_vals, {harness});
+```
+Manual Harness Summary:
+Complete - 0 successfully verified harnesses, 1 failures, 1 total.
+'''
+        properties = parse_negative_control(output, 1, control)
+        self.assertEqual(len(properties), 3)
+
+        missing_failure = output.replace(
+            'Status: FAILURE\n - Description: "RC04 two-live-reserve rejection leaves the full state unchanged"',
+            'Status: SUCCESS\n - Description: "RC04 two-live-reserve rejection leaves the full state unchanged"',
+        ).replace('** 2 of 2 failed', '** 1 of 2 failed')
+        with self.assertRaises(GateError):
+            parse_negative_control(missing_failure, 1, control)
 
 
 if __name__ == '__main__':
