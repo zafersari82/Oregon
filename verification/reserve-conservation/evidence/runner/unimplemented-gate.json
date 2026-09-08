@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "scope": "tooling-bootstrap-only",
+  "accepted": false,
+  "reserve_proofs_executed": [],
+  "runs": [],
+  "source_sha": "0691c44ca12a4f4c91c048062f64a9895db6c0f3",
+  "source_tree": "3ff58617ed59e2a5cf48b2ff3425753797142fda",
+  "worktree_status": "?? scripts/__pycache__/",
+  "error": "RC01\u2013RC10 runner is not implemented; select --bootstrap for tooling only"
+}

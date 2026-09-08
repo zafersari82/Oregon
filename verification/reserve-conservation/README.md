@@ -2,9 +2,8 @@
 
 The owner approved the design and plan under `docs/superpowers/` on 2026-09-06.
 This directory currently contains a pinned toolchain and bootstrap checks.
-The reserve model, RC01–RC10 proofs, production differential matrix and CI workflow
-are still pending. The fail-closed repository runner is present, but refuses the
-incomplete RC suite. Bootstrap results are not reserve proof evidence.
+The reserve model, RC01–RC10 proofs, production differential matrix, full runner
+and CI workflow are still pending. Bootstrap results are not reserve proof evidence.
 
 ## Toolchain
 
@@ -33,12 +32,12 @@ Verify installed binary digests against the manifest before running proofs.
 From the repository root:
 
 ```bash
-python3 scripts/verify_reserve_proofs.py --bootstrap
+kani verification/reserve-conservation/bootstrap.rs --harness bootstrap_positive
+kani verification/reserve-conservation/bootstrap.rs --harness bootstrap_negative -Z concrete-playback --concrete-playback=print
+kani verification/reserve-conservation/bootstrap.rs --harness bootstrap_positive
 ```
 
-The runner verifies the pinned Kani, CBMC, compiler and toolchain identities before
-executing the exact manifest-listed sequence. The middle Kani invocation must exit 1
-with failure of
+The middle command must exit 1 with failure of
 `bootstrap_negative.assertion.1`, the named wrapping-increment assertion and
 the concrete byte input `255`. Compilation failure or another failed property
 does not satisfy this control. The other commands must exit 0 with both assertions
@@ -48,3 +47,29 @@ Local observed output at source `e816a9c` is retained in `evidence/bootstrap/`.
 The summary records the actual commands, source identity and exit codes; absolute
 paths describe the observed local execution and can differ on a fresh checkout.
 No GitHub proof run, production mutation gate or reserve checkpoint is claimed.
+
+## September 7 runner continuation
+
+`python3 -m unittest discover -s scripts -p test_verify_reserve_proofs.py` tests
+captured real Kani output, 19 corrupted-output variants, and process failure paths.
+These Python tests do not execute Kani or establish any reserve property.
+
+The bootstrap-only runner requires a clean checkout and explicit pinned tools:
+
+```bash
+python3 scripts/verify_reserve_proofs.py --bootstrap \
+  --kani-home /absolute/path/to/kani-0.67.0 \
+  --archive /absolute/path/to/verified-archive.tar.gz \
+  --rustc /absolute/path/to/pinned-nightly/bin/rustc \
+  --output /absolute/path/outside-checkout/new-evidence-directory
+```
+
+It checks archive/binary identities, tool versions, exact smoke harness/property
+inventory, successful reachability and the named 255 counterexample, then reruns
+the positive check. Timeouts kill the process group; partial output is retained.
+The evidence directory must be new and outside the checkout. Calling without
+`--bootstrap` fails because RC01–RC10 execution is not implemented.
+
+The live invocation and tool preflight have not been exercised in this continuation:
+Rust/Kani were absent and the Rust download was stopped at network approval.
+See `evidence/runner/summary.json` for actual scope and remaining gates.

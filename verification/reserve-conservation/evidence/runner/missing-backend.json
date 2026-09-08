@@ -1,0 +1,7 @@
+{
+  "job_id": 101693302210,
+  "output": "Kani Rust Verifier 0.67.0 (standalone)\nerror: Failed to invoke goto-cc: No such file or directory (os error 2)\n",
+  "returncode": 1,
+  "run_id": 34106713507,
+  "source_sha": "358b3e23ee1c4aca0d0909f1a5c8ccd9573cb4fa"
+}

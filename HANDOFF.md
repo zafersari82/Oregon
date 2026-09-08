@@ -1,60 +1,52 @@
 # Oregon — current continuation record
 
-Updated: 2026-09-06 UTC. Stage 3B and Stage 4A are integrated into `main` as **inactive foundations**. Stage 4A remains unpublished/non-activated: it adds a bounded execution journal and verification infrastructure, not VM execution, persistence or protocol activation.
+Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **inactive foundations**. Stage 4A remains unpublished/non-activated: it adds a bounded execution journal and verification infrastructure, not VM execution, persistence or protocol activation.
 
 ## Resume here
 
-- Current local work branch: `work/reserve-model-2026-09-07`;
-  publication target remains `work/reserve-conservation-proof-v1-2026-09-06`.
-- Owner approved Reserve Conservation Proof V1 after reviewing design commit
-  `7743aaa`; implementation is authorized. Do not request the same approval again.
-- Read `docs/architecture/OREGON_OWNER_DIRECTION.md` for the persistent engineering
-  objective, future subsystem assurance needs and limits of this reserve proof.
-- Current completed slice: pinned verifier bootstrap at source `e816a9c`. Kani
-  0.67.0/CBMC 6.8.0/CaDiCaL 2.0.0 passed the positive smoke check and found the
-  intended negative counterexample (255); the positive rerun also passed.
-- Evidence: `verification/reserve-conservation/evidence/bootstrap/summary.json` and
-  raw logs. These are local tool checks, not reserve proofs or CI acceptance.
-- Fail-closed runner/standalone package slice is committed locally at `448e516`.
-  Its 21 Python behavior tests pass, and the default command rejects the incomplete
-  RC01–RC10 suite with exit 2 before tool lookup. Real bootstrap execution was not
-  repeated in that environment because Rust, rustup and Kani were unavailable.
-- Current next action: write the approved crate-local production correspondence
-  tests before the bounded model, beginning with a semantic RED against a deliberately
-  incorrect model. A Rust-capable environment is required to observe that RED.
-  RC01–RC10 remain unimplemented; do not count bootstrap harnesses as reserve proofs.
-- Publication verified: local `448e516` and `6453525` were reproduced on GitHub
-  as `ce118b6` and `2471aef`, with identical respective tree identities. Original
-  local history remains on `archive/reserve-runner-local-6453525`.
-- 2026-09-07 continuation: Rust 1.85.0, rustfmt and Clippy are now installed.
-  Three constructor characterization tests pin error precedence, endpoint-only
-  supply checks and intermediate-overflow rejection. No production behavior changed.
-  Local checks: 13 reserve tests, all 35 UTXO unit tests plus one independent
-  vector test, 21 runner tests, workspace format and UTXO Clippy passed.
-  These are characterization tests, not model correspondence or Kani proofs.
-- Full workspace test attempt was blocked in the RocksDB build by missing
-  libclang. Kani is not installed in this environment. Exact-head CI and the
-  bounded-model semantic RED remain pending; no acceptance checkpoint is claimed.
-- The Stage 3B mutation runner stopped before injecting any mutation: its
-  execution-fee vector baseline could not compile (`E0463`, missing `serde` crate).
-  This is unresolved build evidence, not a killed mutation or a production
-  regression diagnosis. Reproduce with a fresh build directory before proceeding.
+### September 8 authoritative continuation
 
-### 2026-09-08 environment recovery and CI continuation
+- Local branch: `work/reserve-unified-2026-09-08`; published target:
+  `work/reserve-conservation-proof-v1-2026-09-06`; draft PR #23.
+- Main advanced independently to `a530ae1` through PR #21. This continuation
+  incorporates that accepted history into the work branch, not into main.
+- Preserve main's single runner, its parser/process tests, bootstrap workflow,
+  bounded model and RC06 correspondence tests. The older manifest-based runner
+  and its incompatible tests were superseded; their source remains in Git history.
+- Retain this branch's three constructor boundary tests and reserve-branch Rust
+  CI trigger. Python CI invokes the retained parser test suite in `scripts/`.
+- The prior local clean-target fee vector run passed 2/2 without source changes.
+  The restarted mutation run has no recovered result after environment reset;
+  Rust/Kani installations were also lost. No new 14/14 or full-workspace pass
+  is claimed. Inspect PR #23 exact-head CI before choosing the next model task.
+- RC01–RC10 formal harnesses and final proof acceptance remain pending. Do not
+  confuse the inherited model/correspondence implementation with Kani proof.
 
-- Constructor tests are published at `991a5ff35ba14a1f44993ae765c5c7847284b5c9`.
-- The identical execution fee vector tests passed 2/2 in a fresh target directory,
-  without source changes. The earlier `serde` error was not reproduced there;
-  stale build artifacts are suspected, not a demonstrated source defect.
-- libclang 18.1.1 was installed, but the next session lost the installed Rust
-  toolchains and active process handles. The restarted mutation run's final result
-  was not recovered. Do not claim 14/14 or successful full-workspace verification.
-- Oregon Rust CI now includes the reserve publication branch and the 21 runner
-  behavior tests. Existing Rust 1.85.0, native prerequisites, workspace checks and
-  inherited mutations remain in the same workflow. CI results are pending.
-- Next action: inspect exact-head CI and resolve any observed failures, then add
-  the approved bounded model correspondence tests and semantic RED. Kani
-  RC01–RC10 and the separate proof workflow remain unimplemented.
+The following records describe earlier slices and their historical evidence:
+
+- Published work branch: `work/reserve-proof-publication-2026-09-07`.
+- Preserved local history branch: `work/reserve-proof-runner-2026-09-07`.
+- Owner-approved Reserve Conservation Proof V1 remains authorized; do not request
+  the same approval again. All original continuation commits through `6a7770b`
+  are preserved as ancestors.
+- Latest code slice: `0691c44`, fail-closed bootstrap result parser and process runner
+  in `scripts/verify_reserve_proofs.py`. Six Python test methods pass, including
+  19 corrupted-output cases and timeout/missing-tool/compile-failure rejection.
+  Semantic red evidence preceded implementation. Evidence is recorded in
+  `verification/reserve-conservation/evidence/runner/`.
+- Historical live bootstrap remains source `e816a9c`, Kani 0.67.0 / CBMC 6.8.0 /
+  CaDiCaL 2.0.0. No live Kani execution occurred in the September 7 continuation.
+- Current environment blocker: Rust/Kani executables are absent; the Rust download
+  attempt was stopped at network approval. Live pinned preflight/invocation and
+  inherited Rust/Clippy/mutation gates are unvalidated for the new code slice.
+- Next incomplete action: validate the bootstrap runner with the pinned archive,
+  installed Kani and nightly rustc, then add the standalone package and write the
+  approved production correspondence tests before implementing the reserve model.
+  The full RC01–RC10 runner, model, controls and proof CI remain unimplemented.
+- On September 7 the live GitHub main was checked at `dd7cdcb` with seven successful
+  checks at that exact source. PR #20 remains a separate Stage 4B draft. Those checks
+  do not validate the new local runner.
+- Publication status: see the latest continuation publication record below.
 
 - Repository: `zafersari82/Oregon`.
 - Stage 3B main integration: `fe762f7a5670d94a486423327e3a525cec24afb5`.
@@ -148,3 +140,36 @@ trust-roadmap priority. Neither that branch nor historical checkpoints were move
 - Never force-push or move accepted historical checkpoint refs.
 
 Keep this record and the integration checkpoint in the repository so another conversation can resume from exact evidence rather than chat memory.
+
+## September 7 publication record
+
+Push of `0691c44` and its preserved ancestors to
+`work/reserve-proof-runner-2026-09-07` failed: Git HTTPS could not read a username
+with terminal prompts disabled. GitHub read access works, but this session has no
+usable Git write credential. No remote branch creation or current-head CI is claimed.
+Continue from the local branch or its exported continuation bundle; main is unchanged.
+
+
+## September 7 connector publication and bootstrap CI
+
+GitHub connector writes succeeded after Git CLI authentication failed. Source
+snapshot `ed4e3b5af5c6e56d0404548866206766f902936d` has the exact original local
+`976d6e5` tree `975454b9224584dd20e0b24fd614cb9bb6fc65fb`. This is a new publication
+commit, not a claim that original local commit identities were pushed as Git refs.
+
+The complete original history is preserved remotely on
+`archive/reserve-continuation-2026-09-07` at
+`01451b8136cd93e22497704537f1f2a56ec0443a`, in
+`Oregon-continuation-2026-09-07.bundle`. Its Git blob identity
+`c8c71e1b0bdb1b14714560a5e1571a5cb06db577` matches the local bundle bytes.
+
+A dedicated `oregon-reserve-bootstrap.yml` CI workflow now prepares the pinned
+verifier, checks the archive digest before setup, and executes the bootstrap-only
+runner with positive/negative/positive checks and retained evidence. It does not
+execute RC01–RC10. Inspect its actual run before claiming live validation. The
+local Rust download was again stopped at network approval; CI is the intended
+execution environment for this continuation.
+
+Next: inspect and resolve bootstrap CI results, then continue the approved
+standalone-package and test-first production-correspondence work. Main integration
+and reserve-proof acceptance have not occurred.

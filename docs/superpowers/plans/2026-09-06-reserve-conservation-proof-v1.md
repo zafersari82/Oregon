@@ -52,7 +52,7 @@ RC01–RC10 results or exact-head CI acceptance. The installer required separate
 
 - [ ] Add crate-local reserve model comparisons under `cfg(test)` with no exported
   production hooks. Keep existing reserve tests and vectors unchanged.
-- [x] Pin constructor error precedence, intermediate-overflow rejection and
+- [ ] Pin constructor error precedence, intermediate-overflow rejection and
   endpoint-only supply bounds before writing the model implementation.
 - [ ] Add the exact state shapes and malformed states listed in design sections
   5 and 7, including full-entry equality after failure and undo.
@@ -73,8 +73,7 @@ RC01–RC10 results or exact-head CI acceptance. The installer required separate
 
 The initial runner surface should be a repository command, for example
 `python3 scripts/verify_reserve_proofs.py`, that reads the committed manifest and
-executes the exact discovered harnesses. The runner is present; its default mode
-refuses the incomplete RC01–RC10 suite. Its bootstrap mode is not reserve proof.
+executes the exact discovered harnesses. This command does not exist yet.
 
 ## 5. Prove the negative controls are meaningful
 
