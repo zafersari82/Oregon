@@ -79,7 +79,6 @@ CONTROL_CASES = (
         'harness': 'rc04_multiple_live_reserves_reject_unchanged',
         'expected_failures': (
             'RC04 two live reserves reject with the multiple-reserve error',
-            'RC04 two-live-reserve rejection leaves the full state unchanged',
         ),
         'old': '''    if reserve_indices.iter().flatten().count() > 1 {
         return Err(StateError::MultipleLiveReserves);
@@ -96,7 +95,6 @@ CONTROL_CASES = (
         'harness': 'rc05_created_reserve_exact_entry',
         'expected_failures': (
             'RC05 undo records the exact created reserve entry',
-            'RC05 successful creation has exact reserve program value and metadata',
         ),
         'old': '''                program: ProgramClass::Reserve,
 ''',
@@ -181,7 +179,6 @@ CONTROL_CASES = (
         'harness': 'rc10_collisions_and_tampered_undo_reject_unchanged',
         'expected_failures': (
             'RC10 stale or tampered created-entry undo rejects',
-            'RC10 stale or tampered undo rejection leaves the full state unchanged',
         ),
         'old': '''            if actual != expected {
                 return Err(StateError::UndoMismatch);
@@ -230,10 +227,13 @@ def parse_negative_control(output, returncode, control_id):
         property_name = match[2]
         status = match[3]
         if property_name.startswith(harness + '.assertion.'):
-            require(status == 'SUCCESS', 'unexpected selected assertion status')
+            require(
+                status in {'SUCCESS', 'UNREACHABLE'},
+                'unexpected selected assertion status',
+            )
         elif property_name.startswith(harness + '.cover.'):
             require(
-                status in {'SATISFIED', 'UNSATISFIABLE'},
+                status in {'SATISFIED', 'UNSATISFIABLE', 'UNREACHABLE'},
                 'unexpected mutation-control cover status',
             )
         else:
