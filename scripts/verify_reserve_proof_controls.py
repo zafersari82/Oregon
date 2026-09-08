@@ -411,9 +411,12 @@ def parse_control(output, returncode, control):
         if item["status"] == "SATISFIED" and ".cover." in item["property"]
     ]
     actual_playbacks = [(item["kind"], item["description"]) for item in playbacks]
+    missing_playbacks = list((Counter(expected_playbacks) - Counter(actual_playbacks)).elements())
+    extra_playbacks = list((Counter(actual_playbacks) - Counter(expected_playbacks)).elements())
     require(
-        Counter(actual_playbacks) == Counter(expected_playbacks),
-        "concrete playback inventory does not match failed assertions and satisfied covers",
+        not missing_playbacks and not extra_playbacks,
+        "concrete playback inventory does not match failed assertions and satisfied covers; "
+        f"missing={missing_playbacks!r}; extra={extra_playbacks!r}",
     )
     require(
         actual_playbacks.count(("assertion", control["target_failure"])) == 1,

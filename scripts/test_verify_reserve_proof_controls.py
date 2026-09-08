@@ -284,6 +284,15 @@ class ControlParserTests(unittest.TestCase):
         self.assertEqual(parsed["id"], "RC02")
         self.assertEqual(parsed["covers"], 1)
 
+    def test_missing_cover_playback_reports_exact_missing_evidence(self):
+        control = CONTROLS[5]
+        output = shaped_control_output(control, cover_playbacks=2)
+        output = output.replace(
+            playback_block(control, "cover", "RC06 reachability 2", "cover_2"), ""
+        )
+        with self.assertRaisesRegex(GateError, "missing=.*RC06 reachability 2"):
+            parse_control(output, 1, control)
+
     def test_rejects_green_verifier_exit(self):
         with self.assertRaises(GateError):
             parse_control(

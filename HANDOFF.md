@@ -6,6 +6,20 @@ Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ### September 8 continuation (supersedes older implementation status below)
 
+- CI completion checked on September 8: PR head remains
+  `7b9a2e6439e148cd82f50281ed53ba1e8a032dc3`. Rust #842, Bootstrap #70,
+  and Fee Settlement #116 succeeded. Proof Slices #30 run 34181952371
+  passed the ten positive harness step invocations and RC01-RC05 controls,
+  then failed the RC06 playback inventory gate. No positive rerun occurred.
+- The retained RC06 log reports two satisfied covers but prints only one
+  cover playback, for `RC06 failed apply is reachable`. Missing evidence:
+  `RC06 failed undo is reachable`. The target assertion counterexample exists.
+  Do not relax the exact playback inventory to label this control accepted.
+- This diagnostic continuation reports exact missing/extra playback bindings
+  and adds a regression test. Next: investigate pinned Kani playback generation
+  and obtain the missing RC06 evidence, then execute RC07-RC10 controls and
+  the complete positive rerun. Full proof acceptance remains pending.
+
 - PR #22 remains open on `work/reserve-evidence-gate-2026-09-07`.
   Published source `ef5bca0e30d7486ff6d5e38d78fb31478f2fc255` has the exact
   tree of local `b64d96410439967801024c2428fad1d7f887be01`.
