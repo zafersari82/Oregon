@@ -4,6 +4,26 @@ Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ## Resume here
 
+### September 8 continuation (supersedes older implementation status below)
+
+- PR #22 remains open on `work/reserve-evidence-gate-2026-09-07`.
+  Published source `ef5bca0e30d7486ff6d5e38d78fb31478f2fc255` has the exact
+  tree of local `b64d96410439967801024c2428fad1d7f887be01`.
+- At that source Rust CI #841, fee vectors #115 and bootstrap #69 succeeded.
+  Proof Slices #28 (run 34160229290) passed both positive proof steps,
+  accepted RC01-RC04 controls, then rejected RC05's UNREACHABLE cover status.
+- This continuation adds counted UNREACHABLE cover handling for negative
+  controls only. Positive runs still require all expected covers SATISFIED.
+  Local verification: 29 Python parser tests pass; replay of the retained
+  run-34160229290 artifact accepts RC01-RC05 controls and all ten positives.
+  This replay is not a fresh Kani run and does not validate RC06-RC10 controls.
+- Next: inspect new exact-source Proof Slices CI, resolve remaining failures,
+  then complete the evidence manifest and correspondence matrix before any
+  proof acceptance. Ten harnesses and ten control definitions now exist;
+  older claims below that they are unimplemented are historical.
+- Production semantics and main are unchanged. No integration decision is
+  implied. The older dirty worktree and its correspondence changes are preserved.
+
 - Current work branch: `work/reserve-evidence-gate-2026-09-07`, based on main
   `a530ae1d20e5a1648cf9cfea045221ec13326d25` (PR #21 integrated).
 - PR #21 verified head: `51659a39dd0c41bbf607e75f2a4d5b3589e53f27`.

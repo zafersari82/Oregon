@@ -248,7 +248,7 @@ class ControlParserTests(unittest.TestCase):
         self.assertEqual(parsed["id"], "RC03")
         self.assertTrue(parsed["counterexample_bound"])
 
-    def test_rejects_unreachable_cover_property(self):
+    def test_accepts_counted_unreachable_cover_only_in_negative_control(self):
         control = CONTROLS[2]
         output = shaped_control_output(control).replace(
             "SUMMARY:\n",
@@ -260,9 +260,16 @@ class ControlParserTests(unittest.TestCase):
                 "SUMMARY:\n"
             ),
             1,
-        ).replace(" ** 1 of 1 failed\n", " ** 1 of 2 failed (1 unreachable)\n", 1)
+        ).replace(" ** 1 of 1 failed\n", " ** 1 of 1 failed\n ** 0 of 1 cover properties satisfied (1 unreachable)\n", 1)
+        self.assertTrue(parse_control(output, 1, control)["counterexample_bound"])
         with self.assertRaises(GateError):
-            parse_control(output, 1, control)
+            parse_control(output.replace("(1 unreachable)", "(2 unreachable)"), 1, control)
+
+    def test_positive_rejects_unreachable_cover(self):
+        output = shaped_positive_output(self.control).replace("Status: SATISFIED", "Status: UNREACHABLE")
+        output = output.replace("1 of 1 cover properties satisfied", "0 of 1 cover properties satisfied (1 unreachable)")
+        with self.assertRaises(GateError):
+            parse_positive(output, 0, self.control)
 
     def test_rejects_unreachable_summary_count_mismatch(self):
         control = CONTROLS[2]

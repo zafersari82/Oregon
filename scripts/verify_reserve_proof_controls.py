@@ -337,16 +337,16 @@ def _summary_inventory(output, properties, expected_failures, allow_unsatisfiabl
         item for item in ordinary_properties if item["status"] == "UNREACHABLE"
     ]
     require(unreachable == len(unreachable_properties), "unreachable summary count mismatch")
-    require(
-        not any(item["status"] == "UNREACHABLE" for item in cover_properties),
-        "reachability property has unsupported unreachable status",
-    )
     cover_summaries = re.findall(
-        r"^ \*\* (\d+) of (\d+) cover properties satisfied$", output, re.M
+        r"^ \*\* (\d+) of (\d+) cover properties satisfied(?: \((\d+) unreachable\))?$", output, re.M
     )
     if cover_properties:
         require(len(cover_summaries) == 1, "missing or repeated reachability summary")
-        satisfied, cover_total = (int(value) for value in cover_summaries[0])
+        satisfied, cover_total, cover_unreachable = (int(value or 0) for value in cover_summaries[0])
+        require(
+            cover_unreachable == sum(item["status"] == "UNREACHABLE" for item in cover_properties),
+            "unreachable reachability count mismatch",
+        )
         require(cover_total == len(cover_properties), "reachability total does not match inventory")
         require(
             satisfied
