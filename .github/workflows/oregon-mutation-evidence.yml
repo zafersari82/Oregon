@@ -20,5 +20,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - name: Run Mutation Evidence RED tests
+      - name: Run Mutation Evidence tests
         run: python3 -m unittest discover -s scripts -p 'test_mutation_evidence*.py' -v
+      - name: Inspect current authority inventory
+        run: python3 scripts/inspect_mutation_inventory.py
