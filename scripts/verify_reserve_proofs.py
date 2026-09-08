@@ -20,11 +20,26 @@ ARITHMETIC_HARNESSES = (
     'rc08_conservation_identity',
     'rc09_invalid_arithmetic_and_endpoints_reject',
 )
-ARITHMETIC_COVER_COUNTS = {
+STATE_HARNESSES = (
+    'rc03_zero_and_positive_reserve_cardinality',
+    'rc04_multiple_live_reserves_reject_unchanged',
+    'rc05_created_reserve_exact_entry',
+    'rc06_failed_apply_and_undo_are_atomic',
+    'rc07_apply_then_undo_restores_full_state',
+    'rc10_collisions_and_tampered_undo_reject_unchanged',
+)
+PROOF_HARNESSES = ARITHMETIC_HARNESSES + STATE_HARNESSES
+PROOF_COVER_COUNTS = {
     'rc01_arithmetic_matches_integer_equation': 2,
     'rc02_result_matches_claimed_execution_total': 2,
     'rc08_conservation_identity': 1,
     'rc09_invalid_arithmetic_and_endpoints_reject': 3,
+    'rc03_zero_and_positive_reserve_cardinality': 2,
+    'rc04_multiple_live_reserves_reject_unchanged': 1,
+    'rc05_created_reserve_exact_entry': 1,
+    'rc06_failed_apply_and_undo_are_atomic': 2,
+    'rc07_apply_then_undo_restores_full_state': 4,
+    'rc10_collisions_and_tampered_undo_reject_unchanged': 2,
 }
 
 
@@ -153,7 +168,7 @@ def parse_bootstrap(output, returncode, harness):
 
 def parse_successful_proof(output, returncode, harness):
     """Fail closed on a positive RC proof unless its identity and reachability are explicit."""
-    require(harness in ARITHMETIC_HARNESSES, 'unknown reserve proof harness')
+    require(harness in PROOF_HARNESSES, 'unknown reserve proof harness')
     require(returncode == 0, 'reserve proof verifier exited nonzero')
     _reject_infrastructure_diagnostics(output)
     _require_common_kani_identity(output, harness)
@@ -179,7 +194,7 @@ def parse_successful_proof(output, returncode, harness):
     ]
     require(custom_assertions, 'named reserve proof assertion is absent')
     require(
-        len(covers) == ARITHMETIC_COVER_COUNTS[harness],
+        len(covers) == PROOF_COVER_COUNTS[harness],
         'required reachability inventory is absent or duplicated',
     )
     require(
@@ -309,14 +324,14 @@ def preflight(kani_home, archive, rustc, mode):
         'unexpected bootstrap harness inventory',
     )
 
-    if mode == 'arithmetic':
+    if mode != 'bootstrap':
         proofs = PROOF / 'proofs.rs'
         proof_source = proofs.read_text()
         require(
-            _source_harnesses(proofs) == list(ARITHMETIC_HARNESSES)
-            and proof_source.count('#[kani::proof]') == len(ARITHMETIC_HARNESSES)
-            and proof_source.count('#[kani::solver(cadical)]') == len(ARITHMETIC_HARNESSES),
-            'unexpected arithmetic proof harness inventory',
+            _source_harnesses(proofs) == list(PROOF_HARNESSES)
+            and proof_source.count('#[kani::proof]') == len(PROOF_HARNESSES)
+            and proof_source.count('#[kani::solver(cadical)]') == len(PROOF_HARNESSES),
+            'unexpected reserve proof harness inventory',
         )
     return lock
 
@@ -333,6 +348,16 @@ def _run_harness(kani_home, source, harness, lock, timeout=300, concrete=False):
     )
 
 
+def _selected_harnesses(mode):
+    if mode == 'arithmetic':
+        return ARITHMETIC_HARNESSES
+    if mode == 'state':
+        return STATE_HARNESSES
+    if mode == 'all':
+        return PROOF_HARNESSES
+    raise GateError('no reserve proof harnesses for mode: ' + mode)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group(required=True)
@@ -342,14 +367,31 @@ def main():
         action='store_true',
         help='run the RC01/RC02/RC08/RC09 bounded arithmetic proof slice',
     )
+    modes.add_argument(
+        '--state',
+        action='store_true',
+        help='run the RC03/RC04/RC05/RC06/RC07/RC10 bounded state proof slice',
+    )
+    modes.add_argument('--all', action='store_true', help='run all RC01-RC10 proof harnesses')
     parser.add_argument('--kani-home', type=Path, required=True)
     parser.add_argument('--archive', type=Path, required=True)
     parser.add_argument('--rustc', type=Path, required=True)
     parser.add_argument('--output', required=True, type=Path, help='new evidence directory')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
-    mode = 'bootstrap' if args.bootstrap else 'arithmetic'
-    scope = 'tooling-bootstrap-only' if args.bootstrap else 'reserve-arithmetic-proof-slice'
+    if args.bootstrap:
+        mode = 'bootstrap'
+        scope = 'tooling-bootstrap-only'
+    elif args.arithmetic:
+        mode = 'arithmetic'
+        scope = 'reserve-arithmetic-proof-slice'
+    elif args.state:
+        mode = 'state'
+        scope = 'reserve-state-proof-slice'
+    else:
+        mode = 'all'
+        scope = 'reserve-conservation-proof-v1'
+
     evidence = {
         'schema_version': 1,
         'scope': scope,
@@ -367,8 +409,12 @@ def main():
         )
         evidence['tool_lock'] = preflight(kani_home, archive, rustc, mode)
 
-        if args.bootstrap:
-            sources = [PROOF / 'bootstrap.rs', PROOF / 'toolchain-lock.json', Path(__file__).resolve()]
+        if mode == 'bootstrap':
+            sources = [
+                PROOF / 'bootstrap.rs',
+                PROOF / 'toolchain-lock.json',
+                Path(__file__).resolve(),
+            ]
             evidence['source_digests'] = {
                 str(path.relative_to(ROOT)): digest(path) for path in sources
             }
@@ -399,7 +445,8 @@ def main():
             evidence['source_digests'] = {
                 str(path.relative_to(ROOT)): digest(path) for path in sources
             }
-            for name in ARITHMETIC_HARNESSES:
+            selected = _selected_harnesses(mode)
+            for name in selected:
                 result = _run_harness(
                     kani_home,
                     PROOF / 'proofs.rs',
@@ -413,8 +460,8 @@ def main():
                 )
                 evidence['reserve_proofs_executed'].append(name)
             require(
-                evidence['reserve_proofs_executed'] == list(ARITHMETIC_HARNESSES),
-                'incomplete arithmetic proof execution',
+                evidence['reserve_proofs_executed'] == list(selected),
+                'incomplete reserve proof execution',
             )
         evidence['accepted'] = True
     except (GateError, OSError, ValueError) as error:
