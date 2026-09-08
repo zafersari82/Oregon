@@ -1,6 +1,6 @@
 # Oregon Reserve Conservation Proof V1 — Implementation Plan
 
-**Status:** owner-approved on 2026-09-06; start with proof-tool bootstrap.
+**Status:** owner-approved on 2026-09-06; implementation and proof acceptance complete on the isolated branch; final documentation/workflow closure must pass exact-head CI before the separate `main` integration decision.
 
 **Base:** `dd7cdcb566273c39d5a38cf0c0036058b08a7d89`.
 
@@ -8,119 +8,70 @@
 
 ## 1. Resume and verify the baseline
 
-- [x] Read `AGENTS.md`, `HANDOFF.md`, normative architecture, Stage 3B design and
-  acceptance records, current reserve source and mutation runner.
-- [x] Verify main source and query its current GitHub checks: seven returned jobs
-  succeeded at the exact base above. Rust run `34048877702`; vector runs
-  `34048877715`, `34048877699`, `34048877641` each include x86_64 and ARM.
-- [x] Inspect open PRs: #20 is separate draft Stage 4B work at
-  `fc2cc1564de69eee1482a445bb0c08b49b667ab0`; main's trust-roadmap order is unchanged.
-- [x] Verify the Kani 0.67.0 tag against its repository source and inspect its
-  installation, toolchain, backend and solver documentation.
-- [x] Record owner approval of this model boundary and pinned verifier in
-  `docs/architecture/OREGON_OWNER_DIRECTION.md`.
+- [x] Read `AGENTS.md`, `HANDOFF.md`, normative architecture, Stage 3B design and acceptance records, current reserve source and mutation runner.
+- [x] Verify main source and its exact-source checks before implementation.
+- [x] Inspect separate open Stage 4B work and preserve the trust-roadmap priority.
+- [x] Verify the Kani 0.67.0 tag/source and installation/toolchain/backend/solver identities.
+- [x] Record owner approval of this model boundary and pinned verifier in `docs/architecture/OREGON_OWNER_DIRECTION.md`.
 
-This design review ran without a local Rust toolchain. No local Rust, Kani,
-mutation or newly authored proof execution is claimed by these checked items.
+The original design review did not claim proof execution. Live pinned proof evidence was established later in dedicated CI and is recorded in `docs/checkpoints/OREGON_RESERVE_CONSERVATION_PROOF_V1.md`.
 
 ## 2. Establish reproducible proof tooling
 
-On `work/reserve-conservation-proof-v1-2026-09-06`, based on the reviewed design:
+- [x] Keep the standalone verification package/model under `verification/reserve-conservation/`, outside the production Cargo workspace, with committed tool identity data.
+- [x] Record Kani 0.67.0, pinned source/toolchain/backend/solver and verified release/binary digests in `toolchain-lock.json`.
+- [x] Verify a positive smoke assertion and intentionally failing assertion and pin their real Kani output/property shape.
+- [x] Fail closed on missing/wrong tools, unexpected harness inventory, timeouts, compilation failures, unsupported operations and unwind failures.
 
-- [ ] Add standalone verification package/model directory outside the production
-  workspace and a committed lockfile if the package uses dependencies.
-- [x] Record Kani 0.67.0, pinned source commit, nightly and CBMC versions from the
-  design, plus downloaded asset and solver digests in `toolchain-lock.json`.
-- [x] Verify a positive smoke assertion and an intentionally failing assertion;
-  record real property identifiers/output shape for the result parser.
-- [ ] Fail closed on missing tools, wrong versions, unexpected harness inventory,
-  timeouts, compilation failures, unsupported operations and unwind failures.
-
-Do not add Kani as a production dependency or change Rust 1.85.0. If this selected
-release cannot run the bounded model, document the actual failure before proposing
-a different version; do not silently weaken the proof or switch tools.
-
-Local bootstrap evidence is in `verification/reserve-conservation/evidence/bootstrap/`.
-At source `e816a9c`, the positive harness passed, its maximum-input cover was
-satisfied, and the negative harness failed the intended assertion with input 255.
-The positive harness passed again afterward. These are tooling smoke checks, not
-RC01–RC10 results or exact-head CI acceptance. The installer required separate Rust
-1.88.0; production stays at 1.85.0. The verified archive and binary digests are in
-`verification/reserve-conservation/toolchain-lock.json`.
+Kani remains verification-only. Oregon production Rust remains 1.85.0; the installer/proof toolchains are separate.
 
 ## 3. Write failing correspondence tests first
 
-- [ ] Add crate-local reserve model comparisons under `cfg(test)` with no exported
-  production hooks. Keep existing reserve tests and vectors unchanged.
-- [ ] Pin constructor error precedence, intermediate-overflow rejection and
-  endpoint-only supply bounds before writing the model implementation.
-- [ ] Add the exact state shapes and malformed states listed in design sections
-  5 and 7, including full-entry equality after failure and undo.
-- [ ] Demonstrate the tests fail semantically against a deliberately incorrect
-  model; a missing-module or compilation error is insufficient red evidence.
+- [x] Add crate-local model comparisons under `cfg(test)` with no exported production verification API.
+- [x] Pin constructor error precedence, intermediate-overflow rejection and endpoint-only supply bounds before model acceptance.
+- [x] Cover the required state/malformed shapes, including full-entry equality after failure and undo.
+- [x] Preserve semantic RED evidence using deliberately weakened behavior rather than treating compilation errors as test evidence.
+
+The same model source is compiled by `oregon-utxo` tests through the explicit `#[path = "../../../verification/reserve-conservation/src/model.rs"]` binding.
 
 ## 4. Implement the bounded model and prove the obligations
 
-- [ ] Implement checked arithmetic and four-slot reserve state/undo in the
-  verification package, preserving exact constructor/apply/undo behavior.
-- [ ] Add explicitly named RC01–RC10 harnesses and reachability obligations.
-- [ ] Use arbitrary full-width scalar amounts and independent `i128` assertions;
-  keep collection/key/program abstraction limits explicit in the manifest.
-- [ ] Run the same model through real production differential tests and existing
-  independent reserve vectors. Diagnose disagreement before changing either side.
-- [ ] Run Kani with explicit solver and per-harness unwind bounds, preserving all
-  safety checks. Commit the actual successful bounds and invocation to the manifest.
+- [x] Implement checked arithmetic and four-slot reserve state/undo with the accepted production semantics.
+- [x] Add explicitly named RC01–RC10 Kani harnesses and reachability obligations.
+- [x] Use full-width symbolic scalar amounts and independent mathematical assertions; keep collection/key/program abstraction limits explicit.
+- [x] Run the same model through production differential tests and existing independent reserve vectors; diagnose and correct semantic disagreement before acceptance.
+- [x] Run Kani with explicit CaDiCaL selection and explicit state unwind bound while preserving safety/unwind checks.
 
-The initial runner surface should be a repository command, for example
-`python3 scripts/verify_reserve_proofs.py`, that reads the committed manifest and
-executes the exact discovered harnesses. This command does not exist yet.
+The repository runner surfaces are `scripts/verify_reserve_proofs.py` and `scripts/verify_reserve_mutation_controls.py`.
 
 ## 5. Prove the negative controls are meaningful
 
-- [ ] For each design control, mutate only a disposable model checkout, compile,
-  and require the expected semantic property failure and counterexample.
-- [ ] Reject compile errors, crashes, unsupported features, unwind failures,
-  empty suites and unrelated assertion failures as control kills.
-- [ ] Add parser regression fixtures from real positive, counterexample and
-  infrastructure-failure outputs observed with the pinned verifier.
-- [ ] Validate restoration and rerun the complete positive proof suite afterward.
-- [ ] Keep the existing fee-settlement mutation runner as the production mutation
-  authority; do not count model controls toward its 14/14 total.
+- [x] Execute all ten design controls in disposable model copies and require the selected semantic proof assertion to fail with a concrete counterexample.
+- [x] Reject compilation errors, crashes, unsupported features, unwind failures, empty suites and unrelated assertion failures as mutation kills.
+- [x] Maintain parser regression fixtures from observed positive, counterexample and infrastructure-failure output.
+- [x] Verify the baseline model/repository is restored after controls and rerun the complete positive RC01–RC10 suite afterward.
+- [x] Keep the production Stage 3B fee-settlement mutation runner as the separate 14/14 production mutation authority.
 
 ## 6. Add CI and collect exact-source evidence
 
-- [ ] Add a separate `oregon-reserve-proofs.yml` job on Linux x86_64 with pinned
-  action commits, read-only permissions and a verified tool lock.
-- [ ] Trigger on PRs to main and pushes to the implementation branch. Include
-  production reserve/primitives, verification, scripts, lockfiles and workflow
-  changes in any path filters, or omit path filtering entirely.
-- [ ] Run positive proofs, reachability checks and negative controls. Upload raw
-  logs, source/tool identities, counterexamples and machine-readable results.
-- [ ] Run production correspondence tests on existing supported Rust CI and retain
-  x86_64/ARM vector evidence; do not claim ARM Kani proof execution.
-- [ ] Run all inherited gates required by the constitution:
+- [x] Add separate `oregon-reserve-proofs.yml` Linux x86_64 CI with pinned action commits, read-only permissions and verified tool lock.
+- [x] Trigger on PRs to `main` and pushes to the implementation branch without weakening relevant-source coverage through path filtering.
+- [x] Run positive proofs, reachability checks and all ten negative controls and retain raw/machine-readable evidence.
+- [x] Run production correspondence tests through supported Rust CI and preserve independent production vector evidence; do not claim ARM Kani execution.
+- [x] Run inherited architecture, full workspace/all-target, mutation, rustdoc/docs, Format and warnings-denied Clippy gates.
 
-```bash
-cargo +1.85.0 test --locked --workspace --all-targets
-cargo +1.85.0 fmt --all -- --check
-cargo +1.85.0 clippy --locked --workspace --all-targets -- -D warnings
-python3 scripts/generate_fee_settlement_vectors.py --check
-python3 scripts/verify_fee_settlement_mutations.py
-```
+Accepted proof-source evidence at `511f61302ee486e618a33235808572ae4419f487`:
 
-Retain the architecture scan, other inherited mutation gates, rustdoc and docs
-steps already present in Rust CI. Do not substitute a green ancestor for the
-final candidate's verification.
+- Reserve Conservation Proofs run `34220257918`, job `102041448968`: SUCCESS.
+- Reserve Verifier Bootstrap run `34220257907`, job `102041448925`: SUCCESS.
+- Oregon Rust CI run `34220257858`, job `102041448416`: SUCCESS.
+- Proof artifact ID `10053933077`, digest `sha256:e84b33e5736ff9597baf6f0a2521bec3082ad0ca97da1188f4c1e6f35d303953`.
 
 ## 7. Checkpoint and integration boundary
 
-- [ ] Record exact head/tree, actual verifier/tool digests, all successful proof
-  IDs and bounds, control results, differential evidence and CI URLs in a new
-  reserve-proof checkpoint.
-- [ ] State that the model is formally checked and correspondence is tested;
-  preserve every non-proven scope item in the design.
-- [ ] Update `HANDOFF.md` with the accepted proof slice's actual remaining action.
-- [ ] Obtain the separate explicit main-integration decision before merging.
+- [x] Record exact verified proof source/tree, tool identities/digests, all RC01–RC10 proof IDs and bounds, ten control results, correspondence evidence and CI identifiers in `docs/checkpoints/OREGON_RESERVE_CONSERVATION_PROOF_V1.md`.
+- [x] State the exact bounded-model proof claim and preserve the explicit non-proven scope.
+- [x] Update `HANDOFF.md` to the current proof-acceptance and closure state.
+- [ ] Obtain the separate explicit `main` integration decision and merge only after the final documentation/workflow closure source itself is exact-head green.
 
-After acceptance, continue with the roadmap's mutation-evidence publication.
-Stage 4B, Stage 4C and a public testnet remain separately gated work.
+After authorized integration and verification of the actual `main` merge source, continue with the trust roadmap's Workstream B mutation-evidence publication. Stage 4B, Stage 4C and the public RandomX testnet/challenge remain separately gated work.

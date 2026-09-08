@@ -69,10 +69,30 @@ pub struct ModelSlot {
     pub entry: ModelEntry,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct ModelState {
     pub slots: [Option<ModelSlot>; 4],
 }
+
+impl PartialEq for ModelState {
+    fn eq(&self, other: &Self) -> bool {
+        let self_count = self.slots.iter().flatten().count();
+        let other_count = other.slots.iter().flatten().count();
+        self_count == other_count
+            && self
+                .slots
+                .iter()
+                .flatten()
+                .all(|slot| other.slots.contains(&Some(*slot)))
+            && other
+                .slots
+                .iter()
+                .flatten()
+                .all(|slot| self.slots.contains(&Some(*slot)))
+    }
+}
+
+impl Eq for ModelState {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StateSnapshot {
