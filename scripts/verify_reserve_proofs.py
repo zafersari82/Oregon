@@ -159,24 +159,35 @@ def parse_successful_proof(output, returncode, harness):
     _require_common_kani_identity(output, harness)
     matches = _parse_properties(output)
     require(
-        all(match[5].endswith('in function ' + harness) for match in matches),
-        'wrong property location',
-    )
-    require(
         all(match[3] in {'SUCCESS', 'SATISFIED'} for match in matches),
         'reserve proof contains a non-success property status',
     )
     obligation = harness[:4].upper()
     custom_assertions = [
-        match for match in matches if match[3] == 'SUCCESS' and obligation in match[4]
+        match
+        for match in matches
+        if match[3] == 'SUCCESS'
+        and match[2].startswith(harness + '.assertion.')
+        and obligation in match[4]
     ]
     covers = [
-        match for match in matches if match[3] == 'SATISFIED' and obligation in match[4]
+        match
+        for match in matches
+        if match[3] == 'SATISFIED'
+        and match[2].startswith(harness + '.cover.')
+        and obligation in match[4]
     ]
     require(custom_assertions, 'named reserve proof assertion is absent')
     require(
         len(covers) == ARITHMETIC_COVER_COUNTS[harness],
         'required reachability inventory is absent or duplicated',
+    )
+    require(
+        all(
+            match[5].endswith('in function ' + harness)
+            for match in custom_assertions + covers
+        ),
+        'named reserve proof property is not owned by selected harness',
     )
     require(
         re.findall(r'^VERIFICATION:- (.+)$', output, re.M) == ['SUCCESSFUL'],
