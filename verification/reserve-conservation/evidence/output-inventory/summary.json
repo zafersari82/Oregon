@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "scope": "bootstrap-output-inventory-regression-only",
+  "baseline_sha": "a530ae1d20e5a1648cf9cfea045221ec13326d25",
+  "red_local_sha": "b5de51c96c25936af3d27852c512b23aa1108419",
+  "red_published_sha": "d980efc3e3f93a7fa7f0a4109ca5e5eb1192d762",
+  "red_tree": "4c45b2e762a6b8e2ed5ef9f71755da491dca9183",
+  "command": "python3 -B -m unittest discover -s scripts -p test_verify_reserve_proofs.py",
+  "red": {
+    "exit_code": 1,
+    "test_methods": 11,
+    "failed_subtests": 14,
+    "log": "red.log"
+  },
+  "green": {
+    "exit_code": 0,
+    "test_methods": 11,
+    "log": "green.log",
+    "source_sha256": {
+      "scripts/verify_reserve_proofs.py": "ff6c942e17aa613e552fb39d7c41658ee19eeec5101811df68b9e28551bab96e",
+      "scripts/test_verify_reserve_proofs.py": "32fa8d77de63e005316ddab9b99ebeb8a02f27870807c0cfd3438eec4ed2864c"
+    }
+  },
+  "reserve_proofs_executed": [],
+  "live_kani_executed_locally": false,
+  "ci_acceptance": "Inspect exact candidate PR CI; historical or local regression results do not establish live Kani acceptance."
+}

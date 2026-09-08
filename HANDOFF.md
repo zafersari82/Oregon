@@ -4,6 +4,86 @@ Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ## Resume here
 
+### September 8 continuation (supersedes older implementation status below)
+
+- RC06 playback root cause investigated against pinned Kani source
+  `4feaaad1d6a2378a6ff6caa3b4fc5d6999c7bb5d`,
+  `kani-driver/src/concrete_playback/test_generator.rs`: generated names hash
+  harness plus concrete items, and adjacent equal names are deduplicated.
+  RC06's two covers can share inputs. The new harness uses an unconstrained
+  boolean with opposite values in the two cover predicates, so their concrete
+  witnesses differ. It changes no assertion, state generation or assumption.
+  The exact playback inventory requirement remains in place.
+- Local source-wiring regression demonstrated RED before the selector change;
+  31 Python tests pass afterward. This is not live Kani verification. Next:
+  inspect the newly published source's proof/control CI before accepting RC06
+  or claiming RC07-RC10 controls and the final positive rerun have passed.
+
+- CI completion checked on September 8: PR head remains
+  `7b9a2e6439e148cd82f50281ed53ba1e8a032dc3`. Rust #842, Bootstrap #70,
+  and Fee Settlement #116 succeeded. Proof Slices #30 run 34181952371
+  passed the ten positive harness step invocations and RC01-RC05 controls,
+  then failed the RC06 playback inventory gate. No positive rerun occurred.
+- The retained RC06 log reports two satisfied covers but prints only one
+  cover playback, for `RC06 failed apply is reachable`. Missing evidence:
+  `RC06 failed undo is reachable`. The target assertion counterexample exists.
+  Do not relax the exact playback inventory to label this control accepted.
+- This diagnostic continuation reports exact missing/extra playback bindings
+  and adds a regression test. Next: investigate pinned Kani playback generation
+  and obtain the missing RC06 evidence, then execute RC07-RC10 controls and
+  the complete positive rerun. Full proof acceptance remains pending.
+
+- PR #22 remains open on `work/reserve-evidence-gate-2026-09-07`.
+  Published source `ef5bca0e30d7486ff6d5e38d78fb31478f2fc255` has the exact
+  tree of local `b64d96410439967801024c2428fad1d7f887be01`.
+- At that source Rust CI #841, fee vectors #115 and bootstrap #69 succeeded.
+  Proof Slices #28 (run 34160229290) passed both positive proof steps,
+  accepted RC01-RC04 controls, then rejected RC05's UNREACHABLE cover status.
+- This continuation adds counted UNREACHABLE cover handling for negative
+  controls only. Positive runs still require all expected covers SATISFIED.
+  Local verification: 29 Python parser tests pass; replay of the retained
+  run-34160229290 artifact accepts RC01-RC05 controls and all ten positives.
+  This replay is not a fresh Kani run and does not validate RC06-RC10 controls.
+- Next: inspect new exact-source Proof Slices CI, resolve remaining failures,
+  then complete the evidence manifest and correspondence matrix before any
+  proof acceptance. Ten harnesses and ten control definitions now exist;
+  older claims below that they are unimplemented are historical.
+- Production semantics and main are unchanged. No integration decision is
+  implied. The older dirty worktree and its correspondence changes are preserved.
+
+- Current work branch: `work/reserve-evidence-gate-2026-09-07`, based on main
+  `a530ae1d20e5a1648cf9cfea045221ec13326d25` (PR #21 integrated).
+- PR #21 verified head: `51659a39dd0c41bbf607e75f2a4d5b3589e53f27`.
+  Head and merge share tree `628f3b54e1a3c96c129368c66ad8f55991426afc`.
+  See `docs/checkpoints/OREGON_RESERVE_TOOLING_MAIN_INTEGRATION.md` for exact CI.
+- The standalone verification-only package, arithmetic/four-slot apply/undo model,
+  and 12 crate-local production correspondence tests now exist. The model is
+  included once under `cfg(test)`; the duplicate-mod wiring fix is integrated.
+- RC01-RC10 Kani harnesses, full proof runner/manifest, production differential
+  matrix completion and ten semantic model controls are still incomplete.
+  No RC01-RC10 formal proof completion is claimed. Bootstrap is tooling evidence.
+- This branch hardens bootstrap output acceptance: reject contradictory/repeated
+  backend identities, property blocks outside RESULTS and extra completion lines.
+  Local regression evidence: 14 new corrupted-output variants accepted by the old
+  parser (semantic RED), then 11 test methods passed with the fix (GREEN).
+  Retained logs: `verification/reserve-conservation/evidence/output-inventory/`.
+- New branch CI must be checked at its exact published head; baseline CI does not
+  validate this branch. Rust/Kani are absent locally; use the existing GitHub CI
+  workflow for live pinned bootstrap and inherited Rust gates.
+- Next: verify this parser slice in live pinned CI; then expand the constructor
+  correspondence matrix and implement the first arithmetic proof harnesses with
+  independent i128 assertions, reachability, named negative controls and exact
+  evidence. Keep all ten obligations pending until their real artifacts exist.
+- PR #20 remains separate Stage 4B work (observed head
+  `912e9d01791c954e8432e3f80f6913e3b87c8db6`); do not import it into Workstream A.
+- The approved reserve-proof design remains authorized. This new branch has no
+  separate main-integration decision; do not merge it automatically.
+
+## Historical September 7 pre-integration continuation
+
+The following record describes the earlier runner/publication state, not current
+pending work. The resume section above supersedes its status and next-action text.
+
 - Published work branch: `work/reserve-proof-publication-2026-09-07`.
 - Preserved local history branch: `work/reserve-proof-runner-2026-09-07`.
 - Owner-approved Reserve Conservation Proof V1 remains authorized; do not request

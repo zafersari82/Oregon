@@ -17,6 +17,41 @@ def output(name):
 
 
 class ParserTests(unittest.TestCase):
+    def test_reject_conflicting_or_repeated_backend_inventory(self):
+        for name, status in (('positive', 0), ('negative', 1)):
+            original = output(name)
+            variants = [
+                'CBMC 6.9.0 (cbmc-6.9.0)\n' + original,
+                'CBMC 6.8.0 (cbmc-6.8.0)\n' + original,
+                original.replace('CBMC version 6.8.0', 'CBMC version 6.9.0'),
+                original.replace('CBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux\n', ''),
+            ]
+            for corrupted in variants:
+                with self.subTest(name=name, log=corrupted[:200]):
+                    with self.assertRaises(GateError):
+                        parse_bootstrap(corrupted, status, 'bootstrap_' + name)
+
+    def test_reject_property_blocks_outside_results(self):
+        rogue = ('Check 99: unrelated.assertion.1\n'
+                 ' - Status: FAILURE\n'
+                 ' - Description: unrelated assertion\n'
+                 ' - Location: other.rs:1:1 in function unrelated\n')
+        for name, status in (('positive', 0), ('negative', 1)):
+            original = output(name)
+            for corrupted in (rogue + original, original.replace('SUMMARY:', 'SUMMARY:\n' + rogue)):
+                with self.subTest(name=name, log=corrupted[:100]):
+                    with self.assertRaises(GateError):
+                        parse_bootstrap(corrupted, status, 'bootstrap_' + name)
+
+    def test_reject_conflicting_completion_before_valid_suffix(self):
+        for name, status in (('positive', 0), ('negative', 1)):
+            corrupted = output(name).replace(
+                'Manual Harness Summary:\n',
+                'Manual Harness Summary:\nComplete - 0 successfully verified harnesses, 0 failures, 0 total.\n')
+            with self.subTest(name=name):
+                with self.assertRaises(GateError):
+                    parse_bootstrap(corrupted, status, 'bootstrap_' + name)
+
     def test_real_positive_and_rerun(self):
         for name in ('positive', 'positive_after_negative'):
             self.assertEqual(len(parse_bootstrap(output(name), 0, 'bootstrap_positive')), 3)

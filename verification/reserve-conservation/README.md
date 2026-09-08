@@ -1,9 +1,11 @@
 # Reserve-conservation verification tooling
 
 The owner approved the design and plan under `docs/superpowers/` on 2026-09-06.
-This directory currently contains a pinned toolchain and bootstrap checks.
-The reserve model, RC01–RC10 proofs, production differential matrix, full runner
-and CI workflow are still pending. Bootstrap results are not reserve proof evidence.
+This directory contains a pinned toolchain, live CI bootstrap checks, a standalone
+verification-only package and an initial arithmetic/four-slot apply/undo model.
+Twelve crate-local production correspondence tests consume this model. RC01–RC10
+Kani proofs, the complete production differential matrix, model negative controls
+and full proof runner/workflow remain pending. Bootstrap is not reserve proof evidence.
 
 ## Toolchain
 
@@ -46,12 +48,15 @@ successful and the maximum-input cover satisfied.
 Local observed output at source `e816a9c` is retained in `evidence/bootstrap/`.
 The summary records the actual commands, source identity and exit codes; absolute
 paths describe the observed local execution and can differ on a fresh checkout.
-No GitHub proof run, production mutation gate or reserve checkpoint is claimed.
+These fixtures describe that historical local run. Later live CI and partial
+integration evidence are recorded in
+`docs/checkpoints/OREGON_RESERVE_TOOLING_MAIN_INTEGRATION.md`.
 
 ## September 7 runner continuation
 
 `python3 -m unittest discover -s scripts -p test_verify_reserve_proofs.py` tests
-captured real Kani output, 19 corrupted-output variants, and process failure paths.
+captured real Kani output, 19 original corrupted-output variants, 14 additional
+output-inventory corruptions, and process failure paths (11 test methods).
 These Python tests do not execute Kani or establish any reserve property.
 
 The bootstrap-only runner requires a clean checkout and explicit pinned tools:
@@ -70,6 +75,7 @@ the positive check. Timeouts kill the process group; partial output is retained.
 The evidence directory must be new and outside the checkout. Calling without
 `--bootstrap` fails because RC01–RC10 execution is not implemented.
 
-The live invocation and tool preflight have not been exercised in this continuation:
-Rust/Kani were absent and the Rust download was stopped at network approval.
-See `evidence/runner/summary.json` for actual scope and remaining gates.
+Live pinned bootstrap passed on PR #21 head `51659a39dd0c41bbf607e75f2a4d5b3589e53f27`
+in run `34132383672`. Later changes must receive their own exact-head CI. Local
+Rust/Kani remain absent in the evidence-gate continuation; no local live verifier
+execution is claimed. `evidence/runner/summary.json` is historical runner evidence.

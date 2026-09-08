@@ -616,3 +616,88 @@ fn correspondence_pins_positive_result_has_exactly_one_live_reserve() {
     );
     assert!(model_state.slots.contains(&Some(ordinary_slot)));
 }
+
+fn assert_constructor_case(input: ArithmeticInput, expected: Result<u64, &'static str>) {
+    let production = production_result(input);
+    assert_eq!(production, expected);
+    assert_eq!(model_result(input), production);
+}
+
+#[test]
+fn correspondence_constructor_accepts_zero_one_and_exact_supply_limit() {
+    for (deposits, expected) in [
+        (0, Ok(0)),
+        (1, Ok(1)),
+        (MAX_SUPPLY_BASE_UNITS, Ok(MAX_SUPPLY_BASE_UNITS)),
+    ] {
+        assert_constructor_case(
+            ArithmeticInput {
+                previous: None,
+                native_deposit_total: deposits,
+                execution_withdrawal_total: 0,
+                execution_fee_total: 0,
+                new_execution_balance_total: deposits,
+            },
+            expected,
+        );
+    }
+}
+
+#[test]
+fn correspondence_constructor_rejects_result_one_above_supply_limit() {
+    let amount = MAX_SUPPLY_BASE_UNITS + 1;
+    assert_constructor_case(
+        ArithmeticInput {
+            previous: None,
+            native_deposit_total: amount,
+            execution_withdrawal_total: 0,
+            execution_fee_total: 0,
+            new_execution_balance_total: amount,
+        },
+        Err("amount_out_of_range"),
+    );
+}
+
+#[test]
+fn correspondence_constructor_pins_full_width_previous_endpoint() {
+    assert_constructor_case(
+        ArithmeticInput {
+            previous: Some(u64::MAX),
+            native_deposit_total: 0,
+            execution_withdrawal_total: u64::MAX - MAX_SUPPLY_BASE_UNITS,
+            execution_fee_total: 0,
+            new_execution_balance_total: MAX_SUPPLY_BASE_UNITS,
+        },
+        Err("amount_out_of_range"),
+    );
+}
+
+#[test]
+fn correspondence_constructor_pins_withdrawal_and_fee_underflow() {
+    for (withdrawals, fees) in [(11, 0), (9, 2)] {
+        assert_constructor_case(
+            ArithmeticInput {
+                previous: Some(10),
+                native_deposit_total: 0,
+                execution_withdrawal_total: withdrawals,
+                execution_fee_total: fees,
+                new_execution_balance_total: 0,
+            },
+            Err("arithmetic_underflow"),
+        );
+    }
+}
+
+#[test]
+fn correspondence_constructor_checks_total_mismatch_before_result_amount_range() {
+    assert_constructor_case(
+        ArithmeticInput {
+            previous: None,
+            native_deposit_total: MAX_SUPPLY_BASE_UNITS + 1,
+            execution_withdrawal_total: 0,
+            execution_fee_total: 0,
+            new_execution_balance_total: MAX_SUPPLY_BASE_UNITS,
+        },
+        Err("execution_balance_mismatch"),
+    );
+}
