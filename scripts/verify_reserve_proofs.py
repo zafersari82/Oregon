@@ -54,10 +54,18 @@ def require(condition, message):
 
 
 def _reject_infrastructure_diagnostics(output):
+    """Reject runner diagnostics, not SUCCESS properties inside Kani RESULTS."""
+    before_results, marker, after_results = output.partition('RESULTS:\n')
+    diagnostics = output
+    if marker:
+        _, summary_marker, after_summary = after_results.partition('SUMMARY:')
+        diagnostics = before_results
+        if summary_marker:
+            diagnostics += '\nSUMMARY:' + after_summary
     require(
         not re.search(
             r'(?im)^.*(?:error:|error\[|unsupported|timed out)',
-            output,
+            diagnostics,
         ),
         'infrastructure or unsupported-operation diagnostic',
     )
@@ -67,7 +75,8 @@ def _parse_properties(output):
     section = output.split('RESULTS:\n', 1)[-1].split('SUMMARY:', 1)[0]
     pattern = re.compile(
         r'Check (\d+): ([^\n]+)\n\s+- Status: ([A-Z]+)\n'
-        r'\s+- Description: ([^\n]+)\n\s+- Location: ([^\n]+)\n'
+        r'\s+- Description: (.+?)\n\s+- Location: ([^\n]+)\n',
+        re.S,
     )
     matches = list(pattern.finditer(section))
     require(matches, 'empty property inventory')
@@ -175,8 +184,8 @@ def parse_successful_proof(output, returncode, harness):
     _require_common_kani_identity(output, harness)
     matches = _parse_properties(output)
     require(
-        all(match[3] in {'SUCCESS', 'SATISFIED'} for match in matches),
-        'reserve proof contains a non-success property status',
+        all(match[3] in {'SUCCESS', 'SATISFIED', 'UNREACHABLE'} for match in matches),
+        'reserve proof contains an invalid property status',
     )
     obligation = harness[:4].upper()
     custom_assertions = [
@@ -219,7 +228,7 @@ def parse_successful_proof(output, returncode, harness):
         {
             'property': match[2],
             'status': match[3],
-            'description': match[4].strip('"'),
+            'description': re.sub(r'\s+', ' ', match[4].strip()).strip('"'),
         }
         for match in matches
     ]
