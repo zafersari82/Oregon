@@ -2,6 +2,7 @@
 from pathlib import Path
 import re
 import unittest
+from unittest.mock import patch
 
 import verify_reserve_proofs as verifier
 
@@ -38,6 +39,32 @@ class StateProofInventoryTests(unittest.TestCase):
             list(getattr(verifier, 'STATE_HARNESSES', ())),
             EXPECTED_STATE_HARNESSES,
         )
+
+    def test_state_harnesses_receive_explicit_five_step_unwind_bound(self):
+        lock = {'rust_toolchain': 'nightly-test'}
+        with patch.object(verifier, 'run', return_value={'returncode': 0, 'output': '', 'timed_out': False}) as mocked:
+            verifier._run_harness(
+                Path('/kani-home'),
+                PROOFS,
+                EXPECTED_STATE_HARNESSES[0],
+                lock,
+                timeout=1,
+            )
+        command = mocked.call_args.args[0]
+        self.assertEqual(command[-2:], ['--unwind', '5'])
+
+    def test_arithmetic_harnesses_do_not_inherit_state_unwind_bound(self):
+        lock = {'rust_toolchain': 'nightly-test'}
+        with patch.object(verifier, 'run', return_value={'returncode': 0, 'output': '', 'timed_out': False}) as mocked:
+            verifier._run_harness(
+                Path('/kani-home'),
+                PROOFS,
+                verifier.ARITHMETIC_HARNESSES[0],
+                lock,
+                timeout=1,
+            )
+        command = mocked.call_args.args[0]
+        self.assertNotIn('--unwind', command)
 
     def test_positive_parser_accepts_named_state_assertions_and_reachability(self):
         harness = 'rc04_multiple_live_reserves_reject_unchanged'
