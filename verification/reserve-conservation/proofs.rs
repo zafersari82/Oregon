@@ -501,25 +501,23 @@ fn rc06_failed_apply_and_undo_are_atomic() {
             .position(|slot| slot.is_some_and(|slot| slot.key == created_key));
         assert!(created_index.is_some(), "RC06 setup created reserve is present");
         if let Some(index) = created_index {
-            undo_state_value.slots[index]
-                .as_mut()
-                .unwrap()
-                .entry
-                .creation_height = created_height.wrapping_add(1);
-            let undo_before = undo_state_value;
-            let undo_result = undo_state(&mut undo_state_value, &undo);
-            assert!(
-                undo_result == Err(StateError::UndoMismatch),
-                "RC06 tampered current reserve rejects undo"
-            );
-            assert!(
-                undo_state_value == undo_before,
-                "RC06 failed undo leaves every modeled entry unchanged"
-            );
-            kani::cover!(
-                undo_result == Err(StateError::UndoMismatch) && undo_state_value == undo_before,
-                "RC06 failed-undo atomicity branch is reachable"
-            );
+            if let Some(created) = undo_state_value.slots[index].as_mut() {
+                created.entry.creation_height = created_height.wrapping_add(1);
+                let undo_before = undo_state_value;
+                let undo_result = undo_state(&mut undo_state_value, &undo);
+                assert!(
+                    undo_result == Err(StateError::UndoMismatch),
+                    "RC06 tampered current reserve rejects undo"
+                );
+                assert!(
+                    undo_state_value == undo_before,
+                    "RC06 failed undo leaves every modeled entry unchanged"
+                );
+                kani::cover!(
+                    undo_result == Err(StateError::UndoMismatch) && undo_state_value == undo_before,
+                    "RC06 failed-undo atomicity branch is reachable"
+                );
+            }
         }
     }
 
