@@ -11,6 +11,7 @@ Run from the repository root with Rust 1.85.0 available:
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify_mutation_evidence_manifest.py
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/publish_mutation_evidence.py --output /tmp/oregon-mutation-evidence
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify_mutation_evidence_package.py --output /tmp/oregon-mutation-evidence
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_mutation_evidence*.py' -v
 ```
 
@@ -26,6 +27,14 @@ The output path must be outside the repository checkout. A successful publicatio
 - `manifest-v1.json` (the exact bytes bound by the result's manifest digest)
 
 A complete passing result reports exactly six authorities and `68/68` killed mutations and binds the evidence to the exact source commit and tree. Failure paths may retain diagnostic/raw logs but must not leave a canonical passing `result-v1.json`.
+
+The package verifier rereads all eight files, checks manifest and runner bytes
+against the checked-out source, reparses all six logs, and reconstructs the
+canonical result. Missing/extra files, symlinks, altered logs, wrong source and
+semantic record mismatches fail. CI runs this check before uploading evidence.
+For a downloaded package, check out its recorded commit before running the same
+command. This is an integrity check; the successful CI publisher execution remains
+the evidence that the authorities actually ran.
 
 ## Public claim boundary
 

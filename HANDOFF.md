@@ -17,48 +17,38 @@ CI workflow are implemented. Older design/plan approval-status prose predates th
 implementation and must not be read as a claim that these files are absent.
 The six existing mutation runners remain the production authorities.
 
-## Verified implementation and current correction
+## Verified correction and retained-package closure
 
-Source `11b82780c013f7b104b48f7947c891e819563e1a`, tree
-`31a28a31a8e418ed18714136a51546293b332a86`, passed:
+Published correction source `4ada4c687aae67b47143dedf37934d18138c25c1`, tree
+`33294a39d8208aebdf3b08f414314e54dabaaa45`, passed all four workflows:
 
-- Mutation Evidence run `34263606532`, job `102187372191`.
-- Rust CI run `34263606628`, job `102187372524`.
-- Reserve Conservation Proofs run `34263606596`.
-- Reserve Verifier Bootstrap run `34263606616`.
+- Mutation Evidence run `34271668753`, job `102214488079`: 68/68.
+- Rust CI run `34271668865`, job `102214488249`: success.
+- Reserve Conservation Proofs run `34271668901`, job `102214488982`: success.
+- Reserve Verifier Bootstrap run `34271668798`: success.
 
-The mutation job's printed canonical result records six authorities, 68/68 killed,
-clean source before/after, and the exact source above. Artifact `10071104970`
-has ZIP digest `7bdb4730c73b1c9e93430f33b6120a30ed8481d3d7fec36d7a497eaf62916630`.
-Its seven-file inventory omits the manifest required by design section 13.
-Thus this is verified execution evidence, not complete publication acceptance.
+Artifact `10074192968` has ZIP SHA-256
+`280a553ca40672c4333eb5fcf7101feae9428e2598ecaa2410f4580da93dce5b`.
+The CI canonical result was checked against the source manifest: exact commit/tree,
+manifest digest, six runner digests and all 68 IDs/names/targets/killing tests match.
+The upload log reports eight files. The artifact download reference returns HTTP
+403 locally, so independent ZIP-byte/raw-log inspection is not claimed.
 
-The continuation adds the exact manifest bytes to the output package, with their
-SHA-256 bound in `result-v1.json`, and fixes README commands to use script discovery
-and suppress bytecode files that would dirty the required clean checkout.
-A new regression test failed because the manifest was absent before the correction,
-then passed afterward. The original 41 Python tests passed on a clean checkout.
-These are local Python checks, not local Rust mutation or Kani execution.
+The current closure adds `scripts/verify_mutation_evidence_package.py` and a CI
+step before upload. It rereads the eight regular files, binds the manifest/runners
+to checkout, reparses six logs, and reconstructs the canonical result exactly.
+Its eight focused tests cover valid evidence, corrupted logs, forged logs with
+updated digests, wrong source, missing manifest, wrong semantic result, extra
+files and symlinks. Before implementation, the seven negative cases demonstrated
+that shape-only result validation does not verify a retained package; afterward
+all eight pass. No production mutation authority or Rust semantics changed.
 
-**Next incomplete action:** verify the corrected PR head in live CI, inspect its
-artifact for six raw logs plus manifest/result and matching identities, then record
-the Workstream B acceptance checkpoint. Keep ancestor execution evidence distinct
-from final-head acceptance. PR #25 remains draft; main is unchanged in this
-continuation. Historical PRs #22/#23 are superseded reserve work, not the active
-next implementation target. Stage 4B remains separate.
-
-## Authorized publication continuation
-
-The owner explicitly authorized publishing the prepared correction commits to
-PR #25 with "evet" in response to the specific push request. The earlier automatic
-approval blocker is resolved. Git CLI publication still lacks HTTPS credentials;
-the authenticated GitHub connector is the publication path for the corrected tree.
-Original local correction: `eac65713073ba6deda2e7c6b737747117f5001d3`, tree
-`ced53b684b32ba748544716cdeebbb7ea2598a44`. All 42 Python publication tests and
-the six-authority/68-mutation manifest validator passed. Connector publication
-uses a new commit identity; do not claim the original local commit SHA was pushed.
-After publication, verify PR #25's actual head and its live CI/artifact inventory.
-No main integration is included in this publication authorization.
+**Next incomplete action:** publish this closure to PR #25, require its own four
+successful CI runs and the explicit retained-package verification step, then
+record final acceptance/source/artifact evidence and the main-integration decision.
+The owner's explicit push approval remains in effect. Git CLI lacks credentials;
+use the authenticated connector and preserve original local history. Historical
+PRs #22/#23 are superseded reserve work. Stage 4B and activation remain separate.
 
 ## Claim boundary
 
