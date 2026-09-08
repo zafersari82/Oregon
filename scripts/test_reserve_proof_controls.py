@@ -96,7 +96,7 @@ Complete - 0 successfully verified harnesses, 1 failures, 1 total.
         with self.assertRaises(GateError):
             parse_negative_control(extra_failure, 1, control)
 
-    def test_negative_parser_accepts_exact_multi_assertion_state_kill(self):
+    def test_negative_parser_accepts_expected_failure_with_downstream_unreachable(self):
         control = 'control_rc04_remove_multiple_reserve_rejection'
         harness = 'rc04_multiple_live_reserves_reject_unchanged'
         output = f'''Kani Rust Verifier 0.67.0 (standalone)
@@ -109,16 +109,16 @@ Check 1: {harness}.assertion.1
  - Description: "RC04 two live reserves reject with the multiple-reserve error"
  - Location: proofs.rs:1:1 in function {harness}
 Check 2: {harness}.assertion.2
- - Status: FAILURE
+ - Status: UNREACHABLE
  - Description: "RC04 two-live-reserve rejection leaves the full state unchanged"
  - Location: proofs.rs:2:1 in function {harness}
 Check 3: {harness}.cover.1
- - Status: UNSATISFIABLE
+ - Status: UNREACHABLE
  - Description: "RC04 multiple-live-reserve rejection is reachable"
  - Location: proofs.rs:3:1 in function {harness}
 SUMMARY:
- ** 2 of 2 failed
- ** 0 of 1 cover properties satisfied
+ ** 1 of 2 failed (1 unreachable)
+ ** 0 of 1 cover properties satisfied (1 unreachable)
 VERIFICATION:- FAILED
 Concrete playback for harness `{harness}`:
 ```
@@ -131,12 +131,12 @@ Complete - 0 successfully verified harnesses, 1 failures, 1 total.
         properties = parse_negative_control(output, 1, control)
         self.assertEqual(len(properties), 3)
 
-        missing_failure = output.replace(
+        unexpected_second_failure = output.replace(
+            'Status: UNREACHABLE\n - Description: "RC04 two-live-reserve rejection leaves the full state unchanged"',
             'Status: FAILURE\n - Description: "RC04 two-live-reserve rejection leaves the full state unchanged"',
-            'Status: SUCCESS\n - Description: "RC04 two-live-reserve rejection leaves the full state unchanged"',
-        ).replace('** 2 of 2 failed', '** 1 of 2 failed')
+        ).replace('** 1 of 2 failed (1 unreachable)', '** 2 of 2 failed')
         with self.assertRaises(GateError):
-            parse_negative_control(missing_failure, 1, control)
+            parse_negative_control(unexpected_second_failure, 1, control)
 
 
 if __name__ == '__main__':
