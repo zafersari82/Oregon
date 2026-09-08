@@ -9,30 +9,34 @@ mod model;
 
 use model::{construct_arithmetic, ArithmeticError, ArithmeticInput, MAX_SUPPLY_BASE_UNITS};
 
-fn symbolic_arithmetic_input() -> ArithmeticInput {
-    let has_previous: bool = kani::any();
-    let previous_amount: u64 = kani::any();
-    ArithmeticInput {
-        previous: has_previous.then_some(previous_amount),
-        native_deposit_total: kani::any(),
-        execution_withdrawal_total: kani::any(),
-        execution_fee_total: kani::any(),
-        new_execution_balance_total: kani::any(),
-    }
+macro_rules! symbolic_arithmetic_input {
+    () => {{
+        let has_previous: bool = kani::any();
+        let previous_amount: u64 = kani::any();
+        ArithmeticInput {
+            previous: has_previous.then_some(previous_amount),
+            native_deposit_total: kani::any(),
+            execution_withdrawal_total: kani::any(),
+            execution_fee_total: kani::any(),
+            new_execution_balance_total: kani::any(),
+        }
+    }};
 }
 
-fn previous_as_i128(input: ArithmeticInput) -> i128 {
-    i128::from(input.previous.unwrap_or(0))
+macro_rules! previous_as_i128 {
+    ($input:expr) => {
+        i128::from($input.previous.unwrap_or(0))
+    };
 }
 
 #[kani::proof]
 #[kani::solver(cadical)]
 fn rc01_arithmetic_matches_integer_equation() {
-    let input = symbolic_arithmetic_input();
+    let input = symbolic_arithmetic_input!();
     let result = construct_arithmetic(input);
 
     if let Ok(reserve) = result {
-        let mathematical = previous_as_i128(input) + i128::from(input.native_deposit_total)
+        let mathematical = previous_as_i128!(input) + i128::from(input.native_deposit_total)
             - i128::from(input.execution_withdrawal_total)
             - i128::from(input.execution_fee_total);
         assert!(
@@ -51,7 +55,7 @@ fn rc01_arithmetic_matches_integer_equation() {
 #[kani::proof]
 #[kani::solver(cadical)]
 fn rc02_result_matches_claimed_execution_total() {
-    let input = symbolic_arithmetic_input();
+    let input = symbolic_arithmetic_input!();
     let result = construct_arithmetic(input);
 
     if let Ok(reserve) = result {
@@ -71,14 +75,14 @@ fn rc02_result_matches_claimed_execution_total() {
 #[kani::proof]
 #[kani::solver(cadical)]
 fn rc08_conservation_identity() {
-    let input = symbolic_arithmetic_input();
+    let input = symbolic_arithmetic_input!();
     let result = construct_arithmetic(input);
 
     if let Ok(reserve) = result {
         let lhs = i128::from(reserve)
             + i128::from(input.execution_withdrawal_total)
             + i128::from(input.execution_fee_total);
-        let rhs = previous_as_i128(input) + i128::from(input.native_deposit_total);
+        let rhs = previous_as_i128!(input) + i128::from(input.native_deposit_total);
         assert!(
             lhs == rhs,
             "RC08 accepted transition conserves reserve arithmetic as mathematical integers"
@@ -91,9 +95,9 @@ fn rc08_conservation_identity() {
 #[kani::proof]
 #[kani::solver(cadical)]
 fn rc09_invalid_arithmetic_and_endpoints_reject() {
-    let input = symbolic_arithmetic_input();
+    let input = symbolic_arithmetic_input!();
     let result = construct_arithmetic(input);
-    let previous = previous_as_i128(input);
+    let previous = previous_as_i128!(input);
     let after_deposit = previous + i128::from(input.native_deposit_total);
     let after_withdrawal = after_deposit - i128::from(input.execution_withdrawal_total);
     let mathematical_result = after_withdrawal - i128::from(input.execution_fee_total);
