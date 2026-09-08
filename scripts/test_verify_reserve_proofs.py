@@ -8,7 +8,13 @@ import tempfile
 import os
 from unittest.mock import patch
 
-from verify_reserve_proofs import GateError, parse_bootstrap, run, proof_environment
+from verify_reserve_proofs import (
+    GateError,
+    parse_bootstrap,
+    parse_successful_proof,
+    run,
+    proof_environment,
+)
 
 FIXTURES = Path(__file__).resolve().parents[1] / 'verification/reserve-conservation/evidence/bootstrap'
 
@@ -31,6 +37,38 @@ class ParserTests(unittest.TestCase):
                 'rc09_invalid_arithmetic_and_endpoints_reject',
             ],
         )
+
+    def test_rc_parser_accepts_internal_safety_properties_from_called_model(self):
+        harness = 'rc01_arithmetic_matches_integer_equation'
+        proof_output = f'''Kani Rust Verifier 0.67.0 (standalone)
+Checking harness {harness}...
+CBMC 6.8.0 (cbmc-6.8.0)
+Solving with CaDiCaL 2.0.0
+RESULTS:
+Check 1: core::num::checked_add.arithmetic_overflow.1
+ - Status: SUCCESS
+ - Description: "attempt to compute unchecked_add which would overflow"
+ - Location: src/model.rs:24:10 in function core::num::checked_add
+Check 2: {harness}.assertion.1
+ - Status: SUCCESS
+ - Description: "RC01 accepted arithmetic matches the independent integer equation"
+ - Location: proofs.rs:42:9 in function {harness}
+Check 3: {harness}.cover.1
+ - Status: SATISFIED
+ - Description: "RC01 accepted transition is reachable"
+ - Location: proofs.rs:48:5 in function {harness}
+Check 4: {harness}.cover.2
+ - Status: SATISFIED
+ - Description: "RC01 checked-add overflow rejection is reachable"
+ - Location: proofs.rs:49:5 in function {harness}
+SUMMARY:
+ ** 0 of 2 failed
+ ** 2 of 2 cover properties satisfied
+VERIFICATION:- SUCCESSFUL
+Manual Harness Summary:
+Complete - 1 successfully verified harnesses, 0 failures, 1 total.
+'''
+        self.assertEqual(len(parse_successful_proof(proof_output, 0, harness)), 4)
 
     def test_real_positive_and_rerun(self):
         for name in ('positive', 'positive_after_negative'):
