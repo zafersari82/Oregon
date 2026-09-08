@@ -4,7 +4,7 @@ Updated: 2026-09-06 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ## Resume here
 
-- Current local work branch: `work/reserve-proof-continuation-2026-09-07`;
+- Current local work branch: `work/reserve-model-2026-09-07`;
   publication target remains `work/reserve-conservation-proof-v1-2026-09-06`.
 - Owner approved Reserve Conservation Proof V1 after reviewing design commit
   `7743aaa`; implementation is authorized. Do not request the same approval again.
@@ -39,6 +39,22 @@ Updated: 2026-09-06 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
   execution-fee vector baseline could not compile (`E0463`, missing `serde` crate).
   This is unresolved build evidence, not a killed mutation or a production
   regression diagnosis. Reproduce with a fresh build directory before proceeding.
+
+### 2026-09-08 environment recovery and CI continuation
+
+- Constructor tests are published at `991a5ff35ba14a1f44993ae765c5c7847284b5c9`.
+- The identical execution fee vector tests passed 2/2 in a fresh target directory,
+  without source changes. The earlier `serde` error was not reproduced there;
+  stale build artifacts are suspected, not a demonstrated source defect.
+- libclang 18.1.1 was installed, but the next session lost the installed Rust
+  toolchains and active process handles. The restarted mutation run's final result
+  was not recovered. Do not claim 14/14 or successful full-workspace verification.
+- Oregon Rust CI now includes the reserve publication branch and the 21 runner
+  behavior tests. Existing Rust 1.85.0, native prerequisites, workspace checks and
+  inherited mutations remain in the same workflow. CI results are pending.
+- Next action: inspect exact-head CI and resolve any observed failures, then add
+  the approved bounded model correspondence tests and semantic RED. Kani
+  RC01–RC10 and the separate proof workflow remain unimplemented.
 
 - Repository: `zafersari82/Oregon`.
 - Stage 3B main integration: `fe762f7a5670d94a486423327e3a525cec24afb5`.
