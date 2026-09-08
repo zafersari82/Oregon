@@ -9,9 +9,9 @@ The existing authority runners remain authoritative. This publication layer does
 Run from the repository root with Rust 1.85.0 available:
 
 ```bash
-python3 scripts/verify_mutation_evidence_manifest.py
-python3 scripts/publish_mutation_evidence.py --output /tmp/oregon-mutation-evidence
-python3 -m unittest scripts/test_mutation_evidence_manifest.py scripts/test_mutation_evidence_publisher.py -v
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify_mutation_evidence_manifest.py
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/publish_mutation_evidence.py --output /tmp/oregon-mutation-evidence
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_mutation_evidence*.py' -v
 ```
 
 The output path must be outside the repository checkout. A successful publication contains:
@@ -23,6 +23,7 @@ The output path must be outside the repository checkout. A successful publicatio
 - `fs.log`
 - `rj.log`
 - `result-v1.json`
+- `manifest-v1.json` (the exact bytes bound by the result's manifest digest)
 
 A complete passing result reports exactly six authorities and `68/68` killed mutations and binds the evidence to the exact source commit and tree. Failure paths may retain diagnostic/raw logs but must not leave a canonical passing `result-v1.json`.
 

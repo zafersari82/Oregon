@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Publish exact-source evidence from Oregon's existing mutation authorities."""
 import argparse
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -328,6 +329,7 @@ def publish(*, root: Path, manifest_path: Path, output: Path, environ=None) -> d
     (output / ".result-v1.json.tmp").unlink(missing_ok=True)
 
     _, authorities = load_manifest(manifest_path, root)
+    manifest_bytes = manifest_path.read_bytes()
     _require(git_is_clean(root), "mutation evidence publication requires a clean checkout")
     commit_sha, tree_sha = git_identity(root)
     _verify_all_runner_digests(root, authorities)
@@ -338,13 +340,14 @@ def publish(*, root: Path, manifest_path: Path, output: Path, environ=None) -> d
 
     _require(git_is_clean(root), "mutation evidence publication did not finish with a clean checkout")
     result = build_result(
-        manifest_sha256=sha256_file(manifest_path),
+        manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
         commit_sha=commit_sha,
         tree_sha=tree_sha,
         authorities=authorities,
         authority_runs=authority_runs,
         ci_identity=_ci_identity(environ),
     )
+    (output / "manifest-v1.json").write_bytes(manifest_bytes)
     write_result_atomic(result, output)
     return result
 

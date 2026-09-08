@@ -2,57 +2,69 @@
 
 Updated: 2026-09-08 UTC.
 
-Stage 3B and Stage 4A remain integrated into `main` as inactive foundations. **Reserve Conservation Proof V1** is integrated through PR #24. The active trust-track work is now **Workstream B — Mutation Evidence Publication V1** on a design branch. No production/runtime semantics are changed by the current documentation slice.
-
 ## Resume here
 
 - Repository: `zafersari82/Oregon`.
-- Active branch: `design/mutation-evidence-publication-v1-2026-09-08`.
-- Branch base: `main` at `5785089e0cc2de18b1b50ef112afbe2f8265a8d8`.
-- Written design: `docs/superpowers/specs/2026-09-08-mutation-evidence-publication-v1.md`.
-- Design commit after self-review: `66fda8e806500fd3cf81479a3fa332b5994b657e`.
-- Trust roadmap: `docs/checkpoints/OREGON_TRUST_VERIFICATION_ROADMAP.md`.
-- No Workstream B implementation plan or implementation exists yet.
-- No `main` integration decision for Workstream B has been requested or granted.
+- Active branch: `work/mutation-evidence-publication-v1-2026-09-08`, PR #25.
+- Main baseline: `5785089e0cc2de18b1b50ef112afbe2f8265a8d8`.
+- Reserve Conservation Proof V1 is integrated through PR #24.
+- Current work: Workstream B, Mutation Evidence Publication V1.
+- Design: `docs/superpowers/specs/2026-09-08-mutation-evidence-publication-v1.md`.
+- Plan: `docs/superpowers/plans/2026-09-08-mutation-evidence-publication-v1.md`.
 
-## Workstream B inventory and approved design direction
+The manifest, schemas, validator, publisher, 68 stable mutation records and dedicated
+CI workflow are implemented. Older design/plan approval-status prose predates this
+implementation and must not be read as a claim that these files are absent.
+The six existing mutation runners remain the production authorities.
 
-The owner approved the proposed Workstream B design direction in chat on September 8. Repository inspection found six existing production mutation authorities invoked by `.github/workflows/oregon-rust.yml`:
+## Verified implementation and current correction
 
-- execution address: `3/3` mutations;
-- execution envelope: `9/9`;
-- contract state: `17/17`;
-- execution resources: `13/13`;
-- Stage 3B fee settlement/reserve: `14/14`;
-- Stage 4A runtime journal: `12/12`.
+Source `11b82780c013f7b104b48f7947c891e819563e1a`, tree
+`31a28a31a8e418ed18714136a51546293b332a86`, passed:
 
-Total published V1 target inventory: **68 selected mutations across six existing authorities**.
+- Mutation Evidence run `34263606532`, job `102187372191`.
+- Rust CI run `34263606628`, job `102187372524`.
+- Reserve Conservation Proofs run `34263606596`.
+- Reserve Verifier Bootstrap run `34263606616`.
 
-The selected design does not replace those six runners. It adds a fail-closed publication layer containing a versioned manifest, stable mutation IDs, pinned runner SHA-256 identities, schema validation, normalized result records, exact commit/tree binding, clean-checkout/restoration checks, raw evidence retention and exact-head CI evidence.
+The mutation job's printed canonical result records six authorities, 68/68 killed,
+clean source before/after, and the exact source above. Artifact `10071104970`
+has ZIP digest `7bdb4730c73b1c9e93430f33b6120a30ed8481d3d7fec36d7a497eaf62916630`.
+Its seven-file inventory omits the manifest required by design section 13.
+Thus this is verified execution evidence, not complete publication acceptance.
 
-The design explicitly rejects generic stdout-counting as sufficient evidence and rejects replacing the accepted mutation authorities with a new competing mutation framework.
+The continuation adds the exact manifest bytes to the output package, with their
+SHA-256 bound in `result-v1.json`, and fixes README commands to use script discovery
+and suppress bytecode files that would dirty the required clean checkout.
+A new regression test failed because the manifest was absent before the correction,
+then passed afterward. The original 41 Python tests passed on a clean checkout.
+These are local Python checks, not local Rust mutation or Kani execution.
 
-## Workstream B claim boundary
+**Next incomplete action:** verify the corrected PR head in live CI, inspect its
+artifact for six raw logs plus manifest/result and matching identities, then record
+the Workstream B acceptance checkpoint. Keep ancestor execution evidence distinct
+from final-head acceptance. PR #25 remains draft; main is unchanged in this
+continuation. Historical PRs #22/#23 are superseded reserve work, not the active
+next implementation target. Stage 4B remains separate.
 
-Mutation evidence is not formal verification. The intended eventual bounded claim is that Oregon publishes reproducible evidence showing the named tests/gates kill the 68 selected V1 fault injections at an exact recorded source.
+## Authorized publication continuation
 
-Do not claim that:
+The owner explicitly authorized publishing the prepared correction commits to
+PR #25 with "evet" in response to the specific push request. The earlier automatic
+approval blocker is resolved. Git CLI publication still lacks HTTPS credentials;
+the authenticated GitHub connector is the publication path for the corrected tree.
+Original local correction: `eac65713073ba6deda2e7c6b737747117f5001d3`, tree
+`ced53b684b32ba748544716cdeebbb7ea2598a44`. All 42 Python publication tests and
+the six-authority/68-mutation manifest validator passed. Connector publication
+uses a new commit identity; do not claim the original local commit SHA was pushed.
+After publication, verify PR #25's actual head and its live CI/artifact inventory.
+No main integration is included in this publication authorization.
 
-- mutation testing proves absence of bugs;
-- the 68 mutations exhaust all possible faults;
-- mutation testing is a mathematical proof;
-- reserve formal-model negative controls count as production mutation evidence;
-- Workstream B activates Stage 4B, Stage 4C or any VM/runtime path.
+## Claim boundary
 
-Existing transaction/block bytes, monetary/reserve rules, storage representation, networking, mempool behavior and activation state remain frozen unless separately approved.
-
-## Written design review boundary
-
-The written design has been committed and self-reviewed. During self-review, the Python test layout was tightened to the repository's established `scripts/test_*.py` convention instead of leaving the test location conditional.
-
-**Next incomplete action:** the owner reviews/accepts the written design file `docs/superpowers/specs/2026-09-08-mutation-evidence-publication-v1.md`. After that approval, use the repository planning discipline to write the detailed implementation plan. Implementation must begin test-first and must preserve all six existing mutation runners as the production authorities.
-
-Do not start Workstream B implementation merely from the earlier conversational design approval; the written-spec review gate is still open. Once the owner approves this committed spec, do not ask for the same design approval again unless the design boundary changes.
+Evidence covers 68 selected injected faults across six authorities. It is not
+formal proof, exhaustive fault coverage, or proof of absence of bugs. Reserve
+model controls are separate. No production/runtime activation is included.
 
 ## Reserve Conservation Proof V1 — accepted foundation
 

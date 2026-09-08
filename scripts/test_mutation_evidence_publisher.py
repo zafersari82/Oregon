@@ -352,6 +352,21 @@ class ResultV1Tests(unittest.TestCase):
 
 
 class PublicationCliTests(unittest.TestCase):
+    def test_publication_retains_exact_manifest_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            manifest = ROOT / "verification/mutation-evidence/manifest-v1.json"
+            with patch("publish_mutation_evidence.git_is_clean", return_value=True), patch(
+                "publish_mutation_evidence.run_authority",
+                side_effect=lambda root, spec, log_dir: fake_run(spec),
+            ):
+                status = main(["--output", str(output)])
+            self.assertEqual(status, 0)
+            self.assertTrue((output / "manifest-v1.json").is_file())
+            self.assertEqual((output / "manifest-v1.json").read_bytes(), manifest.read_bytes())
+            result = json.loads((output / "result-v1.json").read_text())
+            self.assertEqual(hashlib.sha256((output / "manifest-v1.json").read_bytes()).hexdigest(), result["manifest_sha256"])
+
     def test_output_inside_checkout_is_rejected_before_any_authority_runs(self):
         with patch("publish_mutation_evidence.run_authority") as run:
             status = main(["--output", str(ROOT / "mutation-evidence-test-output")])

@@ -10,6 +10,17 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-08-mutation-evidence-publication-v1.md`
 
+## September 8 continuation evidence
+
+Tasks 1–7 have implementation files and successful exact-source CI at
+`11b82780c013f7b104b48f7947c891e819563e1a`; the original unchecked task templates
+below are not an absent-implementation claim. Mutation Evidence run `34263606532`
+reports 68/68 and Rust CI run `34263606628` passed. Publication closure remains
+pending because that artifact omitted the manifest required by the design.
+The continuation adds a failing-then-passing manifest-retention regression,
+packages the manifest, and corrects README reproduction commands. See HANDOFF
+for exact artifact/source evidence and the next final-head verification step.
+
 ## Global Constraints
 
 - Work on isolated branch `work/mutation-evidence-publication-v1-2026-09-08`; never implement on `main`.
