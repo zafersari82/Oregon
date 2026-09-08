@@ -54,16 +54,29 @@ jobs:
             --archive "$RUNNER_TEMP/kani-pinned.tar.gz" \
             --rustc "$proof_rustc" \
             --output "$RUNNER_TEMP/reserve-proof-evidence"
+      - name: Run RC01 RC02 RC08 RC09 mutation controls
+        run: |
+          proof_rustc="$(rustup which --toolchain nightly-2025-11-21-x86_64-unknown-linux-gnu rustc)"
+          python3 scripts/verify_reserve_mutation_controls.py \
+            --kani-home "$HOME/.kani/kani-0.67.0" \
+            --archive "$RUNNER_TEMP/kani-pinned.tar.gz" \
+            --rustc "$proof_rustc" \
+            --output "$RUNNER_TEMP/reserve-mutation-evidence"
       - name: Show proof diagnostics
         if: always()
         run: |
-          if [ -f "$RUNNER_TEMP/reserve-proof-evidence/summary.json" ]; then
-            cat "$RUNNER_TEMP/reserve-proof-evidence/summary.json"
-          fi
+          for evidence in reserve-proof-evidence reserve-mutation-evidence; do
+            if [ -f "$RUNNER_TEMP/$evidence/summary.json" ]; then
+              echo "===== $evidence ====="
+              cat "$RUNNER_TEMP/$evidence/summary.json"
+            fi
+          done
       - name: Retain arithmetic proof evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: reserve-arithmetic-${{ github.event.pull_request.head.sha || github.sha }}
-          path: ${{ runner.temp }}/reserve-proof-evidence/
+          path: |
+            ${{ runner.temp }}/reserve-proof-evidence/
+            ${{ runner.temp }}/reserve-mutation-evidence/
           if-no-files-found: error
