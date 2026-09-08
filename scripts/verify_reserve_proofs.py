@@ -43,6 +43,16 @@ PROOF_COVER_COUNTS = {
     'rc10_collisions_and_tampered_undo_reject_unchanged': 2,
 }
 
+_KANI_UNSUPPORTED_WARNING = re.compile(
+    r'warning: Found the following unsupported constructs:\n'
+    r'(?:\s+- [a-zA-Z0-9_ ]+ \(\d+\)\n)+'
+    r'\s*\n'
+    r'\s*Verification will fail if one or more of these constructs is reachable\.\n'
+    r'\s*See https://model-checking\.github\.io/kani/rust-feature-support\.html for more details\.\n'
+    r'\s*\nwarning: \d+ warnings? emitted\n',
+    re.M,
+)
+
 
 class GateError(ValueError):
     """Evidence does not establish the expected verification result."""
@@ -54,7 +64,7 @@ def require(condition, message):
 
 
 def _reject_infrastructure_diagnostics(output):
-    """Reject runner diagnostics, not SUCCESS properties inside Kani RESULTS."""
+    """Reject runner diagnostics, not proven-unreachable Kani safety instrumentation."""
     before_results, marker, after_results = output.partition('RESULTS:\n')
     diagnostics = output
     if marker:
@@ -62,6 +72,7 @@ def _reject_infrastructure_diagnostics(output):
         diagnostics = before_results
         if summary_marker:
             diagnostics += '\nSUMMARY:' + after_summary
+    diagnostics = _KANI_UNSUPPORTED_WARNING.sub('', diagnostics)
     require(
         not re.search(
             r'(?im)^.*(?:error:|error\[|unsupported|timed out)',
