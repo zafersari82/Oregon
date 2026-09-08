@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Publish exact-source evidence from Oregon's existing mutation authorities."""
+import argparse
+import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 from mutation_evidence import (
     AuthoritySpec,
@@ -11,13 +14,23 @@ from mutation_evidence import (
     EvidenceError,
     RESULT_SCHEMA,
     canonical_json_bytes,
+    load_manifest,
     parse_authority_output,
     sha256_file,
 )
 
 
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MANIFEST = ROOT / "verification/mutation-evidence/manifest-v1.json"
 GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 REPOSITORY = "zafersari82/Oregon"
+CI_ENVIRONMENT = (
+    ("workflow", "GITHUB_WORKFLOW"),
+    ("run_id", "GITHUB_RUN_ID"),
+    ("run_attempt", "GITHUB_RUN_ATTEMPT"),
+    ("job", "GITHUB_JOB"),
+    ("sha", "GITHUB_SHA"),
+)
 
 
 def _require(condition: bool, message: str) -> None:
@@ -279,3 +292,82 @@ def write_result_atomic(result: dict, output_dir: Path) -> Path:
     temporary.write_bytes(canonical_json_bytes(result))
     temporary.replace(final_path)
     return final_path
+
+
+def _verify_all_runner_digests(root: Path, authorities) -> None:
+    """Bind every authority to reviewed bytes before any mutation process starts."""
+    for authority in authorities:
+        runner_path = (root / authority.runner).resolve()
+        _require(
+            runner_path.is_relative_to(root.resolve()) and runner_path.is_file(),
+            f"authority {authority.id} runner is missing or outside checkout",
+        )
+        observed = sha256_file(runner_path)
+        _require(
+            observed == authority.runner_sha256,
+            f"authority {authority.id} runner digest mismatch: expected {authority.runner_sha256}, observed {observed}",
+        )
+
+
+def _ci_identity(environ=None) -> dict:
+    source = os.environ if environ is None else environ
+    return {
+        result_key: source[environment_key]
+        for result_key, environment_key in CI_ENVIRONMENT
+        if source.get(environment_key)
+    }
+
+
+def publish(*, root: Path, manifest_path: Path, output: Path, environ=None) -> dict:
+    """Execute all six authorities and publish only a complete Result V1."""
+    root = root.resolve()
+    output = ensure_output_outside_root(root, output)
+    output.mkdir(parents=True, exist_ok=True)
+    canonical_result = output / "result-v1.json"
+    canonical_result.unlink(missing_ok=True)
+    (output / ".result-v1.json.tmp").unlink(missing_ok=True)
+
+    _, authorities = load_manifest(manifest_path, root)
+    _require(git_is_clean(root), "mutation evidence publication requires a clean checkout")
+    commit_sha, tree_sha = git_identity(root)
+    _verify_all_runner_digests(root, authorities)
+
+    authority_runs = []
+    for authority in authorities:
+        authority_runs.append(run_authority(root, authority, output))
+
+    _require(git_is_clean(root), "mutation evidence publication did not finish with a clean checkout")
+    result = build_result(
+        manifest_sha256=sha256_file(manifest_path),
+        commit_sha=commit_sha,
+        tree_sha=tree_sha,
+        authorities=authorities,
+        authority_runs=authority_runs,
+        ci_identity=_ci_identity(environ),
+    )
+    write_result_atomic(result, output)
+    return result
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description="Publish Oregon Mutation Evidence V1")
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    args = parser.parse_args(argv)
+
+    try:
+        result = publish(
+            root=ROOT,
+            manifest_path=args.manifest,
+            output=args.output,
+        )
+    except EvidenceError as error:
+        print(f"Mutation Evidence V1 failed: {error}", file=sys.stderr)
+        return 1
+
+    print(f"Mutation Evidence V1: {result['totals']['killed']}/{result['totals']['total']} killed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
