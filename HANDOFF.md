@@ -1,155 +1,90 @@
 # Oregon — current continuation record
 
-Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **inactive foundations**. Stage 4A remains unpublished/non-activated: it adds a bounded execution journal and verification infrastructure, not VM execution, persistence or protocol activation.
+Updated: 2026-09-08 UTC.
+
+Stage 3B and Stage 4A remain integrated into `main` as inactive foundations. The current active trust-track work is **Reserve Conservation Proof V1** on the isolated branch `work/reserve-proof-arithmetic-2026-09-08`, PR #24.
 
 ## Resume here
 
-- Published work branch: `work/reserve-proof-publication-2026-09-07`.
-- Preserved local history branch: `work/reserve-proof-runner-2026-09-07`.
-- Owner-approved Reserve Conservation Proof V1 remains authorized; do not request
-  the same approval again. All original continuation commits through `6a7770b`
-  are preserved as ancestors.
-- Latest code slice: `0691c44`, fail-closed bootstrap result parser and process runner
-  in `scripts/verify_reserve_proofs.py`. Six Python test methods pass, including
-  19 corrupted-output cases and timeout/missing-tool/compile-failure rejection.
-  Semantic red evidence preceded implementation. Evidence is recorded in
-  `verification/reserve-conservation/evidence/runner/`.
-- Historical live bootstrap remains source `e816a9c`, Kani 0.67.0 / CBMC 6.8.0 /
-  CaDiCaL 2.0.0. No live Kani execution occurred in the September 7 continuation.
-- Current environment blocker: Rust/Kani executables are absent; the Rust download
-  attempt was stopped at network approval. Live pinned preflight/invocation and
-  inherited Rust/Clippy/mutation gates are unvalidated for the new code slice.
-- Next incomplete action: validate the bootstrap runner with the pinned archive,
-  installed Kani and nightly rustc, then add the standalone package and write the
-  approved production correspondence tests before implementing the reserve model.
-  The full RC01–RC10 runner, model, controls and proof CI remain unimplemented.
-- On September 7 the live GitHub main was checked at `dd7cdcb` with seven successful
-  checks at that exact source. PR #20 remains a separate Stage 4B draft. Those checks
-  do not validate the new local runner.
-- Publication status: see the latest continuation publication record below.
-
 - Repository: `zafersari82/Oregon`.
+- Active branch: `work/reserve-proof-arithmetic-2026-09-08`.
+- Active PR: #24.
+- PR base before closure: `main` at `a530ae1d20e5a1648cf9cfea045221ec13326d25`.
+- Owner-approved design: `docs/superpowers/specs/2026-09-06-reserve-conservation-proof-v1.md`.
+- Plan: `docs/superpowers/plans/2026-09-06-reserve-conservation-proof-v1.md`.
+- Acceptance checkpoint: `docs/checkpoints/OREGON_RESERVE_CONSERVATION_PROOF_V1.md`.
+- The owner-approved proof design must not be requested again unless the design boundary changes.
+
+## Accepted proof implementation
+
+The proof/model/control implementation was accepted at exact source:
+
+- SHA `511f61302ee486e618a33235808572ae4419f487`.
+- Tree `e2f12792a08a5376807baa4e92b4ca63ef44a56b`.
+
+At that source:
+
+- Oregon Reserve Conservation Proofs run `34220257918`, job `102041448968`: **SUCCESS**.
+- Oregon Reserve Verifier Bootstrap run `34220257907`, job `102041448925`: **SUCCESS**.
+- Oregon Rust CI run `34220257858`, job `102041448416`: **SUCCESS**.
+- Proof artifact ID `10053933077`, digest `sha256:e84b33e5736ff9597baf6f0a2521bec3082ad0ca97da1188f4c1e6f35d303953`.
+
+The proof CI verifies pinned Kani 0.67.0 / CBMC 6.8.0 / CaDiCaL 2.0.0 identities before execution. All RC01–RC10 positive proof harnesses pass. All ten required disposable-model negative controls are semantically killed with concrete counterexamples, baseline source restoration is checked, and the complete positive RC01–RC10 suite is rerun afterward.
+
+The state proof harnesses use explicit unwind bound `5`. Kani proof execution is Linux x86_64 only; do not claim ARM Kani verification.
+
+## Production correspondence
+
+`oregon-utxo` compiles the exact verification model source through:
+
+`#[path = "../../../verification/reserve-conservation/src/model.rs"] mod reserve_model;`
+
+Exact-head Rust CI runs the production/model correspondence tests and passed constructor error precedence, overflow/underflow and endpoint cases, zero/positive cardinality, exact reserve metadata/program, multiple-reserve rejection, collision atomicity, tampered-undo rejection and full apply/undo restoration.
+
+The RC07 model equality issue found during formal verification was resolved in the verification model by comparing bounded state as map content rather than slot position, matching production `HashMap` state semantics. Production reserve behavior was not changed by this proof slice.
+
+Inherited production mutation authorities remained green at the accepted source:
+
+- execution address `3/3`;
+- execution envelope `9/9`;
+- contract state `17/17`;
+- execution resource `13/13`;
+- Stage 3B fee settlement/reserve `14/14`;
+- Stage 4A journal `12/12`.
+
+Accepted Stage 3B independent fee-settlement/reserve vectors remain successful on x86_64 and ARM (run `34039255396`, jobs `101502890461` and `101502890592`). This is retained executable production-vector evidence for unchanged Stage 3B code, not ARM Kani proof evidence.
+
+## Exact proof claim and limitations
+
+Permitted claim:
+
+> Kani verifies the listed reserve-conservation properties of Oregon's bounded reserve model; differential tests check correspondence with the inactive Stage 3B implementation.
+
+Do not broaden this into proof of all production Rust, arbitrary/unbounded UTXO state, storage/WAL/crash behavior, block integration, cross-domain reorganization, VM execution, authorization/account-total provenance, or global native OREG supply conservation. Full limitations are recorded in the acceptance checkpoint.
+
+## Closure state and next incomplete action
+
+After accepted proof source `511f6130...`, the branch is receiving documentation-only / CI-label closure commits:
+
+- CI mutation step renamed to accurately state RC01–RC10.
+- Reserve proof acceptance checkpoint added.
+- Implementation plan completion state updated.
+- This `HANDOFF.md` updated to current evidence.
+
+**Next incomplete action:** verify the exact final closure head with Reserve Conservation Proofs, Reserve Verifier Bootstrap and Oregon Rust CI. If all applicable exact-head gates are green and PR #24 remains clean/mergeable, stop at the integration boundary unless the owner has made the repository-required separate explicit decision to integrate into `main`.
+
+After an authorized merge, verify the actual `main` merge source with its triggered CI before claiming main integration complete. Then continue the trust roadmap with Workstream B: reproducible mutation-evidence publication.
+
+## Integrated foundation and preserved cautions
+
 - Stage 3B main integration: `fe762f7a5670d94a486423327e3a525cec24afb5`.
 - Stage 4A main integration: `dee4ca6ea3b6dc75e4920ab56a44e2b5da8aa0a3`.
-- Stage 4A integration tree: `02da551eba74ee53ab003364c6a054176c02755f`.
-- Stage 4A closure source/checkpoint head: `bb24a2cb1bed17736c931888b334388a67f29842`.
-- Merged PR: #19 — `Stage 4A: bounded execution journal foundation`.
-- Stage 4 design: `docs/superpowers/specs/2026-09-06-runtime-journal-async-v1-design.md`.
-- Stage 4A plan: `docs/superpowers/plans/2026-09-06-runtime-journal-v1.md`.
-- Stage 4A implementation checkpoint: `docs/checkpoints/OREGON_RUNTIME_JOURNAL_PROGRESS.md`.
-- Stage 4A main integration record: `docs/checkpoints/OREGON_STAGE4A_MAIN_INTEGRATION.md`.
-- Post-Stage-4A trust roadmap: `docs/checkpoints/OREGON_TRUST_VERIFICATION_ROADMAP.md`.
-
-Always inspect the actual current `main`, open work branches and exact-head CI before editing; this record is a continuation aid, not a substitute for repository state.
-
-## Integrated foundation
-
-M0–M6, execution addresses, universal-envelope/auth structure, logical contract state, Stage 3A resource metering/base fees, Stage 3B escrow/settlement/reserve foundations and Stage 4A bounded runtime journal are integrated.
-
-Stage 4A provides the approved journal surface in `oregon-execution`: validated Oregon SMT snapshot domains, checked overlay reads/writes, bounded nested frames, child commit/revert with ancestor rollback, exact structural/resource ceilings, atomic unpublished multi-domain finalization, independent trace vectors and dedicated mutation gates.
-
-Stage 4A integration is **not activation**. The final journal result remains an unpublished proposal; active roots/source state are not persisted or changed by the journal APIs.
-
-## Stage 4A integration evidence
-
-Verified closure/checkpoint source:
-
-- SHA `bb24a2cb1bed17736c931888b334388a67f29842`, tree `02da551eba74ee53ab003364c6a054176c02755f`.
-- Rust CI #772 — run `34047120052`, job `101524055508` — SUCCESS.
-- Runtime Journal Vectors #25 — run `34047120019`; x86_64 job `101524055523`, ARM job `101524055354` — SUCCESS.
-
-Actual main merge:
-
-- Merge SHA `dee4ca6ea3b6dc75e4920ab56a44e2b5da8aa0a3`.
-- Merge tree `02da551eba74ee53ab003364c6a054176c02755f`, identical to the verified checkpoint tree.
-- Rust CI #773 — run `34048254431`, job `101527099485` — SUCCESS.
-- Runtime Journal Vectors #26 — run `34048254365`; x86_64 job `101527099240`, ARM job `101527099317` — SUCCESS.
-- Execution Resource Vectors #103 — run `34048254372`; x86_64 job `101527099230`, ARM job `101527099377` — SUCCESS.
-- Fee Settlement Vectors #52 — run `34048254591`; x86_64 job `101527099826`, ARM job `101527099958` — SUCCESS.
-- Main Rust CI passed architecture/focused contracts, full workspace/all-target tests, mutation gates (address 3/3, envelope 9/9, contract-state 17/17, resource 13/13, fee-settlement 14/14, journal 12/12), rustdoc/docs, Format and warnings-denied Clippy.
-
-No RandomX main-push rerun is claimed for this integration; the main push triggered Rust, runtime-journal, execution-resource and fee-settlement workflows. Earlier exact closure-source RandomX architecture/full-light parity evidence remains historical evidence, not a substitute for a nonexistent main-only rerun.
-
-## What Stage 4A still does not mean
-
-- No deterministic VM/runtime call ABI is active.
-- No Stage 4B transaction/fee/receipt coordinator exists yet.
-- No Stage 4C async delivery/expiry/consumption behavior is active.
-- No journal proposal is persisted into active consensus state.
-- No existing transaction/block wire bytes are changed by Stage 4A.
-- EVM state is not routed through the Oregon SMT journal.
-- No universal-envelope/VM execution activation is implied by this merge.
-
-## Next owner-requested work
-
-Stage 4A has reached `main`, so open `docs/checkpoints/OREGON_TRUST_VERIFICATION_ROADMAP.md` before selecting the next implementation task.
-
-Default execution order, unless the owner explicitly reprioritizes:
-
-1. **Formal Stage 3B 1:1 reserve-conservation proof design and implementation**, with a Rust-compatible verifier (Kani is the initial candidate), pinned reproducible CI, explicit proof boundaries and negative controls.
-2. **Reproducible mutation evidence publication** generated/cross-checked from machine-readable repo evidence; mutation testing is not formal proof.
-3. **RandomX public testnet/adversarial challenge preparation**, only after node/testnet readiness; no unapproved monetary bounty and no mainnet stress event.
-
-The accepted Stage 4B/4C architecture remains valid but is not the default immediate work while this owner-requested trust track is queued.
-
-## Preserved cautions
-
-### Approved reserve-proof design
-
-The branch `design/reserve-conservation-proof-v1-2026-09-06` prepares Workstream A
-from main `dd7cdcb566273c39d5a38cf0c0036058b08a7d89`:
-
-- Design: `docs/superpowers/specs/2026-09-06-reserve-conservation-proof-v1.md`.
-- Plan: `docs/superpowers/plans/2026-09-06-reserve-conservation-proof-v1.md`.
-- State: owner-approved bounded-model proof with Kani 0.67.0 and production
-  differential tests; verifier bootstrap works locally, reserve proofs remain pending.
-- Next action: execute the approved test-first plan on
-  `work/reserve-conservation-proof-v1-2026-09-06`, continuing after the recorded
-  bootstrap checks.
-
-Open draft PR #20 remains separate Stage 4B work at
-`fc2cc1564de69eee1482a445bb0c08b49b667ab0`; it does not supersede main's default
-trust-roadmap priority. Neither that branch nor historical checkpoints were moved.
-
-### Existing implementation cautions
-
-- `FundingCapabilityV1::new` validates data; it does not verify a live payer source. Future coordination must obtain authority from source validation.
-- Existing `WeightMeter` exhaustion is sticky and charges the maximum. Child rollback cannot reset it or cumulative conversion counters.
-- No generic VM-facing unrestricted system-domain write or non-revertible write API is permitted.
-- Future Stage 4B, Stage 4C and activation changes each require their own design/test/CI/checkpoint/integration decisions.
+- Trust roadmap: `docs/checkpoints/OREGON_TRUST_VERIFICATION_ROADMAP.md`.
+- Stage 4B and Stage 4C remain separate gated work; reserve-proof acceptance is not runtime activation.
+- Existing transaction/block bytes, monetary rules, storage representation, networking and mempool behavior remain frozen unless separately approved.
+- `FundingCapabilityV1::new` validates data but does not prove a live payer source; future coordination must obtain authority from source validation.
+- Existing `WeightMeter` exhaustion remains sticky and charges the maximum; child rollback cannot reset it or cumulative conversion counters.
+- No generic unrestricted VM-facing system-domain write or non-revertible write API is permitted.
 - Never force-push or move accepted historical checkpoint refs.
 
-Keep this record and the integration checkpoint in the repository so another conversation can resume from exact evidence rather than chat memory.
-
-## September 7 publication record
-
-Push of `0691c44` and its preserved ancestors to
-`work/reserve-proof-runner-2026-09-07` failed: Git HTTPS could not read a username
-with terminal prompts disabled. GitHub read access works, but this session has no
-usable Git write credential. No remote branch creation or current-head CI is claimed.
-Continue from the local branch or its exported continuation bundle; main is unchanged.
-
-
-## September 7 connector publication and bootstrap CI
-
-GitHub connector writes succeeded after Git CLI authentication failed. Source
-snapshot `ed4e3b5af5c6e56d0404548866206766f902936d` has the exact original local
-`976d6e5` tree `975454b9224584dd20e0b24fd614cb9bb6fc65fb`. This is a new publication
-commit, not a claim that original local commit identities were pushed as Git refs.
-
-The complete original history is preserved remotely on
-`archive/reserve-continuation-2026-09-07` at
-`01451b8136cd93e22497704537f1f2a56ec0443a`, in
-`Oregon-continuation-2026-09-07.bundle`. Its Git blob identity
-`c8c71e1b0bdb1b14714560a5e1571a5cb06db577` matches the local bundle bytes.
-
-A dedicated `oregon-reserve-bootstrap.yml` CI workflow now prepares the pinned
-verifier, checks the archive digest before setup, and executes the bootstrap-only
-runner with positive/negative/positive checks and retained evidence. It does not
-execute RC01–RC10. Inspect its actual run before claiming live validation. The
-local Rust download was again stopped at network approval; CI is the intended
-execution environment for this continuation.
-
-Next: inspect and resolve bootstrap CI results, then continue the approved
-standalone-package and test-first production-correspondence work. Main integration
-and reserve-proof acceptance have not occurred.
+Always inspect the real branch, PR and exact-head CI when resuming. This file is a continuation aid, not a substitute for repository state.
