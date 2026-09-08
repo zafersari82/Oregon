@@ -1,4 +1,5 @@
 """Fail-closed parser and publisher tests for Mutation Evidence V1."""
+from copy import deepcopy
 import hashlib
 from pathlib import Path
 import subprocess
@@ -13,11 +14,17 @@ from mutation_evidence import (
     parse_authority_output,
 )
 from publish_mutation_evidence import (
+    build_result,
     ensure_output_outside_root,
     git_identity,
     git_is_clean,
     run_authority,
+    validate_result_v1,
+    write_result_atomic,
 )
+
+
+V1_COUNTS = (("EA", 3), ("EE", 9), ("CS", 17), ("ER", 13), ("FS", 14), ("RJ", 12))
 
 
 def authority(prefix="EA", count=3, runner=None, digest=None):
@@ -91,6 +98,24 @@ def write_runner(root: Path, spec: AuthoritySpec, output: str, *, dirty=False, e
     path.write_text("\n".join(body) + "\n")
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     return authority(spec.id, spec.expected_count, spec.runner, digest)
+
+
+def full_specs():
+    return tuple(authority(prefix, count) for prefix, count in V1_COUNTS)
+
+
+def fake_run(spec: AuthoritySpec):
+    return {
+        "id": spec.id,
+        "runner": spec.runner,
+        "runner_sha256": spec.runner_sha256,
+        "command": list(spec.command),
+        "raw_log": {"filename": f"{spec.id.lower()}.log", "sha256": "a" * 64},
+        "records": tuple(
+            KillRecord(mutation.id, mutation.name, mutation.killing_test)
+            for mutation in spec.mutations
+        ),
+    }
 
 
 class AuthorityOutputParserTests(unittest.TestCase):
@@ -254,6 +279,72 @@ class SourceIntegrityTests(unittest.TestCase):
             )
             with self.assertRaises(EvidenceError):
                 run_authority(root, spec, Path(logs))
+
+
+class ResultV1Tests(unittest.TestCase):
+    def result(self, specs=None, runs=None):
+        specs = specs or full_specs()
+        runs = runs or tuple(fake_run(spec) for spec in specs)
+        return build_result(
+            manifest_sha256="b" * 64,
+            commit_sha="c" * 40,
+            tree_sha="d" * 40,
+            authorities=specs,
+            authority_runs=runs,
+            ci_identity={"workflow": "test", "run_id": "1"},
+        )
+
+    def test_partial_five_authority_success_is_rejected(self):
+        specs = full_specs()[:-1]
+        with self.assertRaises(EvidenceError):
+            self.result(specs, tuple(fake_run(spec) for spec in specs))
+
+    def test_complete_result_is_exactly_68_of_68(self):
+        result = self.result()
+        self.assertEqual(result["totals"], {"killed": 68, "total": 68})
+        self.assertEqual(result["overall_status"], "passed")
+        self.assertEqual(len(result["authorities"]), 6)
+        self.assertEqual(sum(len(item["mutations"]) for item in result["authorities"]), 68)
+        self.assertTrue(
+            all(mutation["status"] == "killed" for item in result["authorities"] for mutation in item["mutations"])
+        )
+
+    def test_stale_schema_is_rejected(self):
+        result = self.result()
+        result["schema"] = "oregon.mutation-evidence.result/v0"
+        with self.assertRaises(EvidenceError):
+            validate_result_v1(result)
+
+    def test_missing_source_identity_is_rejected(self):
+        result = self.result()
+        del result["source"]["tree"]
+        with self.assertRaises(EvidenceError):
+            validate_result_v1(result)
+
+    def test_invalid_manifest_digest_is_rejected(self):
+        result = self.result()
+        result["manifest_sha256"] = "bad"
+        with self.assertRaises(EvidenceError):
+            validate_result_v1(result)
+
+    def test_atomic_writer_is_deterministic(self):
+        result = self.result()
+        reordered = deepcopy(result)
+        reordered["ci"] = {"run_id": "1", "workflow": "test"}
+        with tempfile.TemporaryDirectory() as left, tempfile.TemporaryDirectory() as right:
+            left_path = write_result_atomic(result, Path(left))
+            right_path = write_result_atomic(reordered, Path(right))
+            self.assertEqual(left_path.name, "result-v1.json")
+            self.assertEqual(left_path.read_bytes(), right_path.read_bytes())
+
+    def test_invalid_result_is_never_written(self):
+        result = self.result()
+        result["totals"] = {"killed": 67, "total": 68}
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with self.assertRaises(EvidenceError):
+                write_result_atomic(result, output)
+            self.assertFalse((output / "result-v1.json").exists())
 
 
 if __name__ == "__main__":
