@@ -1,6 +1,7 @@
 """Regression checks using captured Kani 0.67.0 output, not proof execution."""
 import json
 from pathlib import Path
+import re
 import unittest
 import sys
 import tempfile
@@ -17,6 +18,20 @@ def output(name):
 
 
 class ParserTests(unittest.TestCase):
+    def test_arithmetic_proof_harness_inventory_is_explicit(self):
+        source = FIXTURES.parents[1] / 'proofs.rs'
+        self.assertTrue(source.is_file(), 'formal reserve proof source must exist')
+        harnesses = re.findall(r'^fn (rc\d+_[a-z0-9_]+)\(', source.read_text(), re.M)
+        self.assertEqual(
+            harnesses,
+            [
+                'rc01_arithmetic_matches_integer_equation',
+                'rc02_result_matches_claimed_execution_total',
+                'rc08_conservation_identity',
+                'rc09_invalid_arithmetic_and_endpoints_reject',
+            ],
+        )
+
     def test_real_positive_and_rerun(self):
         for name in ('positive', 'positive_after_negative'):
             self.assertEqual(len(parse_bootstrap(output(name), 0, 'bootstrap_positive')), 3)
