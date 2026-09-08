@@ -1,6 +1,6 @@
 # Oregon Mutation Evidence Publication V1 — Design
 
-**Status:** owner-approved design direction; implementation not yet authorized by this document alone.
+**Status:** owner-approved design direction; written spec awaiting owner review before implementation planning.
 
 **Date:** 2026-09-08
 
@@ -77,14 +77,14 @@ scripts/verify_mutation_evidence_manifest.py
 scripts/publish_mutation_evidence.py
 ```
 
-Tests:
+Tests follow the repository's existing Python verification convention:
 
 ```text
-tests/python/test_mutation_evidence_manifest.py
-tests/python/test_mutation_evidence_publisher.py
+scripts/test_mutation_evidence_manifest.py
+scripts/test_mutation_evidence_publisher.py
 ```
 
-The exact test location may follow an already established Python-test convention if repository inspection during implementation shows a different canonical directory. The data contracts and behavioral requirements in this design remain unchanged.
+The data contracts and behavioral requirements in this design are independent of internal helper organization, but the public validator/publisher entrypoints and the two test entrypoints above are fixed for V1.
 
 ## 5. Stable mutation identity
 
