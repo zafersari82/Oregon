@@ -2,13 +2,15 @@
 
 Updated: 2026-09-08 UTC.
 
-Stage 3B and Stage 4A remain integrated into `main` as inactive foundations. The current active trust-track work is **Reserve Conservation Proof V1** on the isolated branch `work/reserve-proof-arithmetic-2026-09-08`, PR #24.
+Stage 3B and Stage 4A remain integrated into `main` as inactive foundations. **Reserve Conservation Proof V1** is now integrated through PR #24. The next trust-track work is Workstream B: reproducible mutation-evidence publication.
 
 ## Resume here
 
 - Repository: `zafersari82/Oregon`.
-- Active branch: `work/reserve-proof-arithmetic-2026-09-08`.
-- Active PR: #24.
+- Integrated branch: `work/reserve-proof-arithmetic-2026-09-08`.
+- Merged PR: #24.
+- Main integration: `4670d4ccedd09f02c2a87a13968e74f1fdfa9f4b`.
+- Integration evidence: `docs/checkpoints/OREGON_RESERVE_PROOF_MAIN_INTEGRATION.md`.
 - PR base before closure: `main` at `a530ae1d20e5a1648cf9cfea045221ec13326d25`.
 - Owner-approved design: `docs/superpowers/specs/2026-09-06-reserve-conservation-proof-v1.md`.
 - Plan: `docs/superpowers/plans/2026-09-06-reserve-conservation-proof-v1.md`.
@@ -62,18 +64,25 @@ Permitted claim:
 
 Do not broaden this into proof of all production Rust, arbitrary/unbounded UTXO state, storage/WAL/crash behavior, block integration, cross-domain reorganization, VM execution, authorization/account-total provenance, or global native OREG supply conservation. Full limitations are recorded in the acceptance checkpoint.
 
-## Closure state and next incomplete action
+## Integration and next incomplete action
 
-After accepted proof source `511f6130...`, the branch is receiving documentation-only / CI-label closure commits:
+The owner explicitly authorized PR #24 integration on September 8 with
+"Tamam yapalım" in response to the specific main-merge request. The merge used
+expected head `962b84f526c9477ec8c8206dbbf260b33a49426f` and preserved both parents.
+Main merge `4670d4ccedd09f02c2a87a13968e74f1fdfa9f4b` has tree
+`dcee6ca67d12198c4c73722ee0cbe81ba94ae384`, identical to that verified PR head.
 
-- CI mutation step renamed to accurately state RC01–RC10.
-- Reserve proof acceptance checkpoint added.
-- Implementation plan completion state updated.
-- This `HANDOFF.md` updated to current evidence.
+Final PR-head Reserve Conservation Proofs run `34222683669`, Reserve Verifier
+Bootstrap run `34222683630`, and Rust CI run `34222683676` all succeeded.
+See the integration checkpoint for actual main-push evidence. Proof/bootstrap
+workflows do not trigger on main pushes; do not claim a main-only Kani rerun.
 
-**Next incomplete action:** verify the exact final closure head with Reserve Conservation Proofs, Reserve Verifier Bootstrap and Oregon Rust CI. If all applicable exact-head gates are green and PR #24 remains clean/mergeable, stop at the integration boundary unless the owner has made the repository-required separate explicit decision to integrate into `main`.
-
-After an authorized merge, verify the actual `main` merge source with its triggered CI before claiming main integration complete. Then continue the trust roadmap with Workstream B: reproducible mutation-evidence publication.
+**Next incomplete action:** read Workstream B in
+`docs/checkpoints/OREGON_TRUST_VERIFICATION_ROADMAP.md`, inventory the existing
+mutation authorities and machine-readable outputs, then prepare its versioned
+evidence-publication design and implementation plan. Reuse existing runners;
+keep production mutation testing and bounded-model formal proof claims distinct.
+The reserve integration decision is complete; do not ask for it again.
 
 ## Integrated foundation and preserved cautions
 

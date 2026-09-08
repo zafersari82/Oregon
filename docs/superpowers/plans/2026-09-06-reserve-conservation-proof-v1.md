@@ -1,6 +1,6 @@
 # Oregon Reserve Conservation Proof V1 — Implementation Plan
 
-**Status:** owner-approved on 2026-09-06; implementation and proof acceptance complete on the isolated branch; final documentation/workflow closure must pass exact-head CI before the separate `main` integration decision.
+**Status:** owner-approved on 2026-09-06; implementation and proof acceptance complete; final PR-head CI passed and the owner authorized main integration on 2026-09-08. PR #24 merged as `4670d4ccedd09f02c2a87a13968e74f1fdfa9f4b`; actual main evidence is recorded in `docs/checkpoints/OREGON_RESERVE_PROOF_MAIN_INTEGRATION.md`.
 
 **Base:** `dd7cdcb566273c39d5a38cf0c0036058b08a7d89`.
 
@@ -72,6 +72,6 @@ Accepted proof-source evidence at `511f61302ee486e618a33235808572ae4419f487`:
 - [x] Record exact verified proof source/tree, tool identities/digests, all RC01–RC10 proof IDs and bounds, ten control results, correspondence evidence and CI identifiers in `docs/checkpoints/OREGON_RESERVE_CONSERVATION_PROOF_V1.md`.
 - [x] State the exact bounded-model proof claim and preserve the explicit non-proven scope.
 - [x] Update `HANDOFF.md` to the current proof-acceptance and closure state.
-- [ ] Obtain the separate explicit `main` integration decision and merge only after the final documentation/workflow closure source itself is exact-head green.
+- [x] Obtain the separate explicit `main` integration decision and merge only after the final documentation/workflow closure source itself is exact-head green.
 
 After authorized integration and verification of the actual `main` merge source, continue with the trust roadmap's Workstream B mutation-evidence publication. Stage 4B, Stage 4C and the public RandomX testnet/challenge remain separately gated work.
