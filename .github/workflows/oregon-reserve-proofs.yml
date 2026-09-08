@@ -21,7 +21,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Test fail-closed proof runner
-        run: python3 -m unittest discover -s scripts -p test_verify_reserve_proofs.py
+        run: python3 -m unittest discover -s scripts
       - name: Install pinned verifier installer
         run: |
           rustup toolchain install 1.88.0 --profile minimal
