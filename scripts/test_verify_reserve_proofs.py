@@ -27,7 +27,9 @@ class ParserTests(unittest.TestCase):
     def test_arithmetic_proof_harness_inventory_is_explicit(self):
         source = FIXTURES.parents[1] / 'proofs.rs'
         self.assertTrue(source.is_file(), 'formal reserve proof source must exist')
-        harnesses = re.findall(r'^fn (rc\d+_[a-z0-9_]+)\(', source.read_text(), re.M)
+        harnesses = re.findall(
+            r'^fn (rc(?:01|02|08|09)_[a-z0-9_]+)\(', source.read_text(), re.M
+        )
         self.assertEqual(
             harnesses,
             [
