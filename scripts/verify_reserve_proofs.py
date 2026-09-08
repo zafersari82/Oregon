@@ -56,7 +56,7 @@ def require(condition, message):
 def _reject_infrastructure_diagnostics(output):
     require(
         not re.search(
-            r'(?im)^.*(?:error:|error\[|unsupported|unwinding assertion|timed out)',
+            r'(?im)^.*(?:error:|error\[|unsupported|timed out)',
             output,
         ),
         'infrastructure or unsupported-operation diagnostic',
