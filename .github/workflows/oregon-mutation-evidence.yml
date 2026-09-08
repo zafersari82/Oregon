@@ -22,5 +22,5 @@ jobs:
           persist-credentials: false
       - name: Run Mutation Evidence tests
         run: python3 -m unittest discover -s scripts -p 'test_mutation_evidence*.py' -v
-      - name: Inspect current authority inventory
-        run: python3 scripts/inspect_mutation_inventory.py
+      - name: Validate published manifest
+        run: python3 scripts/verify_mutation_evidence_manifest.py
