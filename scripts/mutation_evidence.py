@@ -21,6 +21,18 @@ EXPECTED_AUTHORITIES = (
 MANIFEST_SCHEMA = "oregon.mutation-evidence.manifest/v1"
 RESULT_SCHEMA = "oregon.mutation-evidence.result/v1"
 DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+KILL_DASH_RE = re.compile(r"^KILLED: (?P<name>.+?) — (?P<test>\S+)$")
+KILL_BRACKET_RE = re.compile(r"^KILLED: (?P<name>.+?) \[(?P<test>[^\]]+)\]$")
+SUMMARY_RE = re.compile(
+    r"^(?:.*?\b)?(?P<killed>\d+)/(?P<total>\d+) "
+    r"(?:mutations killed|killed)(?:;.*)?$"
+)
+COMPILER_ERROR_RE = re.compile(r"\berror\[E[0-9A-Za-z]+\]")
+INFRASTRUCTURE_MARKERS = (
+    "could not compile",
+    "Traceback (most recent call last):",
+    "timed out",
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +54,14 @@ class AuthoritySpec:
     command: tuple[str, ...]
     expected_count: int
     mutations: tuple[MutationSpec, ...]
+
+
+@dataclass(frozen=True)
+class KillRecord:
+    mutation_id: str
+    name: str
+    killing_test: str
+    status: str = "killed"
 
 
 def canonical_json_bytes(value: object) -> bytes:
@@ -190,3 +210,71 @@ def load_manifest(path: Path, root: Path) -> tuple[dict, tuple[AuthoritySpec, ..
     allowed = {"schema", "manifest_version", "public_claim_boundary", "authorities"}
     _require(set(document) == allowed, "manifest has unexpected or missing top-level fields")
     return document, authorities
+
+
+def parse_authority_output(
+    authority: AuthoritySpec,
+    output: str,
+    returncode: int,
+) -> tuple[KillRecord, ...]:
+    """Normalize one authority's successful output without accepting false kills."""
+    _require(returncode == 0, f"authority {authority.id} exited with {returncode}")
+    _require(
+        not any(marker in output for marker in INFRASTRUCTURE_MARKERS),
+        f"authority {authority.id} output contains infrastructure/compiler failure",
+    )
+    _require(
+        COMPILER_ERROR_RE.search(output) is None,
+        f"authority {authority.id} output contains compiler error",
+    )
+
+    by_name = {mutation.name: mutation for mutation in authority.mutations}
+    observed: dict[str, KillRecord] = {}
+    summaries: list[tuple[int, int]] = []
+
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("KILLED:"):
+            match = KILL_DASH_RE.fullmatch(line) or KILL_BRACKET_RE.fullmatch(line)
+            _require(match is not None, f"authority {authority.id}: malformed KILLED record")
+            name = match.group("name")
+            killing_test = match.group("test")
+            mutation = by_name.get(name)
+            _require(mutation is not None, f"authority {authority.id}: unknown mutation {name}")
+            _require(
+                mutation.killing_test == killing_test,
+                f"authority {authority.id}: wrong killing test for {name}",
+            )
+            _require(
+                mutation.id not in observed,
+                f"authority {authority.id}: duplicate kill record for {mutation.id}",
+            )
+            observed[mutation.id] = KillRecord(
+                mutation_id=mutation.id,
+                name=mutation.name,
+                killing_test=mutation.killing_test,
+            )
+
+        summary = SUMMARY_RE.fullmatch(line)
+        if summary is not None:
+            summaries.append((int(summary.group("killed")), int(summary.group("total"))))
+
+    _require(len(summaries) == 1, f"authority {authority.id}: expected exactly one final summary")
+    killed, total = summaries[0]
+    _require(
+        killed == authority.expected_count and total == authority.expected_count,
+        f"authority {authority.id}: summary cardinality mismatch {killed}/{total}",
+    )
+    _require(
+        len(observed) == authority.expected_count,
+        f"authority {authority.id}: expected {authority.expected_count} kill records, got {len(observed)}",
+    )
+
+    expected_ids = tuple(mutation.id for mutation in authority.mutations)
+    _require(
+        set(observed) == set(expected_ids),
+        f"authority {authority.id}: observed inventory does not match manifest",
+    )
+    return tuple(observed[mutation_id] for mutation_id in expected_ids)
