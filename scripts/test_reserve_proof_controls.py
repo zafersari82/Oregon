@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import unittest
 
-from verify_reserve_proofs import GateError, parse_negative_control
+from verify_reserve_mutation_controls import GateError, parse_negative_control
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTROL_SOURCE = ROOT / 'verification/reserve-conservation/mutation_controls.rs'
