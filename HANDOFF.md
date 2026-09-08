@@ -4,6 +4,26 @@ Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ## Resume here
 
+### September 8 authoritative continuation
+
+- Local branch: `work/reserve-unified-2026-09-08`; published target:
+  `work/reserve-conservation-proof-v1-2026-09-06`; draft PR #23.
+- Main advanced independently to `a530ae1` through PR #21. This continuation
+  incorporates that accepted history into the work branch, not into main.
+- Preserve main's single runner, its parser/process tests, bootstrap workflow,
+  bounded model and RC06 correspondence tests. The older manifest-based runner
+  and its incompatible tests were superseded; their source remains in Git history.
+- Retain this branch's three constructor boundary tests and reserve-branch Rust
+  CI trigger. Python CI invokes the retained parser test suite in `scripts/`.
+- The prior local clean-target fee vector run passed 2/2 without source changes.
+  The restarted mutation run has no recovered result after environment reset;
+  Rust/Kani installations were also lost. No new 14/14 or full-workspace pass
+  is claimed. Inspect PR #23 exact-head CI before choosing the next model task.
+- RC01–RC10 formal harnesses and final proof acceptance remain pending. Do not
+  confuse the inherited model/correspondence implementation with Kani proof.
+
+The following records describe earlier slices and their historical evidence:
+
 - Published work branch: `work/reserve-proof-publication-2026-09-07`.
 - Preserved local history branch: `work/reserve-proof-runner-2026-09-07`.
 - Owner-approved Reserve Conservation Proof V1 remains authorized; do not request

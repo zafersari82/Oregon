@@ -472,6 +472,78 @@ mod tests {
     }
 
     #[test]
+    fn constructor_checks_supply_only_at_endpoints_not_flows_or_intermediates() {
+        use oregon_primitives::MAX_SUPPLY_BASE_UNITS as limit;
+
+        for input in [
+            parts(limit, 1, 1, 0, limit),
+            parts(0, limit + 1, limit, 0, 1),
+            parts(0, u64::MAX, u64::MAX - 1, 0, 1),
+            parts(0, u64::MAX, 0, u64::MAX, 0),
+        ] {
+            let expected = input.new_execution_balance_total;
+            let transition = ReserveTransitionV1::new(input).unwrap();
+            assert_eq!(transition.new_reserve_amount(), expected);
+            assert_eq!(transition.new_reserve_outpoint().is_some(), expected != 0);
+        }
+    }
+
+    #[test]
+    fn constructor_rejects_intermediate_overflow_even_when_final_integer_result_fits() {
+        // In mathematical integers: 1 + MAX - MAX - 0 = 1. The u64
+        // intermediate still overflows and must not be widened or wrapped.
+        assert_eq!(
+            ReserveTransitionV1::new(parts(1, u64::MAX, u64::MAX, 0, 1)),
+            Err(ReserveTransitionError::ArithmeticOverflow)
+        );
+    }
+
+    #[test]
+    fn constructor_error_precedence_matches_approved_model_boundary() {
+        use oregon_primitives::MAX_SUPPLY_BASE_UNITS as limit;
+
+        let invalid_zero = ReserveTransitionV1Parts {
+            previous: Some(ReservePoolSnapshotV1::test(0)),
+            ..parts(0, 0, 1, 0, 1)
+        };
+        for (input, expected) in [
+            (
+                invalid_zero,
+                ReserveTransitionError::InvalidPreviousSnapshot,
+            ),
+            (
+                parts(u64::MAX, 1, 0, 0, 0),
+                ReserveTransitionError::ArithmeticOverflow,
+            ),
+            (
+                parts(limit + 1, 0, u64::MAX, 0, 0),
+                ReserveTransitionError::ArithmeticUnderflow,
+            ),
+            (
+                parts(limit + 1, 0, 0, u64::MAX, 0),
+                ReserveTransitionError::ArithmeticUnderflow,
+            ),
+            (
+                parts(limit + 1, 0, limit, 0, 0),
+                ReserveTransitionError::ExecutionBalanceMismatch {
+                    reserve_amount: 1,
+                    execution_balance: 0,
+                },
+            ),
+            (
+                parts(limit + 1, 0, limit, 0, 1),
+                ReserveTransitionError::AmountOutOfRange,
+            ),
+            (
+                parts(0, limit + 1, 0, 0, limit + 1),
+                ReserveTransitionError::AmountOutOfRange,
+            ),
+        ] {
+            assert_eq!(ReserveTransitionV1::new(input), Err(expected));
+        }
+    }
+
+    #[test]
     fn wrong_previous_program_or_outpoint_fails_closed_without_mutation() {
         let expected = ReservePoolSnapshotV1::test(100);
         let transition = ReserveTransitionV1::new(parts(100, 1, 0, 0, 101)).unwrap();
