@@ -276,6 +276,10 @@ fn rc05_successful_creation_has_exact_program_value_and_metadata() {
 #[kani::solver(cadical)]
 #[kani::unwind(5)]
 fn rc06_failed_apply_and_failed_undo_are_atomic() {
+    // Kani 0.67.0 deduplicates playback tests with identical concrete inputs.
+    // Opposite values give each cover a distinct witness. This unconstrained
+    // selector does not gate state generation, assumptions, or assertions.
+    let cover_apply: bool = kani::any();
     let mut apply_state = symbolic_state();
     let transition = symbolic_transition();
     if transition.previous.is_none() && transition.new_amount > 0 {
@@ -295,8 +299,8 @@ fn rc06_failed_apply_and_failed_undo_are_atomic() {
         assert_eq!(undo_state_value, undo_before, "RC06 failed undo must leave every slot unchanged");
     }
 
-    kani::cover!(apply_result.is_err(), "RC06 failed apply is reachable");
-    kani::cover!(undo_result.is_err(), "RC06 failed undo is reachable");
+    kani::cover!(cover_apply && apply_result.is_err(), "RC06 failed apply is reachable");
+    kani::cover!(!cover_apply && undo_result.is_err(), "RC06 failed undo is reachable");
 }
 
 #[kani::proof]

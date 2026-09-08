@@ -6,6 +6,19 @@ Updated: 2026-09-07 UTC. Stage 3B and Stage 4A are integrated into `main` as **i
 
 ### September 8 continuation (supersedes older implementation status below)
 
+- RC06 playback root cause investigated against pinned Kani source
+  `4feaaad1d6a2378a6ff6caa3b4fc5d6999c7bb5d`,
+  `kani-driver/src/concrete_playback/test_generator.rs`: generated names hash
+  harness plus concrete items, and adjacent equal names are deduplicated.
+  RC06's two covers can share inputs. The new harness uses an unconstrained
+  boolean with opposite values in the two cover predicates, so their concrete
+  witnesses differ. It changes no assertion, state generation or assumption.
+  The exact playback inventory requirement remains in place.
+- Local source-wiring regression demonstrated RED before the selector change;
+  31 Python tests pass afterward. This is not live Kani verification. Next:
+  inspect the newly published source's proof/control CI before accepting RC06
+  or claiming RC07-RC10 controls and the final positive rerun have passed.
+
 - CI completion checked on September 8: PR head remains
   `7b9a2e6439e148cd82f50281ed53ba1e8a032dc3`. Rust #842, Bootstrap #70,
   and Fee Settlement #116 succeeded. Proof Slices #30 run 34181952371

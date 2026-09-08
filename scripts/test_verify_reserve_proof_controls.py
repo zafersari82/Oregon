@@ -151,6 +151,15 @@ class ControlParserTests(unittest.TestCase):
         )
         self.assertEqual(len({control["harness"] for control in CONTROLS}), 10)
 
+    def test_rc06_covers_use_opposite_unconstrained_witness_selectors(self):
+        source = (ROOT / "verification/reserve-conservation/state.rs").read_text()
+        body = source.split("fn rc06_failed_apply_and_failed_undo_are_atomic() {", 1)[1]
+        body = body.split("#[kani::proof]", 1)[0]
+        self.assertIn("let cover_apply: bool = kani::any();", body)
+        self.assertIn('kani::cover!(cover_apply && apply_result.is_err(),', body)
+        self.assertIn('kani::cover!(!cover_apply && undo_result.is_err(),', body)
+        self.assertEqual(body.count("cover_apply"), 3)
+
     def test_all_mutation_anchors_are_unique_on_the_baseline_model(self):
         model = (ROOT / MODEL_RELATIVE).read_text()
         validate_control_manifest(model)
