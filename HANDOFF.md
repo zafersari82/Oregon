@@ -1,6 +1,6 @@
 # Oregon — current continuation record
 
-Updated: 2026-09-08 UTC.
+Updated: 2026-09-09 UTC.
 
 ## Resume here
 
@@ -17,38 +17,44 @@ CI workflow are implemented. Older design/plan approval-status prose predates th
 implementation and must not be read as a claim that these files are absent.
 The six existing mutation runners remain the production authorities.
 
-## Verified correction and retained-package closure
+## Accepted implementation and closure
 
-Published correction source `4ada4c687aae67b47143dedf37934d18138c25c1`, tree
-`33294a39d8208aebdf3b08f414314e54dabaaa45`, passed all four workflows:
+Workstream B implementation is verified at
+`1de457fa985e0af1c8149a8e8c51ead4e80679a7`, tree
+`8f95631380407804bec28bcbf866fb8749989171`.
 
-- Mutation Evidence run `34271668753`, job `102214488079`: 68/68.
-- Rust CI run `34271668865`, job `102214488249`: success.
-- Reserve Conservation Proofs run `34271668901`, job `102214488982`: success.
-- Reserve Verifier Bootstrap run `34271668798`: success.
+- Acceptance checkpoint: `docs/checkpoints/OREGON_MUTATION_EVIDENCE_V1.md`.
+- Overall platform status: `docs/checkpoints/OREGON_PLATFORM_COMPLETION_STATUS.md`.
+- Mutation Evidence run `34273405259`, job `102220420829`: SUCCESS, 68/68.
+- Rust CI run `34273405269`, job `102220421102`: SUCCESS.
+- Reserve Conservation Proofs run `34273405267`, job `102220421133`: SUCCESS.
+- Bootstrap run `34273405305`, job `102220420999`: SUCCESS.
+- Artifact `10074897462` retains manifest/result and six raw logs. CI separately
+  reread all eight files, checked source/runner/manifest/log identities, and
+  reconstructed all 68 semantic records before upload. All 50 Python tests passed.
 
-Artifact `10074192968` has ZIP SHA-256
-`280a553ca40672c4333eb5fcf7101feae9428e2598ecaa2410f4580da93dce5b`.
-The CI canonical result was checked against the source manifest: exact commit/tree,
-manifest digest, six runner digests and all 68 IDs/names/targets/killing tests match.
-The upload log reports eight files. The artifact download reference returns HTTP
-403 locally, so independent ZIP-byte/raw-log inspection is not claimed.
+**Next incomplete action:** publish this documentation closure to PR #25 and
+verify its own final-head CI. Record successor CI IDs in the PR body, then obtain
+the separate explicit main-integration decision required by plan Task 10.
+Earlier push approval remains valid; do not request it again. No integration or
+activation is claimed by these documents.
 
-The current closure adds `scripts/verify_mutation_evidence_package.py` and a CI
-step before upload. It rereads the eight regular files, binds the manifest/runners
-to checkout, reparses six logs, and reconstructs the canonical result exactly.
-Its eight focused tests cover valid evidence, corrupted logs, forged logs with
-updated digests, wrong source, missing manifest, wrong semantic result, extra
-files and symlinks. Before implementation, the seven negative cases demonstrated
-that shape-only result validation does not verify a retained package; afterward
-all eight pass. No production mutation authority or Rust semantics changed.
+## Overall architecture and subsequent work
 
-**Next incomplete action:** publish this closure to PR #25, require its own four
-successful CI runs and the explicit retained-package verification step, then
-record final acceptance/source/artifact evidence and the main-integration decision.
-The owner's explicit push approval remains in effect. Git CLI lacks credentials;
-use the authenticated connector and preserve original local history. Historical
-PRs #22/#23 are superseded reserve work. Stage 4B and activation remain separate.
+Do not report an overall completion percentage without a reviewed work estimate.
+The source-backed platform status separates accepted main foundations, draft
+implementations, production integration and activation.
+
+Stage 4B code is present on PR #20 at
+`912e9d01791c954e8432e3f80f6913e3b87c8db6`; its old description understates progress.
+Its 16-mutation runner, dedicated x86_64/ARM workflow and acceptance checkpoint
+remain absent. Reconcile that branch with current main before completing its
+remaining gates. Do not mix Stage 4B into this publication PR.
+
+The trust roadmap's Workstream C remains readiness-gated: M6 is not a runnable
+public node/miner launch package. Preserve the agreed work order or an explicit
+owner reprioritization. A/B completion does not authorize public testnet launch,
+bounties, VM activation or changes to frozen architecture.
 
 ## Claim boundary
 

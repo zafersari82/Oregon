@@ -10,16 +10,21 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-08-mutation-evidence-publication-v1.md`
 
-## September 8 continuation evidence
+## September 9 verified progress
 
-Tasks 1–7 have implementation files and successful exact-source CI at
-`11b82780c013f7b104b48f7947c891e819563e1a`; the original unchecked task templates
-below are not an absent-implementation claim. Mutation Evidence run `34263606532`
-reports 68/68 and Rust CI run `34263606628` passed. Publication closure remains
-pending because that artifact omitted the manifest required by the design.
-The continuation adds a failing-then-passing manifest-retention regression,
-packages the manifest, and corrects README reproduction commands. See HANDOFF
-for exact artifact/source evidence and the next final-head verification step.
+This checklist is the current evidence-backed status; the original task steps
+below remain an implementation recipe, not a claim that delivered files are absent.
+
+- [x] Tasks 1–7 delivered manifest/schema, validator, parser, publisher, README and CI.
+- [x] Task 8: exact implementation source `1de457fa985e0af1c8149a8e8c51ead4e80679a7`
+  passed all four CI workflows; publication reports 68/68 and 50 Python tests pass.
+- [x] Retained-package verification separately rereads eight files, six raw logs,
+  and all 68 semantic records in CI before upload.
+- [x] Task 9 steps 1–4: checkpoint, HANDOFF and platform status prepared together
+  in this documentation closure. See `OREGON_MUTATION_EVIDENCE_V1.md` for evidence.
+- [ ] Task 9 step 5: require this documentation successor's own exact-head CI;
+  record its run/job/artifact identities in PR #25 without another code commit.
+- [ ] Task 10: present verified final candidate and obtain separate main integration.
 
 ## Global Constraints
 
