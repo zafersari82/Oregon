@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oregon.mutation-evidence.manifest/v1",
+  "title": "Oregon Mutation Evidence Manifest V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "manifest_version", "public_claim_boundary", "authorities"],
+  "properties": {
+    "schema": {"const": "oregon.mutation-evidence.manifest/v1"},
+    "manifest_version": {"const": 1},
+    "public_claim_boundary": {"type": "string", "minLength": 1},
+    "authorities": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"$ref": "#/$defs/authority"}
+    }
+  },
+  "$defs": {
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "display_name", "runner", "runner_sha256", "command", "expected_count", "mutations"],
+      "properties": {
+        "id": {"enum": ["EA", "EE", "CS", "ER", "FS", "RJ"]},
+        "display_name": {"type": "string", "minLength": 1},
+        "runner": {"type": "string", "pattern": "^scripts/[A-Za-z0-9_.-]+\\.py$"},
+        "runner_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "command": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {"const": "python3"},
+            {"type": "string", "pattern": "^scripts/[A-Za-z0-9_.-]+\\.py$"}
+          ]
+        },
+        "expected_count": {"type": "integer", "minimum": 1},
+        "mutations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/mutation"}
+        }
+      }
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "target", "expected_broken_behavior", "killing_test", "kill_classification"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^(EA|EE|CS|ER|FS|RJ)-[0-9]{3}$"},
+        "name": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "minLength": 1},
+        "expected_broken_behavior": {"type": "string", "minLength": 1},
+        "killing_test": {"type": "string", "minLength": 1},
+        "kill_classification": {"const": "semantic-test-failure"}
+      }
+    }
+  }
+}
