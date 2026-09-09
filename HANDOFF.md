@@ -5,39 +5,41 @@ Updated: 2026-09-09 UTC.
 ## Resume here
 
 - Repository: `zafersari82/Oregon`.
-- Active branch: `work/mutation-evidence-publication-v1-2026-09-08`, PR #25.
-- Main baseline: `5785089e0cc2de18b1b50ef112afbe2f8265a8d8`.
-- Reserve Conservation Proof V1 is integrated through PR #24.
-- Current work: Workstream B, Mutation Evidence Publication V1.
-- Design: `docs/superpowers/specs/2026-09-08-mutation-evidence-publication-v1.md`.
-- Plan: `docs/superpowers/plans/2026-09-08-mutation-evidence-publication-v1.md`.
+- Active local branch: `work/runtime-coordinator-v1-2026-09-06`, draft PR #20.
+- Verified remote Stage 4B head remains `912e9d01791c954e8432e3f80f6913e3b87c8db6`.
+- Main PR #25 is merged at `cc791386899a777344404b98278cf41f0752f173`.
+- Local reconciliation commit: `83dc4653233851b14fa4658031fb5995089efc96`.
+- Local unverified Task 8 implementation: `02d44e4`.
+- Plan: `docs/superpowers/plans/2026-09-06-runtime-coordinator-v1.md`.
+- Spec: `docs/superpowers/specs/2026-09-06-runtime-coordinator-v1-design.md`.
 
-The manifest, schemas, validator, publisher, 68 stable mutation records and dedicated
-CI workflow are implemented. Older design/plan approval-status prose predates this
-implementation and must not be read as a claim that these files are absent.
-The six existing mutation runners remain the production authorities.
+Tasks 1–7 exist in prior branch history. Task 8 adds two-phase receipt proposal
+composition and tests, but is NOT accepted: Rust compilation/tests, formatting,
+Clippy and independent review closure remain outstanding. The independent Python
+runtime vector check and git whitespace check succeeded locally.
 
-## Accepted implementation and closure
+The local environment has no working Cargo toolchain. A command failing with
+`cargo: command not found` is an environment failure, not semantic RED evidence.
+Do not describe Task 8 as test-verified or reproduce that earlier claim.
 
-Workstream B implementation is verified at
-`1de457fa985e0af1c8149a8e8c51ead4e80679a7`, tree
-`8f95631380407804bec28bcbf866fb8749989171`.
+Push to the existing Stage 4B branch was rejected by automatic approval review:
+it could not establish authorization for publishing code to the destination.
+No remote update occurred; do not bypass this rejection. Obtain explicit push
+authorization before retrying. Preserve local commits and verify exact-head CI
+once uploaded. Main integration remains a separate decision.
 
-- Acceptance checkpoint: `docs/checkpoints/OREGON_MUTATION_EVIDENCE_V1.md`.
-- Overall platform status: `docs/checkpoints/OREGON_PLATFORM_COMPLETION_STATUS.md`.
-- Mutation Evidence run `34273405259`, job `102220420829`: SUCCESS, 68/68.
-- Rust CI run `34273405269`, job `102220421102`: SUCCESS.
-- Reserve Conservation Proofs run `34273405267`, job `102220421133`: SUCCESS.
-- Bootstrap run `34273405305`, job `102220420999`: SUCCESS.
-- Artifact `10074897462` retains manifest/result and six raw logs. CI separately
-  reread all eight files, checked source/runner/manifest/log identities, and
-  reconstructed all 68 semantic records before upload. All 50 Python tests passed.
+Independent Task 8 static review: CHANGES REQUIRED. Two P1 findings:
 
-**Next incomplete action:** publish this documentation closure to PR #25 and
-verify its own final-head CI. Record successor CI IDs in the PR body, then obtain
-the separate explicit main-integration decision required by plan Task 10.
-Earlier push approval remains valid; do not request it again. No integration or
-activation is claimed by these documents.
+1. Add one owning coordinator path composing validated funding/escrow, runtime
+   dispatch, settlement, real finalized Phase A, surviving effects and Phase B.
+   Current proposal tests manufacture inputs and do not prove that integration.
+2. Bind journal chain/height/txid and receipt execution domain to the validated
+   runtime/funding context. Add negative tests changing each independently.
+
+Next action: write/run regression tests for these findings before fixing them,
+obtain genuine Rust verification, then continue Tasks 9–11. Do not skip straight to Task 10:
+Task 8/9 were absent at the old remote head even though the earlier progress map
+highlighted only the missing mutation workflow and checkpoint.
 
 ## Overall architecture and subsequent work
 
