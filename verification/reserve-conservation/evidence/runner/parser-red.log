@@ -1,0 +1,176 @@
+..FFFFFFFFFFFFFFFFFFF
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=1, harness='bootstrap_negative', log='error: compilation failed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_negative', log=' failed for - bootstrap_negative\nComplete - 0 successfully verified harnesses, 1 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=-9, harness='bootstrap_negative', log=' failed for - bootstrap_negative\nComplete - 0 successfully verified harnesses, 1 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=1, harness='bootstrap_positive', log='154491s\n\nManual Harness Summary:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=1, harness='bootstrap_negative', log=' failed for - bootstrap_negative\nComplete - 0 successfully verified harnesses, 1 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=1, harness='bootstrap_negative', log=' failed for - bootstrap_negative\nComplete - 0 successfully verified harnesses, 1 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=1, harness='bootstrap_negative', log=' failed for - bootstrap_negative\nComplete - 0 successfully verified harnesses, 1 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=1, harness='bootstrap_negative', log=' failed for - bootstrap_negative\nComplete - 0 successfully verified harnesses, 1 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='154491s\n\nManual Harness Summary:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='154491s\n\nManual Harness Summary:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='154491s\n\nManual Harness Summary:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='154491s\n\nManual Harness Summary:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='154491s\n\nManual Harness Summary:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='154491s\n\nManual Harness Summary:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='c82236f/Oregon/verification/reserve-conservation/bootstrap.rs:11:5 in function bootstrap_positive\n\n\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='y:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n\nerror: unsupported operation\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='bootstrap_positive', log='154491s\n\nManual Harness Summary:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_reject_false_green_and_false_kills (test_verify_reserve_proofs.ParserTests.test_reject_false_green_and_false_kills) (status=0, harness='unexpected_harness', log='154491s\n\nManual Harness Summary:\nComplete - 1 successfully verified harnesses, 0 failures, 1 total.\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/4dfd276f3c62/Oregon/scripts/test_verify_reserve_proofs.py", line 49, in test_reject_false_green_and_false_kills
+    with self.assertRaises(GateError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: GateError not raised
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.005s
+
+FAILED (failures=19)
