@@ -1,3 +1,5 @@
+use crate::{JournalError, JournalResultV1};
+use oregon_primitives::execution_receipt::{ExecutionReceiptError, ExecutionReceiptV1};
 use oregon_primitives::execution_event::MAX_EXECUTION_EVENTS_V1;
 use oregon_primitives::fee_settlement::FeeSettlementReceiptV1;
 use oregon_runtime::{MAX_RUNTIME_CALL_DEPTH, RuntimeTrapCodeV1};
@@ -78,7 +80,54 @@ impl CoordinatorSettlementV1 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct TransactionExecutionProposalV1 {
+    phase_a: JournalResultV1,
+    phase_b: JournalResultV1,
+    fee_receipt: FeeSettlementReceiptV1,
+    execution_receipt: ExecutionReceiptV1,
+    execution_fee_total_delta: u64,
+}
+
+impl TransactionExecutionProposalV1 {
+    pub(super) fn new(
+        phase_a: JournalResultV1,
+        phase_b: JournalResultV1,
+        fee_receipt: FeeSettlementReceiptV1,
+        execution_receipt: ExecutionReceiptV1,
+        execution_fee_total_delta: u64,
+    ) -> Self {
+        Self {
+            phase_a,
+            phase_b,
+            fee_receipt,
+            execution_receipt,
+            execution_fee_total_delta,
+        }
+    }
+
+    pub(super) const fn phase_a(&self) -> &JournalResultV1 {
+        &self.phase_a
+    }
+
+    pub(super) const fn phase_b(&self) -> &JournalResultV1 {
+        &self.phase_b
+    }
+
+    pub(super) const fn fee_receipt(&self) -> &FeeSettlementReceiptV1 {
+        &self.fee_receipt
+    }
+
+    pub(super) const fn execution_receipt(&self) -> &ExecutionReceiptV1 {
+        &self.execution_receipt
+    }
+
+    pub(super) const fn execution_fee_total_delta(&self) -> u64 {
+        self.execution_fee_total_delta
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub(super) enum CoordinatorError {
     #[error("coordinator limits must be positive and within Stage 4B structural ceilings")]
     InvalidLimits,
@@ -120,4 +169,14 @@ pub(super) enum CoordinatorError {
     AccountingInvariant,
     #[error("journal and effect frame stacks diverged")]
     FrameStackMismatch,
+    #[error("ExecutionReceipts cannot participate in Phase-A effects")]
+    PhaseAReceiptDomain,
+    #[error("Phase-B requires an ExecutionReceipts snapshot")]
+    InvalidReceiptSnapshotDomain,
+    #[error("fee or execution receipt already exists for the transaction")]
+    DuplicateReceipt,
+    #[error("invalid execution receipt or state-effect commitment: {0}")]
+    ReceiptPrimitive(#[source] ExecutionReceiptError),
+    #[error("receipt-state journal failed: {0}")]
+    ReceiptState(#[source] JournalError),
 }

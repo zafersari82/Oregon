@@ -818,3 +818,494 @@ mod settlement {
         assert!(effects.root_events().is_empty());
     }
 }
+
+mod proposal {
+    use std::collections::BTreeMap;
+
+    use oregon_contract_state::{
+        DomainSnapshot, StateError, StateNode, StateSource, StateTransition, StateWrite,
+        StateWriteSet, apply_write_set, empty_hashes,
+    };
+    use oregon_primitives::Hash256;
+    use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
+    use oregon_primitives::execution_effect::{StateEffectDescriptorV1, state_effect_root};
+    use oregon_primitives::execution_envelope::ExecutionDomain;
+    use oregon_primitives::execution_event::ExecutionEventV1;
+    use oregon_primitives::execution_receipt::{
+        EXECUTION_RECEIPT_BYTES_V1, ExecutionReceiptError, ExecutionReceiptOutcomeV1,
+    };
+    use oregon_primitives::fee_settlement::{
+        ExecutionOutcome, FeeSettlementReceiptV1, FeeSettlementReceiptV1Parts, FeeSourceKind,
+    };
+    use oregon_primitives::state_commitment::{CommitmentDomainId, CommitmentSchemeId};
+    use oregon_runtime::RuntimeTrapCodeV1;
+    use serde::Deserialize;
+
+    use crate::{JournalContextV1, JournalDomainRootsV1, JournalResultV1};
+
+    use super::super::proposal::{
+        build_phase_a_descriptors, compose_transaction_execution_proposal,
+    };
+    use super::super::types::{
+        CoordinatorError, CoordinatorOutcomeV1, CoordinatorSettlementV1,
+    };
+
+    const TXID: Hash256 = Hash256::from_bytes([0x11; 32]);
+
+    #[derive(Debug, Default)]
+    struct MemorySource {
+        nodes: BTreeMap<Hash256, StateNode>,
+        values: BTreeMap<Hash256, Vec<u8>>,
+    }
+
+    impl StateSource for MemorySource {
+        fn get_node(&self, node_hash: &Hash256) -> Result<Option<StateNode>, StateError> {
+            Ok(self.nodes.get(node_hash).cloned())
+        }
+
+        fn get_value(&self, value_hash: &Hash256) -> Result<Option<Vec<u8>>, StateError> {
+            Ok(self.values.get(value_hash).cloned())
+        }
+    }
+
+    impl MemorySource {
+        fn absorb(&mut self, transition: &StateTransition) {
+            self.nodes.extend(
+                transition
+                    .nodes
+                    .iter()
+                    .map(|(hash, node)| (*hash, node.clone())),
+            );
+            self.values.extend(
+                transition
+                    .values
+                    .iter()
+                    .map(|(hash, value)| (*hash, value.clone())),
+            );
+        }
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct VectorCorpus {
+        receipt_cases: Vec<ReceiptCase>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct ReceiptCase {
+        name: String,
+        outcome: u8,
+        trap_code: u16,
+        fee_outcome: u8,
+        return_data_hex: String,
+        receipt_hex: String,
+        receipt_id_hex: String,
+    }
+
+    fn decode_hex(value: &str) -> Vec<u8> {
+        assert_eq!(value.len() % 2, 0);
+        (0..value.len())
+            .step_by(2)
+            .map(|offset| u8::from_str_radix(&value[offset..offset + 2], 16).unwrap())
+            .collect()
+    }
+
+    fn vector_corpus() -> VectorCorpus {
+        serde_json::from_str(include_str!(
+            "../../../../tests/vectors/runtime-coordinator-v1.json"
+        ))
+        .unwrap()
+    }
+
+    fn payer() -> ExecutionAddress {
+        ExecutionAddress::new(ExecutionAddressKind::Wasm, [0x44; 32]).unwrap()
+    }
+
+    fn context() -> JournalContextV1 {
+        JournalContextV1 {
+            chain_id: 42,
+            height: 9_001,
+            parent_block_hash: Hash256::from_bytes([0x77; 32]),
+            txid: TXID,
+        }
+    }
+
+    fn phase_a() -> JournalResultV1 {
+        JournalResultV1 {
+            context: context(),
+            roots: vec![
+                JournalDomainRootsV1 {
+                    domain: CommitmentDomainId::Wasm,
+                    old_root: Hash256::from_bytes([0x01; 32]),
+                    new_root: Hash256::from_bytes([0x02; 32]),
+                },
+                JournalDomainRootsV1 {
+                    domain: CommitmentDomainId::ExecutionAccounting,
+                    old_root: Hash256::from_bytes([0x02; 32]),
+                    new_root: Hash256::from_bytes([0x03; 32]),
+                },
+            ],
+            transitions: Vec::new(),
+        }
+    }
+
+    fn fee_receipt(outcome: ExecutionOutcome) -> FeeSettlementReceiptV1 {
+        FeeSettlementReceiptV1::new(FeeSettlementReceiptV1Parts {
+            txid: TXID,
+            escrow_id: Hash256::from_bytes([0x22; 32]),
+            payer: payer(),
+            source_kind: FeeSourceKind::ExecutionBalance,
+            outcome,
+            base_fee_per_weight: 2,
+            max_fee_per_weight: 5,
+            max_priority_fee_per_weight: 1,
+            max_weight: 100,
+            actual_weight: 10,
+            effective_price: 3,
+            base_component: 20,
+            priority_component: 10,
+            charged: 30,
+            refund: 470,
+        })
+        .unwrap()
+    }
+
+    fn settlement(
+        outcome: CoordinatorOutcomeV1,
+        fee_outcome: ExecutionOutcome,
+    ) -> CoordinatorSettlementV1 {
+        CoordinatorSettlementV1::new(outcome, fee_receipt(fee_outcome))
+    }
+
+    fn receipt_snapshot() -> DomainSnapshot {
+        let domain = CommitmentDomainId::ExecutionReceipts;
+        DomainSnapshot {
+            domain,
+            root: empty_hashes(domain)[0],
+        }
+    }
+
+    fn receipt_key(prefix: &[u8]) -> Vec<u8> {
+        let mut key = Vec::with_capacity(prefix.len() + 32);
+        key.extend_from_slice(prefix);
+        key.extend_from_slice(TXID.as_bytes());
+        key
+    }
+
+    fn source_with_receipt_key(key: Vec<u8>) -> (MemorySource, DomainSnapshot) {
+        let mut source = MemorySource::default();
+        let snapshot = receipt_snapshot();
+        let writes = StateWriteSet::new(
+            CommitmentDomainId::ExecutionReceipts,
+            vec![StateWrite::put(key, vec![0x99])],
+        )
+        .unwrap();
+        let transition = apply_write_set(&source, snapshot, &writes).unwrap();
+        source.absorb(&transition);
+        (
+            source,
+            DomainSnapshot {
+                domain: CommitmentDomainId::ExecutionReceipts,
+                root: transition.new_root,
+            },
+        )
+    }
+
+    fn event() -> ExecutionEventV1 {
+        ExecutionEventV1::new(
+            ExecutionAddress::new(ExecutionAddressKind::Wasm, [0x22; 32]).unwrap(),
+            vec![Hash256::from_bytes([0xaa; 32])],
+            b"hello".to_vec(),
+        )
+        .unwrap()
+    }
+
+    fn outcomes(
+        receipt_outcome: u8,
+        trap_code: u16,
+        fee_outcome: u8,
+    ) -> (CoordinatorOutcomeV1, ExecutionOutcome) {
+        let coordinator = match receipt_outcome {
+            0 => CoordinatorOutcomeV1::Committed,
+            1 => CoordinatorOutcomeV1::Reverted,
+            2 => CoordinatorOutcomeV1::Trapped(RuntimeTrapCodeV1::try_from(trap_code).unwrap()),
+            3 => CoordinatorOutcomeV1::ResourceExhausted,
+            other => panic!("unknown vector receipt outcome {other}"),
+        };
+        let fee = match fee_outcome {
+            0 => ExecutionOutcome::Committed,
+            1 => ExecutionOutcome::Reverted,
+            2 => ExecutionOutcome::ResourceExhausted,
+            other => panic!("unknown vector fee outcome {other}"),
+        };
+        (coordinator, fee)
+    }
+
+    #[test]
+    fn phase_a_descriptors_are_strictly_ordered_oregon_smt_without_receipts() {
+        let mut unordered = phase_a();
+        unordered.roots.reverse();
+        let descriptors = build_phase_a_descriptors(&unordered).unwrap();
+
+        assert_eq!(descriptors.len(), 2);
+        assert_eq!(descriptors[0].domain_id(), CommitmentDomainId::Wasm);
+        assert_eq!(
+            descriptors[1].domain_id(),
+            CommitmentDomainId::ExecutionAccounting
+        );
+        assert!(descriptors.iter().all(|descriptor| {
+            descriptor.domain_id() != CommitmentDomainId::ExecutionReceipts
+                && descriptor.scheme_id() == CommitmentSchemeId::OregonSmtV1
+        }));
+    }
+
+    #[test]
+    fn receipt_domain_in_phase_a_is_rejected_instead_of_self_committed() {
+        let mut invalid = phase_a();
+        invalid.roots.push(JournalDomainRootsV1 {
+            domain: CommitmentDomainId::ExecutionReceipts,
+            old_root: Hash256::from_bytes([0x03; 32]),
+            new_root: Hash256::from_bytes([0x04; 32]),
+        });
+
+        assert!(matches!(
+            build_phase_a_descriptors(&invalid),
+            Err(CoordinatorError::PhaseAReceiptDomain)
+        ));
+    }
+
+    #[test]
+    fn synthetic_evm_descriptor_requires_evm_commitment_v1() {
+        let invalid = StateEffectDescriptorV1::new(
+            CommitmentDomainId::Evm,
+            CommitmentSchemeId::OregonSmtV1,
+            Hash256::from_bytes([0x01; 32]),
+            Hash256::from_bytes([0x02; 32]),
+        );
+        assert_eq!(invalid, Err(ExecutionReceiptError::InvalidEffectScheme));
+
+        let valid = StateEffectDescriptorV1::new(
+            CommitmentDomainId::Evm,
+            CommitmentSchemeId::EvmCommitmentV1,
+            Hash256::from_bytes([0x01; 32]),
+            Hash256::from_bytes([0x02; 32]),
+        )
+        .unwrap();
+        assert!(state_effect_root(&[valid]).is_ok());
+    }
+
+    #[test]
+    fn duplicate_and_noncanonical_effect_descriptors_fail_closed() {
+        let wasm = StateEffectDescriptorV1::new(
+            CommitmentDomainId::Wasm,
+            CommitmentSchemeId::OregonSmtV1,
+            Hash256::from_bytes([0x01; 32]),
+            Hash256::from_bytes([0x02; 32]),
+        )
+        .unwrap();
+        let accounting = StateEffectDescriptorV1::new(
+            CommitmentDomainId::ExecutionAccounting,
+            CommitmentSchemeId::OregonSmtV1,
+            Hash256::from_bytes([0x02; 32]),
+            Hash256::from_bytes([0x03; 32]),
+        )
+        .unwrap();
+
+        assert_eq!(
+            state_effect_root(&[wasm, wasm]),
+            Err(ExecutionReceiptError::DuplicateEffectDomain)
+        );
+        assert_eq!(
+            state_effect_root(&[accounting, wasm]),
+            Err(ExecutionReceiptError::NonCanonicalEffectOrder)
+        );
+    }
+
+    #[test]
+    fn phase_b_corrupt_source_discards_the_local_phase_a_result() {
+        let source = MemorySource::default();
+        let corrupt_snapshot = DomainSnapshot {
+            domain: CommitmentDomainId::ExecutionReceipts,
+            root: Hash256::from_bytes([0x99; 32]),
+        };
+
+        let published = match compose_transaction_execution_proposal(
+            phase_a(),
+            &source,
+            corrupt_snapshot,
+            settlement(CoordinatorOutcomeV1::Committed, ExecutionOutcome::Committed),
+            ExecutionDomain::Wasm,
+            &[event()],
+            b"ok",
+        ) {
+            Ok(proposal) => Some(proposal),
+            Err(error) => {
+                assert!(matches!(error, CoordinatorError::ReceiptState(_)));
+                None
+            }
+        };
+
+        assert!(published.is_none());
+    }
+
+    #[test]
+    fn existing_fee_or_execution_receipt_key_is_fatal_duplicate_finalization() {
+        for prefix in [
+            b"receipt/v1/fee/".as_slice(),
+            b"receipt/v1/execution/".as_slice(),
+        ] {
+            let (source, snapshot) = source_with_receipt_key(receipt_key(prefix));
+            let result = compose_transaction_execution_proposal(
+                phase_a(),
+                &source,
+                snapshot,
+                settlement(CoordinatorOutcomeV1::Committed, ExecutionOutcome::Committed),
+                ExecutionDomain::Wasm,
+                &[event()],
+                b"ok",
+            );
+
+            assert!(matches!(result, Err(CoordinatorError::DuplicateReceipt)));
+        }
+    }
+
+    #[test]
+    fn proposal_receipt_cross_checks_fee_truth_and_stages_both_canonical_values() {
+        let source = MemorySource::default();
+        let proposal = compose_transaction_execution_proposal(
+            phase_a(),
+            &source,
+            receipt_snapshot(),
+            settlement(CoordinatorOutcomeV1::Committed, ExecutionOutcome::Committed),
+            ExecutionDomain::Wasm,
+            &[event()],
+            b"ok",
+        )
+        .unwrap();
+
+        let fee = proposal.fee_receipt();
+        let receipt = proposal.execution_receipt();
+        assert_eq!(receipt.parts().fee_payer, fee.payer());
+        assert_eq!(receipt.parts().actual_weight, fee.actual_weight());
+        assert_eq!(receipt.parts().fee_charged, fee.charged());
+        assert_eq!(receipt.parts().fee_settlement_receipt_id, fee.receipt_id());
+        assert_eq!(proposal.execution_fee_total_delta(), fee.charged());
+        assert_eq!(proposal.phase_a().context, context());
+        assert_eq!(proposal.phase_b().context, context());
+        assert_eq!(proposal.phase_b().roots.len(), 1);
+        assert_eq!(
+            proposal.phase_b().roots[0].domain,
+            CommitmentDomainId::ExecutionReceipts
+        );
+        let values: Vec<&[u8]> = proposal.phase_b().transitions[0]
+            .values
+            .values()
+            .map(Vec::as_slice)
+            .collect();
+        let fee_bytes = fee.encode();
+        let receipt_bytes = receipt.encode();
+        assert_eq!(values.len(), 2);
+        assert!(values.contains(&fee_bytes.as_slice()));
+        assert!(values.contains(&receipt_bytes.as_slice()));
+        assert_eq!(receipt_bytes.len(), EXECUTION_RECEIPT_BYTES_V1);
+    }
+
+    #[test]
+    fn native_funded_proposal_has_zero_execution_fee_total_delta() {
+        let source = MemorySource::default();
+        let mut native_fee = fee_receipt(ExecutionOutcome::Committed).parts().to_owned();
+        native_fee.source_kind = FeeSourceKind::NativeUtxo;
+        let settlement = CoordinatorSettlementV1::new(
+            CoordinatorOutcomeV1::Committed,
+            FeeSettlementReceiptV1::new(native_fee).unwrap(),
+        );
+
+        let proposal = compose_transaction_execution_proposal(
+            phase_a(),
+            &source,
+            receipt_snapshot(),
+            settlement,
+            ExecutionDomain::Wasm,
+            &[event()],
+            b"ok",
+        )
+        .unwrap();
+
+        assert_eq!(proposal.execution_fee_total_delta(), 0);
+    }
+
+    #[test]
+    fn all_four_top_level_outcomes_match_independent_259_byte_vectors() {
+        for case in vector_corpus().receipt_cases {
+            let source = MemorySource::default();
+            let (coordinator_outcome, fee_outcome) =
+                outcomes(case.outcome, case.trap_code, case.fee_outcome);
+            let proposal = compose_transaction_execution_proposal(
+                phase_a(),
+                &source,
+                receipt_snapshot(),
+                settlement(coordinator_outcome, fee_outcome),
+                ExecutionDomain::Wasm,
+                &[event()],
+                &decode_hex(&case.return_data_hex),
+            )
+            .unwrap();
+
+            let encoded = proposal.execution_receipt().encode();
+            let expected = decode_hex(&case.receipt_hex);
+            assert_eq!(encoded.len(), EXECUTION_RECEIPT_BYTES_V1, "{}", case.name);
+            assert_eq!(encoded.as_slice(), expected.as_slice(), "{}", case.name);
+            assert_eq!(
+                proposal.execution_receipt().receipt_id(),
+                Hash256::from_slice(&decode_hex(&case.receipt_id_hex)).unwrap(),
+                "{} id",
+                case.name
+            );
+            assert_eq!(
+                proposal.execution_receipt().parts().outcome,
+                ExecutionReceiptOutcomeV1::try_from(case.outcome).unwrap(),
+                "{}",
+                case.name
+            );
+        }
+    }
+
+    #[test]
+    fn duplicate_phase_a_domains_are_rejected_after_canonical_sorting() {
+        let mut duplicate = phase_a();
+        duplicate.roots.push(JournalDomainRootsV1 {
+            domain: CommitmentDomainId::Wasm,
+            old_root: Hash256::from_bytes([0x05; 32]),
+            new_root: Hash256::from_bytes([0x06; 32]),
+        });
+
+        assert!(matches!(
+            build_phase_a_descriptors(&duplicate),
+            Err(CoordinatorError::ReceiptPrimitive(
+                ExecutionReceiptError::DuplicateEffectDomain
+            ))
+        ));
+    }
+
+    #[test]
+    fn non_receipt_snapshot_is_rejected_before_phase_b_construction() {
+        let source = MemorySource::default();
+        let domain = CommitmentDomainId::Wasm;
+        let result = compose_transaction_execution_proposal(
+            phase_a(),
+            &source,
+            DomainSnapshot {
+                domain,
+                root: empty_hashes(domain)[0],
+            },
+            settlement(CoordinatorOutcomeV1::Committed, ExecutionOutcome::Committed),
+            ExecutionDomain::Wasm,
+            &[event()],
+            b"ok",
+        );
+
+        assert!(matches!(
+            result,
+            Err(CoordinatorError::InvalidReceiptSnapshotDomain)
+        ));
+    }
+}

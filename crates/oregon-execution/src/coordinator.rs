@@ -2,6 +2,7 @@ mod accounting;
 mod calls;
 mod effects;
 mod host;
+mod proposal;
 mod settlement;
 mod types;
 
