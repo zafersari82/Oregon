@@ -467,6 +467,8 @@ impl RuntimeBackendV1 for RevertChildBackend {
         &mut self,
         host: &mut dyn RuntimeHostV1,
     ) -> Result<RuntimeCallResultV1, RuntimeBackendFailureV1> {
+        host.charge_vm_units(7)
+            .map_err(|_| RuntimeBackendFailureV1::Fatal)?;
         host.emit_event(&[], b"reverted-child")
             .map_err(|_| RuntimeBackendFailureV1::Fatal)?;
         Ok(RuntimeCallResultV1::Revert(b"child-revert".to_vec()))
@@ -533,6 +535,7 @@ struct RevertTrapObservation {
     parent_continued_after_trap: bool,
     committed_event_count: usize,
     live_effect_bytes: usize,
+    consumed_weight: u64,
 }
 
 fn run_revert_trap_trace() -> RevertTrapObservation {
@@ -576,6 +579,7 @@ fn run_revert_trap_trace() -> RevertTrapObservation {
         parent_continued_after_trap: backend.continued_after_trap,
         committed_event_count: effects.root_events().len(),
         live_effect_bytes: effects.live_retained_bytes(),
+        consumed_weight: meter.consumed(),
     }
 }
 
@@ -741,6 +745,7 @@ fn child_revert_and_trap_are_catchable_but_ancestor_revert_discards_effects() {
     assert!(observation.parent_continued_after_trap);
     assert_eq!(observation.committed_event_count, 0);
     assert_eq!(observation.live_effect_bytes, 0);
+    assert_eq!(observation.consumed_weight, 12);
 }
 
 #[test]
