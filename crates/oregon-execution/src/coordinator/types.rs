@@ -141,6 +141,8 @@ pub(super) enum CoordinatorError {
     DuplicateRuntimeTarget,
     #[error("execution-funded payer balance is below max escrow")]
     InsufficientExecutionFunding,
+    #[error("trusted funding request chain, height or txid does not match the execution journal context")]
+    FundingContextMismatch,
     #[error("validated funding capability does not match the trusted funding request")]
     FundingCapabilityMismatch,
     #[error("validated funding capability amount is below max escrow")]

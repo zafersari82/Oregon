@@ -28,3 +28,9 @@ pub struct ExecutionJournalV1<'a, S: StateSource + ?Sized> {
     live_entries: usize,
     retained_bytes: usize,
 }
+
+impl<S: StateSource + ?Sized> ExecutionJournalV1<'_, S> {
+    pub(crate) const fn context(&self) -> JournalContextV1 {
+        self.context
+    }
+}

@@ -49,6 +49,14 @@ where
     S: StateSource + ?Sized,
     V: FundingSourceValidatorV1 + ?Sized,
 {
+    let journal_context = journal.context();
+    if journal_context.chain_id != u64::from(request.chain_id)
+        || journal_context.height != request.height
+        || journal_context.txid != request.txid
+    {
+        return Err(CoordinatorError::FundingContextMismatch);
+    }
+
     let capability = validator.validate(&request)?;
 
     if capability.source_kind() != request.source_kind
