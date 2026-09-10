@@ -1,6 +1,7 @@
 use crate::{JournalError, JournalResultV1};
-use oregon_primitives::execution_receipt::{ExecutionReceiptError, ExecutionReceiptV1};
+use oregon_primitives::execution_envelope::ExecutionDomain;
 use oregon_primitives::execution_event::MAX_EXECUTION_EVENTS_V1;
+use oregon_primitives::execution_receipt::{ExecutionReceiptError, ExecutionReceiptV1};
 use oregon_primitives::fee_settlement::FeeSettlementReceiptV1;
 use oregon_runtime::{MAX_RUNTIME_CALL_DEPTH, RuntimeTrapCodeV1};
 use thiserror::Error;
@@ -58,6 +59,7 @@ pub(super) enum CoordinatorOutcomeV1 {
 pub(super) struct CoordinatorSettlementV1 {
     outcome: CoordinatorOutcomeV1,
     fee_receipt: FeeSettlementReceiptV1,
+    validated_execution_domain: Option<ExecutionDomain>,
 }
 
 impl CoordinatorSettlementV1 {
@@ -68,6 +70,19 @@ impl CoordinatorSettlementV1 {
         Self {
             outcome,
             fee_receipt,
+            validated_execution_domain: None,
+        }
+    }
+
+    pub(super) const fn from_validated(
+        outcome: CoordinatorOutcomeV1,
+        fee_receipt: FeeSettlementReceiptV1,
+        execution_domain: ExecutionDomain,
+    ) -> Self {
+        Self {
+            outcome,
+            fee_receipt,
+            validated_execution_domain: Some(execution_domain),
         }
     }
 
@@ -77,6 +92,10 @@ impl CoordinatorSettlementV1 {
 
     pub(super) const fn fee_receipt(&self) -> &FeeSettlementReceiptV1 {
         &self.fee_receipt
+    }
+
+    pub(super) const fn validated_execution_domain(&self) -> Option<ExecutionDomain> {
+        self.validated_execution_domain
     }
 }
 
@@ -141,7 +160,9 @@ pub(super) enum CoordinatorError {
     DuplicateRuntimeTarget,
     #[error("execution-funded payer balance is below max escrow")]
     InsufficientExecutionFunding,
-    #[error("trusted funding request chain, height or txid does not match the execution journal context")]
+    #[error(
+        "trusted funding request chain, height or txid does not match the execution journal context"
+    )]
     FundingContextMismatch,
     #[error("validated funding capability does not match the trusted funding request")]
     FundingCapabilityMismatch,
@@ -153,6 +174,11 @@ pub(super) enum CoordinatorError {
     FeeSettlementFailed,
     #[error("fatal execution state prevents a publishable settlement result")]
     FatalExecution,
+    #[error("validated execution domain disagrees with execution receipt domain")]
+    ExecutionDomainMismatch,
+    #[cfg(not(test))]
+    #[error("execution proposal settlement is missing validated execution-domain authority")]
+    UnboundExecutionDomain,
     #[error("the root effect frame cannot be ended through child lifecycle operations")]
     RootFrameLifecycle,
     #[error("coordinator call depth limit exceeded")]

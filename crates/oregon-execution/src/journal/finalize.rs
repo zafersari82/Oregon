@@ -10,9 +10,9 @@ impl<S: StateSource + ?Sized> ExecutionJournalV1<'_, S> {
             return Err(JournalError::OpenChildFrames);
         }
 
+        let context = self.context();
         let Self {
             source,
-            context,
             snapshots,
             frames,
             ..

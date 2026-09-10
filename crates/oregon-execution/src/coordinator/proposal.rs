@@ -63,6 +63,17 @@ pub(super) fn compose_transaction_execution_proposal<S: StateSource + ?Sized>(
         return Err(CoordinatorError::InvalidReceiptSnapshotDomain);
     }
 
+    if let Some(validated_execution_domain) = settlement.validated_execution_domain() {
+        if execution_domain != validated_execution_domain {
+            return Err(CoordinatorError::ExecutionDomainMismatch);
+        }
+    }
+
+    #[cfg(not(test))]
+    if settlement.validated_execution_domain().is_none() {
+        return Err(CoordinatorError::UnboundExecutionDomain);
+    }
+
     let descriptors = build_phase_a_descriptors(&phase_a)?;
     let effect_root = state_effect_root(&descriptors).map_err(CoordinatorError::ReceiptPrimitive)?;
     let event_root = events_root(events).map_err(CoordinatorError::ReceiptPrimitive)?;
@@ -152,9 +163,7 @@ const fn receipt_outcome(outcome: CoordinatorOutcomeV1) -> (ExecutionReceiptOutc
     match outcome {
         CoordinatorOutcomeV1::Committed => (ExecutionReceiptOutcomeV1::Committed, 0),
         CoordinatorOutcomeV1::Reverted => (ExecutionReceiptOutcomeV1::Reverted, 0),
-        CoordinatorOutcomeV1::Trapped(code) => {
-            (ExecutionReceiptOutcomeV1::Trapped, code as u16)
-        }
+        CoordinatorOutcomeV1::Trapped(code) => (ExecutionReceiptOutcomeV1::Trapped, code as u16),
         CoordinatorOutcomeV1::ResourceExhausted => {
             (ExecutionReceiptOutcomeV1::ResourceExhausted, 0)
         }

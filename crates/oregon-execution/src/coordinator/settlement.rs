@@ -1,6 +1,6 @@
 use oregon_contract_state::StateSource;
 use oregon_primitives::Hash256;
-use oregon_primitives::execution_address::ExecutionAddress;
+use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::execution_envelope::ExecutionDomain;
 use oregon_primitives::fee_settlement::{ExecutionOutcome, FeeSourceKind};
 use oregon_runtime::RuntimeCallResultV1;
@@ -32,6 +32,29 @@ pub(super) struct FundingValidationRequestV1 {
     pub(super) fee_terms: FeeTermsV1,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct ValidatedEscrowV1 {
+    ticket: EscrowTicketV1,
+    execution_domain: ExecutionDomain,
+}
+
+impl ValidatedEscrowV1 {
+    const fn new(ticket: EscrowTicketV1, execution_domain: ExecutionDomain) -> Self {
+        Self {
+            ticket,
+            execution_domain,
+        }
+    }
+
+    const fn ticket(self) -> EscrowTicketV1 {
+        self.ticket
+    }
+
+    const fn execution_domain(self) -> ExecutionDomain {
+        self.execution_domain
+    }
+}
+
 pub(super) trait FundingSourceValidatorV1 {
     fn validate(
         &mut self,
@@ -45,6 +68,20 @@ pub(super) fn open_validated_escrow<S, V>(
     validator: &mut V,
     request: FundingValidationRequestV1,
 ) -> Result<EscrowTicketV1, CoordinatorError>
+where
+    S: StateSource + ?Sized,
+    V: FundingSourceValidatorV1 + ?Sized,
+{
+    open_bound_validated_escrow(journal, book, validator, request)
+        .map(ValidatedEscrowV1::ticket)
+}
+
+pub(super) fn open_bound_validated_escrow<S, V>(
+    journal: &mut ExecutionJournalV1<'_, S>,
+    book: &mut EscrowBookV1,
+    validator: &mut V,
+    request: FundingValidationRequestV1,
+) -> Result<ValidatedEscrowV1, CoordinatorError>
 where
     S: StateSource + ?Sized,
     V: FundingSourceValidatorV1 + ?Sized,
@@ -89,7 +126,7 @@ where
     }
 
     *book = staged_book;
-    Ok(ticket)
+    Ok(ValidatedEscrowV1::new(ticket, request.execution_domain))
 }
 
 pub(super) fn reserve_execution_funded_escrow<S: StateSource + ?Sized>(
@@ -113,13 +150,66 @@ pub(super) fn settle_top_level_execution<S: StateSource + ?Sized>(
     terminal: &mut CoordinatorTerminalV1,
     runtime_result: RuntimeCallResultV1,
 ) -> Result<CoordinatorSettlementV1, CoordinatorError> {
+    #[cfg(test)]
+    let test_execution_domain = match ticket.payer().kind() {
+        ExecutionAddressKind::Evm => Some(ExecutionDomain::Evm),
+        ExecutionAddressKind::Wasm => Some(ExecutionDomain::Wasm),
+        ExecutionAddressKind::Oregon | ExecutionAddressKind::System => None,
+    };
+    #[cfg(not(test))]
+    let test_execution_domain = None;
+
+    settle_top_level_execution_inner(
+        journal,
+        effects,
+        book,
+        ticket,
+        test_execution_domain,
+        meter,
+        terminal,
+        runtime_result,
+    )
+}
+
+pub(super) fn settle_bound_top_level_execution<S: StateSource + ?Sized>(
+    journal: &mut ExecutionJournalV1<'_, S>,
+    effects: &mut EffectStackV1,
+    book: &mut EscrowBookV1,
+    escrow: ValidatedEscrowV1,
+    meter: &WeightMeter,
+    terminal: &mut CoordinatorTerminalV1,
+    runtime_result: RuntimeCallResultV1,
+) -> Result<CoordinatorSettlementV1, CoordinatorError> {
+    settle_top_level_execution_inner(
+        journal,
+        effects,
+        book,
+        escrow.ticket(),
+        Some(escrow.execution_domain()),
+        meter,
+        terminal,
+        runtime_result,
+    )
+}
+
+fn settle_top_level_execution_inner<S: StateSource + ?Sized>(
+    journal: &mut ExecutionJournalV1<'_, S>,
+    effects: &mut EffectStackV1,
+    book: &mut EscrowBookV1,
+    ticket: EscrowTicketV1,
+    validated_execution_domain: Option<ExecutionDomain>,
+    meter: &WeightMeter,
+    terminal: &mut CoordinatorTerminalV1,
+    runtime_result: RuntimeCallResultV1,
+) -> Result<CoordinatorSettlementV1, CoordinatorError> {
     if *terminal == CoordinatorTerminalV1::Fatal {
         let _ = finish_top_level_frames(journal, effects, false, terminal);
         *terminal = CoordinatorTerminalV1::Fatal;
         return Err(CoordinatorError::FatalExecution);
     }
 
-    let exhausted = *terminal == CoordinatorTerminalV1::ResourceExhausted || meter.is_exhausted();
+    let exhausted =
+        *terminal == CoordinatorTerminalV1::ResourceExhausted || meter.is_exhausted();
     let (outcome, fee_outcome, commit_child, actual_weight) = if exhausted {
         *terminal = CoordinatorTerminalV1::ResourceExhausted;
         (
@@ -176,7 +266,12 @@ pub(super) fn settle_top_level_execution<S: StateSource + ?Sized>(
 
     let fee_receipt = *settlement.receipt();
     *book = staged_book;
-    Ok(CoordinatorSettlementV1::new(outcome, fee_receipt))
+    Ok(match validated_execution_domain {
+        Some(execution_domain) => {
+            CoordinatorSettlementV1::from_validated(outcome, fee_receipt, execution_domain)
+        }
+        None => CoordinatorSettlementV1::new(outcome, fee_receipt),
+    })
 }
 
 fn finish_top_level_frames<S: StateSource + ?Sized>(
