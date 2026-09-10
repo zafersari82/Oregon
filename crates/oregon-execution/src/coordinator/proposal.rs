@@ -31,6 +31,26 @@ use super::types::{
 const FEE_RECEIPT_KEY_PREFIX_V1: &[u8] = b"receipt/v1/fee/";
 const EXECUTION_RECEIPT_KEY_PREFIX_V1: &[u8] = b"receipt/v1/execution/";
 
+fn validate_top_level_context<S: StateSource + ?Sized>(
+    journal: &ExecutionJournalV1<'_, S>,
+    request: &FundingValidationRequestV1,
+    context: &RuntimeCallContextV1,
+) -> Result<(), CoordinatorError> {
+    let journal_context = journal.context();
+    if context.chain_id() != u64::from(request.chain_id)
+        || context.height() != request.height
+        || context.txid() != request.txid
+        || context.parent_block_hash() != journal_context.parent_block_hash
+        || context.principal() != request.principal
+        || context.caller() != request.principal
+        || context.execution_domain() != request.execution_domain
+        || context.depth() != 1
+    {
+        return Err(CoordinatorError::RuntimeContextMismatch);
+    }
+    Ok(())
+}
+
 pub(super) fn execute_transaction_v1<S, R, V>(
     mut journal: ExecutionJournalV1<'_, S>,
     receipt_source: &R,
@@ -49,6 +69,8 @@ where
     R: StateSource + ?Sized,
     V: FundingSourceValidatorV1 + ?Sized,
 {
+    validate_top_level_context(&journal, &request, &top_level_context)?;
+
     let mut staged_book = book.clone();
     let escrow = open_bound_validated_escrow(
         &mut journal,
