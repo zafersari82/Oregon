@@ -7,8 +7,7 @@ use oregon_primitives::execution_event::MAX_EXECUTION_EVENTS_V1;
 use oregon_primitives::state_commitment::CommitmentDomainId;
 use oregon_runtime::{
     RuntimeBackendFailureV1, RuntimeBackendV1, RuntimeCallContextV1, RuntimeCallContextV1Parts,
-    RuntimeCallResultV1, RuntimeCallSpecV1, RuntimeHostSignalV1, RuntimeHostV1,
-    RuntimeTrapCodeV1,
+    RuntimeCallResultV1, RuntimeCallSpecV1, RuntimeHostSignalV1, RuntimeHostV1, RuntimeTrapCodeV1,
 };
 
 use crate::{JournalError, MeterScheduleV1, WeightMeter, WeightRatio};
@@ -171,11 +170,7 @@ impl CoordinatorJournalV1 for TestJournal {
         Ok(())
     }
 
-    fn delete(
-        &mut self,
-        _domain: CommitmentDomainId,
-        _key: &[u8],
-    ) -> Result<(), JournalError> {
+    fn delete(&mut self, _domain: CommitmentDomainId, _key: &[u8]) -> Result<(), JournalError> {
         Ok(())
     }
 
@@ -604,13 +599,8 @@ fn run_ignore_abort_trace() -> IgnoreAbortObservation {
     let mut terminal = CoordinatorTerminalV1::Running;
     let mut backend = ScriptedBackend::new(vec![ScriptOp::IgnoreAbortThenReturnSuccess]);
     let result = {
-        let mut host = CoordinatorHostV1::new(
-            &context,
-            &mut meter,
-            &mut effects,
-            &mut terminal,
-            charges(),
-        );
+        let mut host =
+            CoordinatorHostV1::new(&context, &mut meter, &mut effects, &mut terminal, charges());
         backend.execute(&mut host).unwrap()
     };
 
@@ -669,7 +659,8 @@ struct FatalJournalObservation {
 fn run_fatal_journal_trace() -> FatalJournalObservation {
     let top_target = address(ExecutionAddressKind::Wasm, 0x80);
     let context = runtime_context(top_target, ExecutionDomain::Wasm, principal(), 1, false);
-    let dispatch = RuntimeDispatchTableV1::new(&[(fatal_child_target(), fatal_child_backend)]).unwrap();
+    let dispatch =
+        RuntimeDispatchTableV1::new(&[(fatal_child_target(), fatal_child_backend)]).unwrap();
     let mut journal = TestJournal::with_failing_reads();
     journal.begin_frame().unwrap();
     let mut meter = meter(100);
@@ -692,8 +683,8 @@ fn run_fatal_journal_trace() -> FatalJournalObservation {
         );
         backend.execute(&mut host).unwrap()
     };
-    let success_escaped =
-        matches!(result, RuntimeCallResultV1::Success(_)) && terminal == CoordinatorTerminalV1::Running;
+    let success_escaped = matches!(result, RuntimeCallResultV1::Success(_))
+        && terminal == CoordinatorTerminalV1::Running;
     journal.revert_frame().unwrap();
     effects.revert().unwrap();
 
