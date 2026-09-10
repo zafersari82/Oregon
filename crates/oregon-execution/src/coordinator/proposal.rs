@@ -9,16 +9,134 @@ use oregon_primitives::execution_receipt::{
 };
 use oregon_primitives::fee_settlement::FeeSourceKind;
 use oregon_primitives::state_commitment::{CommitmentDomainId, CommitmentSchemeId};
+use oregon_runtime::{RuntimeCallContextV1, RuntimeCallResultV1, RuntimeTrapCodeV1};
 
-use crate::{ExecutionJournalV1, JournalIntentV1, JournalLimitsV1, JournalResultV1};
+use crate::{
+    EscrowBookV1, ExecutionJournalV1, JournalIntentV1, JournalLimitsV1, JournalResultV1,
+    WeightMeter,
+};
 
+use super::calls::RuntimeDispatchTableV1;
+use super::effects::EffectStackV1;
+use super::host::{CoordinatorHostV1, HostChargeScheduleV1};
+use super::settlement::{
+    FundingSourceValidatorV1, FundingValidationRequestV1, open_bound_validated_escrow,
+    settle_bound_top_level_execution,
+};
 use super::types::{
-    CoordinatorError, CoordinatorOutcomeV1, CoordinatorSettlementV1,
-    TransactionExecutionProposalV1,
+    CoordinatorError, CoordinatorLimitsV1, CoordinatorOutcomeV1, CoordinatorSettlementV1,
+    CoordinatorTerminalV1, TransactionExecutionProposalV1,
 };
 
 const FEE_RECEIPT_KEY_PREFIX_V1: &[u8] = b"receipt/v1/fee/";
 const EXECUTION_RECEIPT_KEY_PREFIX_V1: &[u8] = b"receipt/v1/execution/";
+
+pub(super) fn execute_transaction_v1<S, R, V>(
+    mut journal: ExecutionJournalV1<'_, S>,
+    receipt_source: &R,
+    receipt_snapshot: DomainSnapshot,
+    book: &mut EscrowBookV1,
+    validator: &mut V,
+    request: FundingValidationRequestV1,
+    top_level_context: RuntimeCallContextV1,
+    mut meter: WeightMeter,
+    limits: CoordinatorLimitsV1,
+    charges: HostChargeScheduleV1,
+    dispatch: &RuntimeDispatchTableV1,
+) -> Result<TransactionExecutionProposalV1, CoordinatorError>
+where
+    S: StateSource + ?Sized,
+    R: StateSource + ?Sized,
+    V: FundingSourceValidatorV1 + ?Sized,
+{
+    let mut staged_book = book.clone();
+    let escrow = open_bound_validated_escrow(
+        &mut journal,
+        &mut staged_book,
+        validator,
+        request,
+    )?;
+
+    let mut effects = EffectStackV1::new(limits);
+    journal
+        .begin_frame()
+        .map_err(|_| CoordinatorError::FatalExecution)?;
+    if let Err(error) = effects.begin() {
+        let _ = journal.revert_frame();
+        return Err(error);
+    }
+
+    let mut terminal = CoordinatorTerminalV1::Running;
+    let mut runtime_result = match dispatch.factory_for(top_level_context.target()) {
+        Some(factory) => {
+            let backend_result = {
+                let mut backend = factory();
+                let mut host = CoordinatorHostV1::new_active(
+                    &top_level_context,
+                    &mut journal,
+                    &mut meter,
+                    &mut effects,
+                    &mut terminal,
+                    charges,
+                    dispatch,
+                );
+                backend.execute(&mut host)
+            };
+
+            match backend_result {
+                Ok(result) => result,
+                Err(_) => {
+                    terminal = CoordinatorTerminalV1::Fatal;
+                    RuntimeCallResultV1::trap(RuntimeTrapCodeV1::BackendDeterministic)
+                }
+            }
+        }
+        None => RuntimeCallResultV1::trap(RuntimeTrapCodeV1::InvalidCallTarget),
+    };
+
+    if runtime_result.validate().is_err() {
+        runtime_result = RuntimeCallResultV1::trap(RuntimeTrapCodeV1::ReturnDataTooLarge);
+    }
+
+    let mut return_data = if terminal == CoordinatorTerminalV1::Running {
+        runtime_result
+            .return_data()
+            .map_or_else(Vec::new, <[u8]>::to_vec)
+    } else {
+        Vec::new()
+    };
+
+    if !return_data.is_empty() && effects.retain_return_bytes(return_data.len()).is_err() {
+        runtime_result = RuntimeCallResultV1::trap(RuntimeTrapCodeV1::ReturnDataTooLarge);
+        return_data.clear();
+    }
+
+    let settlement = settle_bound_top_level_execution(
+        &mut journal,
+        &mut effects,
+        &mut staged_book,
+        escrow,
+        &meter,
+        &mut terminal,
+        runtime_result,
+    )?;
+
+    let phase_a = journal
+        .finalize(JournalIntentV1::Committed)
+        .map_err(|_| CoordinatorError::FatalExecution)?;
+    let proposal = compose_transaction_execution_proposal(
+        phase_a,
+        receipt_source,
+        receipt_snapshot,
+        settlement,
+        request.execution_domain,
+        effects.root_events(),
+        &return_data,
+    )?;
+
+    *book = staged_book;
+    Ok(proposal)
+}
 
 pub(super) fn build_phase_a_descriptors(
     phase_a: &JournalResultV1,
