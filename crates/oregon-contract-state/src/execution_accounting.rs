@@ -35,6 +35,13 @@ pub fn encode_accounting_u64(value: u64) -> Vec<u8> {
     value.to_le_bytes().to_vec()
 }
 
+pub fn decode_accounting_u64(bytes: &[u8]) -> Result<u64, StateError> {
+    let raw: [u8; 8] = bytes
+        .try_into()
+        .map_err(|_| StateError::InvalidAccountingValueLength(bytes.len()))?;
+    Ok(u64::from_le_bytes(raw))
+}
+
 pub fn encode_reserve_outpoint(outpoint: Option<OutPoint>) -> Vec<u8> {
     let Some(outpoint) = outpoint else {
         return vec![0x00];

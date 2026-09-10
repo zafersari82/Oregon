@@ -1,0 +1,67 @@
+name: Oregon Runtime Coordinator Vectors
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, work/runtime-coordinator-v1-2026-09-06]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/oregon-primitives/**'
+      - 'crates/oregon-runtime/**'
+      - 'crates/oregon-execution/**'
+      - 'tests/vectors/runtime-coordinator-v1.json'
+      - 'scripts/generate_runtime_coordinator_vectors.py'
+      - 'scripts/verify_runtime_coordinator_mutations.py'
+      - 'docs/superpowers/specs/2026-09-06-runtime-coordinator-v1-design.md'
+      - 'docs/superpowers/plans/2026-09-06-runtime-coordinator-v1.md'
+      - '.github/workflows/oregon-runtime-coordinator.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+
+permissions:
+  contents: read
+
+jobs:
+  vectors:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev ripgrep
+      - name: Install Rust 1.85.0
+        run: rustup toolchain install 1.85.0 --profile minimal
+      - name: Verify Stage 4B contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s docs/superpowers/specs/2026-09-06-runtime-coordinator-v1-design.md
+          test -s docs/superpowers/plans/2026-09-06-runtime-coordinator-v1.md
+          if rg -n 'oregon-(contract-state|execution|storage|chainstate|vm-evm|vm-wasm|rpc|protocol|network|peer|sync|node)' crates/oregon-runtime/Cargo.toml; then
+            echo 'oregon-runtime depends upward on state, execution, VM, persistence, RPC or networking.' >&2
+            exit 1
+          fi
+          if rg -n 'oregon-(storage|chainstate|vm-evm|vm-wasm|rpc)' crates/oregon-execution/Cargo.toml; then
+            echo 'oregon-execution depends on persistence, RPC or VM implementations.' >&2
+            exit 1
+          fi
+      - name: Verify runtime coordinator oracle
+        run: python3 scripts/generate_runtime_coordinator_vectors.py --check
+      - name: Verify runtime receipt primitives
+        run: cargo +1.85.0 test --locked -p oregon-primitives --test runtime_receipts --test runtime_receipt_vectors
+      - name: Verify runtime ABI
+        run: cargo +1.85.0 test --locked -p oregon-runtime --all-targets
+      - name: Verify coordinator focused suite pass 1
+        run: |
+          cargo +1.85.0 test --locked -p oregon-execution coordinator:: -- --nocapture
+      - name: Verify coordinator focused suite pass 2
+        run: |
+          cargo +1.85.0 test --locked -p oregon-execution coordinator:: -- --nocapture
+      - name: Verify execution all targets
+        run: cargo +1.85.0 test --locked -p oregon-execution --all-targets

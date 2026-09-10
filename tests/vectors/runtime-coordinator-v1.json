@@ -1,0 +1,132 @@
+{
+  "empty_outbox_root_hex": "f84b63523d6f4040c5829de3c49c93f36715e9c969ac7112d7ee04b5df892451",
+  "event_cases": [
+    {
+      "events": [
+        {
+          "data_hex": "68656c6c6f",
+          "emitter_hex": "022222222222222222222222222222222222222222222222222222222222222222",
+          "topics_hex": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        }
+      ],
+      "name": "single",
+      "root_hex": "921a65441c2c286d9909d205052b33063767c04abf804f3c8804ac8eb76e7922"
+    },
+    {
+      "events": [
+        {
+          "data_hex": "68656c6c6f",
+          "emitter_hex": "022222222222222222222222222222222222222222222222222222222222222222",
+          "topics_hex": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "data_hex": "776f726c64",
+          "emitter_hex": "010000000000000000000000003333333333333333333333333333333333333333",
+          "topics_hex": [
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        }
+      ],
+      "name": "ordered_two",
+      "root_hex": "8e3830395f4564b044698a63703035880d948bd1be739bfe8bec7edc9a8d17bf"
+    }
+  ],
+  "negative_metadata": [
+    "duplicate_effect_domain",
+    "noncanonical_effect_order",
+    "execution_receipts_in_phase_a",
+    "evm_labeled_oregon_smt",
+    "trap_code_on_non_trapped",
+    "zero_trap_code_on_trapped"
+  ],
+  "receipt_cases": [
+    {
+      "fee_outcome": 0,
+      "name": "committed",
+      "outcome": 0,
+      "receipt_hex": "01001111111111111111111111111111111111111111111111111111111111111111120000000244444444444444444444444444444444444444444444444444444444444444440a000000000000001e0000000000000053b36270b1c659abc1dc16844351b3c8569907ed4218cee901898025f935131f49e72046f9690ac4b8ab5e7d7f3477d61a9454de786ecee1d263777c2afe4da7921a65441c2c286d9909d205052b33063767c04abf804f3c8804ac8eb76e792201000000f0836c52fa5a4716edb19daf953bab2512cf7ab143ad1eb7666b563c831dd16002000000f84b63523d6f4040c5829de3c49c93f36715e9c969ac7112d7ee04b5df89245100000000",
+      "receipt_id_hex": "3a877c13b5d0ac6f34e9deda6b99665515722f4f2a1483b5fbd17f149fa24e8a",
+      "return_data_hex": "6f6b",
+      "trap_code": 0
+    },
+    {
+      "fee_outcome": 1,
+      "name": "reverted",
+      "outcome": 1,
+      "receipt_hex": "01001111111111111111111111111111111111111111111111111111111111111111120100000244444444444444444444444444444444444444444444444444444444444444440a000000000000001e00000000000000d94d47d62d256ebc1a2d3af4ef7bb2059b1fb20122b4c71240b95254ce3b614449e72046f9690ac4b8ab5e7d7f3477d61a9454de786ecee1d263777c2afe4da7921a65441c2c286d9909d205052b33063767c04abf804f3c8804ac8eb76e7922010000007021e9dae0356d6caac8f5c1349e635fd2e8fd833327aa77251b21f8793d8eff02000000f84b63523d6f4040c5829de3c49c93f36715e9c969ac7112d7ee04b5df89245100000000",
+      "receipt_id_hex": "67dc51f4426987ee73a1f05003f4353d3b74df2845ad070d10603e0f0740b00c",
+      "return_data_hex": "6e6f",
+      "trap_code": 0
+    },
+    {
+      "fee_outcome": 1,
+      "name": "trapped",
+      "outcome": 2,
+      "receipt_hex": "01001111111111111111111111111111111111111111111111111111111111111111120201000244444444444444444444444444444444444444444444444444444444444444440a000000000000001e00000000000000d94d47d62d256ebc1a2d3af4ef7bb2059b1fb20122b4c71240b95254ce3b614449e72046f9690ac4b8ab5e7d7f3477d61a9454de786ecee1d263777c2afe4da7921a65441c2c286d9909d205052b33063767c04abf804f3c8804ac8eb76e792201000000e65ecee5edacd1e8d99dbcf0219c907bbe028b82bb785fdadd2334d447c5e4a800000000f84b63523d6f4040c5829de3c49c93f36715e9c969ac7112d7ee04b5df89245100000000",
+      "receipt_id_hex": "d87a83a02bb5a971c6e2df4d27bed9fdcaffd137d44bb7e289b4d9207e1976f8",
+      "return_data_hex": "",
+      "trap_code": 1
+    },
+    {
+      "fee_outcome": 2,
+      "name": "resource_exhausted",
+      "outcome": 3,
+      "receipt_hex": "01001111111111111111111111111111111111111111111111111111111111111111120300000244444444444444444444444444444444444444444444444444444444444444440a000000000000001e000000000000007cecf7c076eee00311f6ae8818c7317c2fb3932280f150dc6e6b8c7d809c779649e72046f9690ac4b8ab5e7d7f3477d61a9454de786ecee1d263777c2afe4da7921a65441c2c286d9909d205052b33063767c04abf804f3c8804ac8eb76e792201000000e65ecee5edacd1e8d99dbcf0219c907bbe028b82bb785fdadd2334d447c5e4a800000000f84b63523d6f4040c5829de3c49c93f36715e9c969ac7112d7ee04b5df89245100000000",
+      "receipt_id_hex": "2171977e86d328025c547cd57f35d6976677143b8dd7896ea540c228f6b14044",
+      "return_data_hex": "",
+      "trap_code": 0
+    }
+  ],
+  "receipt_context": {
+    "actual_weight": 10,
+    "base_fee_per_weight": 2,
+    "event_count": 1,
+    "events_root_hex": "921a65441c2c286d9909d205052b33063767c04abf804f3c8804ac8eb76e7922",
+    "fee_charged": 30,
+    "fee_payer_hex": "024444444444444444444444444444444444444444444444444444444444444444",
+    "max_fee_per_weight": 5,
+    "max_priority_fee_per_weight": 1,
+    "max_weight": 100,
+    "refund": 470,
+    "state_effect_root_hex": "49e72046f9690ac4b8ab5e7d7f3477d61a9454de786ecee1d263777c2afe4da7",
+    "txid_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "state_effect_cases": [
+    {
+      "descriptors": [
+        {
+          "domain_id": 17,
+          "new_root_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+          "old_root_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+          "scheme_id": 1
+        },
+        {
+          "domain_id": 32,
+          "new_root_hex": "0303030303030303030303030303030303030303030303030303030303030303",
+          "old_root_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+          "scheme_id": 1
+        }
+      ],
+      "name": "oregon_smt",
+      "root_hex": "49e72046f9690ac4b8ab5e7d7f3477d61a9454de786ecee1d263777c2afe4da7"
+    },
+    {
+      "descriptors": [
+        {
+          "domain_id": 16,
+          "new_root_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+          "old_root_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+          "scheme_id": 256
+        }
+      ],
+      "name": "evm_commitment",
+      "root_hex": "5b82dfd65c26123de9c6a0886550215e639bbcaec4fd97c7e2221ae35ed26a33"
+    }
+  ],
+  "version": 1
+}

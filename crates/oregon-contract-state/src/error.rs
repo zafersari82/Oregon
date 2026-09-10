@@ -7,6 +7,8 @@ pub enum StateError {
     KeyTooLarge(usize),
     #[error("state value length {0} exceeds the structural limit")]
     ValueTooLarge(usize),
+    #[error("accounting value length {0} is invalid; expected exactly 8 bytes")]
+    InvalidAccountingValueLength(usize),
     #[error("SMT depth {0} is out of range")]
     DepthOutOfRange(usize),
     #[error("explicit branch with two default children is non-canonical at depth {0}")]

@@ -419,6 +419,7 @@ version = "0.1.0"
 dependencies = [
  "oregon-contract-state",
  "oregon-primitives",
+ "oregon-runtime",
  "proptest",
  "serde",
  "serde_json",
@@ -492,6 +493,14 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "oregon-runtime"
+version = "0.1.0"
+dependencies = [
+ "oregon-primitives",
  "thiserror",
 ]
 

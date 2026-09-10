@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/oregon-primitives",
+    "crates/oregon-runtime",
     "crates/oregon-consensus",
     "crates/oregon-pow",
     "crates/oregon-utxo",
