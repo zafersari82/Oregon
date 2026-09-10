@@ -22,7 +22,7 @@ fn scripted_backend_vocabulary_covers_required_adversarial_operations() {
         ScriptOp::Call(call),
         ScriptOp::Return(b"ok".to_vec()),
         ScriptOp::Revert(b"no".to_vec()),
-        ScriptOp::Trap(RuntimeTrapCodeV1::BackendTrap),
+        ScriptOp::Trap(RuntimeTrapCodeV1::BackendDeterministic),
         ScriptOp::IgnoreAbortThenReturnSuccess,
     ];
     let backend = ScriptedBackend::new(script);
