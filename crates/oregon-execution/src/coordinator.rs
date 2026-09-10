@@ -1,6 +1,5 @@
 mod accounting;
 mod calls;
-mod domain_binding;
 mod effects;
 mod host;
 mod proposal;
