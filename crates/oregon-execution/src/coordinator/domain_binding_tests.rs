@@ -21,6 +21,7 @@ use crate::{
 use super::accounting::write_balance;
 use super::calls::RuntimeDispatchTableV1;
 use super::effects::EffectStackV1;
+use super::execute_transaction_v1;
 use super::host::{HostChargeScheduleV1, HostChargeScheduleV1Parts};
 use super::proposal::compose_transaction_execution_proposal;
 use super::settlement::{
@@ -28,7 +29,6 @@ use super::settlement::{
     settle_bound_top_level_execution,
 };
 use super::types::{CoordinatorError, CoordinatorLimitsV1, CoordinatorTerminalV1};
-use super::execute_transaction_v1;
 
 #[derive(Debug, Default)]
 struct EmptySource;
@@ -278,13 +278,8 @@ fn validated_wasm_domain_rejects_evm_receipt_label() {
 
     let mut validator = validator();
     let mut book = EscrowBookV1::new(4).unwrap();
-    let escrow = open_bound_validated_escrow(
-        &mut journal,
-        &mut book,
-        &mut validator,
-        request(),
-    )
-    .unwrap();
+    let escrow =
+        open_bound_validated_escrow(&mut journal, &mut book, &mut validator, request()).unwrap();
 
     let mut effects = effects();
     journal.begin_frame().unwrap();
@@ -352,7 +347,10 @@ fn owning_path_composes_backend_effects_phase_a_settlement_and_phase_b() {
         proposal.phase_b().roots[0].domain,
         CommitmentDomainId::ExecutionReceipts
     );
-    assert_eq!(proposal.execution_fee_total_delta(), proposal.fee_receipt().charged());
+    assert_eq!(
+        proposal.execution_fee_total_delta(),
+        proposal.fee_receipt().charged()
+    );
 }
 
 #[test]
@@ -394,7 +392,10 @@ fn phase_b_failure_cannot_consume_external_escrow_book_in_owning_path() {
         charges(),
         &dispatch(),
     );
-    assert!(retry.is_ok(), "failed Phase B consumed external escrow authority");
+    assert!(
+        retry.is_ok(),
+        "failed Phase B consumed external escrow authority"
+    );
 }
 
 #[test]

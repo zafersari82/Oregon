@@ -72,8 +72,7 @@ where
     S: StateSource + ?Sized,
     V: FundingSourceValidatorV1 + ?Sized,
 {
-    open_bound_validated_escrow(journal, book, validator, request)
-        .map(ValidatedEscrowV1::ticket)
+    open_bound_validated_escrow(journal, book, validator, request).map(ValidatedEscrowV1::ticket)
 }
 
 pub(super) fn open_bound_validated_escrow<S, V>(
@@ -208,8 +207,7 @@ fn settle_top_level_execution_inner<S: StateSource + ?Sized>(
         return Err(CoordinatorError::FatalExecution);
     }
 
-    let exhausted =
-        *terminal == CoordinatorTerminalV1::ResourceExhausted || meter.is_exhausted();
+    let exhausted = *terminal == CoordinatorTerminalV1::ResourceExhausted || meter.is_exhausted();
     let (outcome, fee_outcome, commit_child, actual_weight) = if exhausted {
         *terminal = CoordinatorTerminalV1::ResourceExhausted;
         (

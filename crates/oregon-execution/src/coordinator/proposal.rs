@@ -4,8 +4,8 @@ use oregon_primitives::execution_effect::{StateEffectDescriptorV1, state_effect_
 use oregon_primitives::execution_envelope::ExecutionDomain;
 use oregon_primitives::execution_event::{ExecutionEventV1, events_root};
 use oregon_primitives::execution_receipt::{
-    ExecutionReceiptError, ExecutionReceiptOutcomeV1, ExecutionReceiptV1,
-    ExecutionReceiptV1Parts, empty_outbox_effect_root, return_data_hash,
+    ExecutionReceiptError, ExecutionReceiptOutcomeV1, ExecutionReceiptV1, ExecutionReceiptV1Parts,
+    empty_outbox_effect_root, return_data_hash,
 };
 use oregon_primitives::fee_settlement::FeeSourceKind;
 use oregon_primitives::state_commitment::{CommitmentDomainId, CommitmentSchemeId};
@@ -72,12 +72,7 @@ where
     validate_top_level_context(&journal, &request, &top_level_context)?;
 
     let mut staged_book = book.clone();
-    let escrow = open_bound_validated_escrow(
-        &mut journal,
-        &mut staged_book,
-        validator,
-        request,
-    )?;
+    let escrow = open_bound_validated_escrow(&mut journal, &mut staged_book, validator, request)?;
 
     let mut effects = EffectStackV1::new(limits);
     journal
@@ -215,7 +210,8 @@ pub(super) fn compose_transaction_execution_proposal<S: StateSource + ?Sized>(
     }
 
     let descriptors = build_phase_a_descriptors(&phase_a)?;
-    let effect_root = state_effect_root(&descriptors).map_err(CoordinatorError::ReceiptPrimitive)?;
+    let effect_root =
+        state_effect_root(&descriptors).map_err(CoordinatorError::ReceiptPrimitive)?;
     let event_root = events_root(events).map_err(CoordinatorError::ReceiptPrimitive)?;
     let event_count = u32::try_from(events.len())
         .map_err(|_| CoordinatorError::ReceiptPrimitive(ExecutionReceiptError::TooManyEvents))?;

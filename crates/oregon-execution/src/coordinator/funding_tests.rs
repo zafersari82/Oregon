@@ -160,9 +160,7 @@ fn meter(actual_weight: u64) -> WeightMeter {
 }
 
 fn effects() -> EffectStackV1 {
-    EffectStackV1::new(
-        CoordinatorLimitsV1::new(64, MAX_EXECUTION_EVENTS_V1, 2_097_152).unwrap(),
-    )
+    EffectStackV1::new(CoordinatorLimitsV1::new(64, MAX_EXECUTION_EVENTS_V1, 2_097_152).unwrap())
 }
 
 #[test]
@@ -296,7 +294,10 @@ fn assert_journal_context_mismatch_rejected(request: FundingValidationRequestV1)
 
     let result = open_validated_escrow(&mut journal, &mut book, &mut validator, request);
 
-    assert!(result.is_err(), "foreign journal context opened funded escrow");
+    assert!(
+        result.is_err(),
+        "foreign journal context opened funded escrow"
+    );
     assert_eq!(read_balance(&journal, payer()).unwrap(), 100);
     assert_eq!(read_total_execution_balance(&journal).unwrap(), 100);
     let canonical = self::request(FeeSourceKind::ExecutionBalance);
@@ -333,13 +334,8 @@ fn receipt_execution_domain_cannot_diverge_from_validated_funding_domain() {
     assert_eq!(funding_request.execution_domain, ExecutionDomain::Wasm);
     let mut validator = matching_validator(FeeSourceKind::ExecutionBalance, 100);
     let mut book = EscrowBookV1::new(4).unwrap();
-    let ticket = open_validated_escrow(
-        &mut journal,
-        &mut book,
-        &mut validator,
-        funding_request,
-    )
-    .unwrap();
+    let ticket =
+        open_validated_escrow(&mut journal, &mut book, &mut validator, funding_request).unwrap();
 
     let mut effects = effects();
     journal.begin_frame().unwrap();

@@ -846,9 +846,7 @@ mod proposal {
     use super::super::proposal::{
         build_phase_a_descriptors, compose_transaction_execution_proposal,
     };
-    use super::super::types::{
-        CoordinatorError, CoordinatorOutcomeV1, CoordinatorSettlementV1,
-    };
+    use super::super::types::{CoordinatorError, CoordinatorOutcomeV1, CoordinatorSettlementV1};
 
     const TXID: Hash256 = Hash256::from_bytes([0x11; 32]);
 
