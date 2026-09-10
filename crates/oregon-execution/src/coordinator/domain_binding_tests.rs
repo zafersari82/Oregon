@@ -139,6 +139,17 @@ fn validator() -> Validator {
     )
 }
 
+struct RejectIfValidated;
+
+impl FundingSourceValidatorV1 for RejectIfValidated {
+    fn validate(
+        &mut self,
+        _request: &FundingValidationRequestV1,
+    ) -> Result<FundingCapabilityV1, CoordinatorError> {
+        Err(CoordinatorError::FundingCapabilityMismatch)
+    }
+}
+
 fn meter() -> WeightMeter {
     let schedule = MeterScheduleV1::new(
         1,
@@ -180,9 +191,9 @@ fn charges() -> HostChargeScheduleV1 {
     .unwrap()
 }
 
-fn top_level_context() -> RuntimeCallContextV1 {
+fn top_level_context_parts() -> RuntimeCallContextV1Parts {
     let request = request();
-    RuntimeCallContextV1::from_trusted_parts(RuntimeCallContextV1Parts {
+    RuntimeCallContextV1Parts {
         chain_id: u64::from(request.chain_id),
         height: request.height,
         parent_block_hash: Hash256::from_bytes([0x11; 32]),
@@ -194,8 +205,17 @@ fn top_level_context() -> RuntimeCallContextV1 {
         depth: 1,
         read_only: false,
         transferred_value: 0,
-    })
-    .unwrap()
+    }
+}
+
+fn top_level_context() -> RuntimeCallContextV1 {
+    RuntimeCallContextV1::from_trusted_parts(top_level_context_parts()).unwrap()
+}
+
+fn context_from(mutator: impl FnOnce(&mut RuntimeCallContextV1Parts)) -> RuntimeCallContextV1 {
+    let mut parts = top_level_context_parts();
+    mutator(&mut parts);
+    RuntimeCallContextV1::from_trusted_parts(parts).unwrap()
 }
 
 struct OwnerBackend;
@@ -227,6 +247,28 @@ fn receipt_snapshot() -> DomainSnapshot {
         domain,
         root: empty_hashes(domain)[0],
     }
+}
+
+fn execute_with_context(
+    context: RuntimeCallContextV1,
+) -> Result<super::types::TransactionExecutionProposalV1, CoordinatorError> {
+    let source = EmptySource;
+    let receipt_source = EmptySource;
+    let mut validator = validator();
+    let mut book = EscrowBookV1::new(4).unwrap();
+    execute_transaction_v1(
+        seeded_journal(&source),
+        &receipt_source,
+        receipt_snapshot(),
+        &mut book,
+        &mut validator,
+        request(),
+        context,
+        meter(),
+        limits(),
+        charges(),
+        &dispatch(),
+    )
 }
 
 #[test]
@@ -353,4 +395,110 @@ fn phase_b_failure_cannot_consume_external_escrow_book_in_owning_path() {
         &dispatch(),
     );
     assert!(retry.is_ok(), "failed Phase B consumed external escrow authority");
+}
+
+#[test]
+fn top_level_chain_id_must_match_validated_request() {
+    let context = context_from(|parts| parts.chain_id += 1);
+    assert_eq!(
+        execute_with_context(context),
+        Err(CoordinatorError::RuntimeContextMismatch)
+    );
+}
+
+#[test]
+fn top_level_height_must_match_validated_request() {
+    let context = context_from(|parts| parts.height += 1);
+    assert_eq!(
+        execute_with_context(context),
+        Err(CoordinatorError::RuntimeContextMismatch)
+    );
+}
+
+#[test]
+fn top_level_txid_must_match_validated_request() {
+    let context = context_from(|parts| parts.txid = Hash256::from_bytes([0x23; 32]));
+    assert_eq!(
+        execute_with_context(context),
+        Err(CoordinatorError::RuntimeContextMismatch)
+    );
+}
+
+#[test]
+fn top_level_parent_hash_must_match_journal_context() {
+    let context = context_from(|parts| {
+        parts.parent_block_hash = Hash256::from_bytes([0x12; 32]);
+    });
+    assert_eq!(
+        execute_with_context(context),
+        Err(CoordinatorError::RuntimeContextMismatch)
+    );
+}
+
+#[test]
+fn top_level_principal_must_match_validated_request() {
+    let context = context_from(|parts| {
+        parts.principal = address(ExecutionAddressKind::Wasm, 0x67);
+    });
+    assert_eq!(
+        execute_with_context(context),
+        Err(CoordinatorError::RuntimeContextMismatch)
+    );
+}
+
+#[test]
+fn top_level_caller_must_be_the_validated_principal() {
+    let context = context_from(|parts| {
+        parts.caller = address(ExecutionAddressKind::Wasm, 0x68);
+    });
+    assert_eq!(
+        execute_with_context(context),
+        Err(CoordinatorError::RuntimeContextMismatch)
+    );
+}
+
+#[test]
+fn top_level_domain_must_match_validated_request() {
+    let context = context_from(|parts| {
+        parts.execution_domain = ExecutionDomain::Evm;
+        parts.target = address(ExecutionAddressKind::Evm, 0x88);
+    });
+    assert_eq!(
+        execute_with_context(context),
+        Err(CoordinatorError::RuntimeContextMismatch)
+    );
+}
+
+#[test]
+fn top_level_depth_must_be_one() {
+    let context = context_from(|parts| parts.depth = 2);
+    assert_eq!(
+        execute_with_context(context),
+        Err(CoordinatorError::RuntimeContextMismatch)
+    );
+}
+
+#[test]
+fn runtime_context_mismatch_is_rejected_before_funding_validation() {
+    let source = EmptySource;
+    let receipt_source = EmptySource;
+    let mut validator = RejectIfValidated;
+    let mut book = EscrowBookV1::new(4).unwrap();
+    let context = context_from(|parts| parts.chain_id += 1);
+
+    let result = execute_transaction_v1(
+        seeded_journal(&source),
+        &receipt_source,
+        receipt_snapshot(),
+        &mut book,
+        &mut validator,
+        request(),
+        context,
+        meter(),
+        limits(),
+        charges(),
+        &dispatch(),
+    );
+
+    assert_eq!(result, Err(CoordinatorError::RuntimeContextMismatch));
 }
