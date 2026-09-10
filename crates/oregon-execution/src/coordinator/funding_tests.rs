@@ -5,19 +5,24 @@ use oregon_contract_state::{
 use oregon_primitives::Hash256;
 use oregon_primitives::execution_address::{ExecutionAddress, ExecutionAddressKind};
 use oregon_primitives::execution_envelope::ExecutionDomain;
+use oregon_primitives::execution_event::MAX_EXECUTION_EVENTS_V1;
 use oregon_primitives::fee_settlement::FeeSourceKind;
 use oregon_primitives::state_commitment::CommitmentDomainId;
+use oregon_runtime::RuntimeCallResultV1;
 
 use crate::{
     EscrowBookV1, ExecutionJournalV1, FeeTermsV1, FundingCapabilityV1, JournalContextV1,
-    JournalLimitsV1,
+    JournalIntentV1, JournalLimitsV1, MeterScheduleV1, WeightMeter, WeightRatio,
 };
 
 use super::accounting::{read_balance, read_total_execution_balance, write_balance};
+use super::effects::EffectStackV1;
+use super::proposal::compose_transaction_execution_proposal;
 use super::settlement::{
     FundingSourceValidatorV1, FundingValidationRequestV1, open_validated_escrow,
+    settle_top_level_execution,
 };
-use super::types::CoordinatorError;
+use super::types::{CoordinatorError, CoordinatorLimitsV1, CoordinatorTerminalV1};
 
 #[derive(Debug, Default)]
 struct EmptySource;
@@ -141,6 +146,23 @@ fn matching_validator(source_kind: FeeSourceKind, available_amount: u64) -> Reco
         ),
         seen: None,
     }
+}
+
+fn meter(actual_weight: u64) -> WeightMeter {
+    let schedule = MeterScheduleV1::new(
+        1,
+        WeightRatio::new(1, 1).unwrap(),
+        WeightRatio::new(1, 1).unwrap(),
+        WeightRatio::new(1, 1).unwrap(),
+    )
+    .unwrap();
+    WeightMeter::new(schedule, 10, actual_weight).unwrap()
+}
+
+fn effects() -> EffectStackV1 {
+    EffectStackV1::new(
+        CoordinatorLimitsV1::new(64, MAX_EXECUTION_EVENTS_V1, 2_097_152).unwrap(),
+    )
 }
 
 #[test]
@@ -300,4 +322,59 @@ fn funding_rejects_journal_from_different_transaction() {
     let mut request = request(FeeSourceKind::ExecutionBalance);
     request.txid = Hash256::from_bytes([0x23; 32]);
     assert_journal_context_mismatch_rejected(request);
+}
+
+#[test]
+fn receipt_execution_domain_cannot_diverge_from_validated_funding_domain() {
+    let source = EmptySource;
+    let mut journal = journal(&source);
+    seed_accounting(&mut journal, 100);
+    let funding_request = request(FeeSourceKind::ExecutionBalance);
+    assert_eq!(funding_request.execution_domain, ExecutionDomain::Wasm);
+    let mut validator = matching_validator(FeeSourceKind::ExecutionBalance, 100);
+    let mut book = EscrowBookV1::new(4).unwrap();
+    let ticket = open_validated_escrow(
+        &mut journal,
+        &mut book,
+        &mut validator,
+        funding_request,
+    )
+    .unwrap();
+
+    let mut effects = effects();
+    journal.begin_frame().unwrap();
+    effects.begin().unwrap();
+    let meter = meter(5);
+    let mut terminal = CoordinatorTerminalV1::Running;
+    let settlement = settle_top_level_execution(
+        &mut journal,
+        &mut effects,
+        &mut book,
+        ticket,
+        &meter,
+        &mut terminal,
+        RuntimeCallResultV1::Success(Vec::new()),
+    )
+    .unwrap();
+    let phase_a = journal.finalize(JournalIntentV1::Committed).unwrap();
+
+    let receipt_source = EmptySource;
+    let receipt_domain = CommitmentDomainId::ExecutionReceipts;
+    let result = compose_transaction_execution_proposal(
+        phase_a,
+        &receipt_source,
+        DomainSnapshot {
+            domain: receipt_domain,
+            root: empty_hashes(receipt_domain)[0],
+        },
+        settlement,
+        ExecutionDomain::Evm,
+        effects.root_events(),
+        b"",
+    );
+
+    assert!(
+        result.is_err(),
+        "validated WASM funding context emitted an EVM execution receipt"
+    );
 }
