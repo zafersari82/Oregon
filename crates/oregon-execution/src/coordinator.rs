@@ -17,4 +17,6 @@ mod escrow_tests;
 #[cfg(test)]
 mod funding_tests;
 #[cfg(test)]
+mod test_backends;
+#[cfg(test)]
 mod tests;
