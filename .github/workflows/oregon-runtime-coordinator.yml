@@ -1,29 +1,42 @@
 name: Oregon Runtime Coordinator Vectors
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, work/runtime-coordinator-v1-2026-09-06]
   pull_request:
     branches: [main]
+    paths:
+      - 'crates/oregon-primitives/**'
+      - 'crates/oregon-runtime/**'
+      - 'crates/oregon-execution/**'
+      - 'tests/vectors/runtime-coordinator-v1.json'
+      - 'scripts/generate_runtime_coordinator_vectors.py'
+      - 'scripts/verify_runtime_coordinator_mutations.py'
+      - 'docs/superpowers/specs/2026-09-06-runtime-coordinator-v1-design.md'
+      - 'docs/superpowers/plans/2026-09-06-runtime-coordinator-v1.md'
+      - '.github/workflows/oregon-runtime-coordinator.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
 
 permissions:
   contents: read
 
 jobs:
-  runtime-coordinator:
+  vectors:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm]
-    runs-on: ${{ matrix.os }}
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-      - name: Install Rust 1.85.0
-        run: rustup toolchain install 1.85.0 --profile minimal
       - name: Install native build dependencies
         run: sudo apt-get update && sudo apt-get install -y clang libclang-dev ripgrep
+      - name: Install Rust 1.85.0
+        run: rustup toolchain install 1.85.0 --profile minimal
       - name: Verify Stage 4B contracts
         shell: bash
         run: |
