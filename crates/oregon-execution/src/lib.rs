@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+#[cfg(test)]
 mod coordinator;
 mod fees;
 mod journal;
@@ -17,9 +18,9 @@ pub use weight::{MeterScheduleV1, ResourceDomain, ResourceError, WeightMeter, We
 #[cfg(test)]
 mod architecture_tests {
     #[test]
-    fn coordinator_is_private_production_module_without_dead_code_suppression() {
+    fn inactive_coordinator_stays_test_gated_until_a_real_production_consumer_exists() {
         let lib_source = include_str!("lib.rs");
-        assert!(lib_source.starts_with("#![forbid(unsafe_code)]\n\nmod coordinator;\n"));
+        assert!(lib_source.starts_with("#![forbid(unsafe_code)]\n\n#[cfg(test)]\nmod coordinator;\n"));
         assert!(!lib_source
             .lines()
             .any(|line| line.trim() == "pub mod coordinator;"));
