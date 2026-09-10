@@ -58,8 +58,10 @@ jobs:
       - name: Verify runtime ABI
         run: cargo +1.85.0 test --locked -p oregon-runtime --all-targets
       - name: Verify coordinator focused suite pass 1
-        run: cargo +1.85.0 test --locked -p oregon-execution coordinator:: -- --nocapture
+        run: |
+          cargo +1.85.0 test --locked -p oregon-execution coordinator:: -- --nocapture
       - name: Verify coordinator focused suite pass 2
-        run: cargo +1.85.0 test --locked -p oregon-execution coordinator:: -- --nocapture
+        run: |
+          cargo +1.85.0 test --locked -p oregon-execution coordinator:: -- --nocapture
       - name: Verify execution all targets
         run: cargo +1.85.0 test --locked -p oregon-execution --all-targets
