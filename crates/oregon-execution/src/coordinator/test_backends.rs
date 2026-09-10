@@ -32,7 +32,7 @@ fn scripted_backend_vocabulary_covers_required_adversarial_operations() {
 #[test]
 fn wasm_evm_wasm_trace_preserves_shared_meter_read_only_and_caller_context() {
     let observation = run_wasm_evm_wasm_trace();
-    assert_eq!(observation.domains, [0x02, 0x01, 0x02]);
+    assert_eq!(observation.domains, [0x12, 0x11, 0x12]);
     assert_eq!(observation.depths, [1, 2, 3]);
     assert_eq!(observation.read_only, [true, true, true]);
     assert_eq!(observation.callers[1], observation.targets[0]);
