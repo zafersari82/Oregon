@@ -261,3 +261,43 @@ fn native_funded_escrow_never_debits_execution_accounting() {
     assert_eq!(read_balance(&journal, payer()).unwrap(), 100);
     assert_eq!(read_total_execution_balance(&journal).unwrap(), 100);
 }
+
+// A source validator authenticates the funding request, not a separately supplied
+// journal. The coordinator must reject a journal from another transaction context
+// even when the capability itself matches every capability-owned field.
+fn assert_journal_context_mismatch_rejected(request: FundingValidationRequestV1) {
+    let source = EmptySource;
+    let mut journal = journal(&source);
+    seed_accounting(&mut journal, 100);
+    let mut validator = matching_validator(FeeSourceKind::ExecutionBalance, 100);
+    let mut book = EscrowBookV1::new(4).unwrap();
+
+    let result = open_validated_escrow(&mut journal, &mut book, &mut validator, request);
+
+    assert!(result.is_err(), "foreign journal context opened funded escrow");
+    assert_eq!(read_balance(&journal, payer()).unwrap(), 100);
+    assert_eq!(read_total_execution_balance(&journal).unwrap(), 100);
+    let canonical = self::request(FeeSourceKind::ExecutionBalance);
+    assert!(open_validated_escrow(&mut journal, &mut book, &mut validator, canonical).is_ok());
+}
+
+#[test]
+fn funding_rejects_journal_from_different_chain() {
+    let mut request = request(FeeSourceKind::ExecutionBalance);
+    request.chain_id += 1;
+    assert_journal_context_mismatch_rejected(request);
+}
+
+#[test]
+fn funding_rejects_journal_from_different_height() {
+    let mut request = request(FeeSourceKind::ExecutionBalance);
+    request.height += 1;
+    assert_journal_context_mismatch_rejected(request);
+}
+
+#[test]
+fn funding_rejects_journal_from_different_transaction() {
+    let mut request = request(FeeSourceKind::ExecutionBalance);
+    request.txid = Hash256::from_bytes([0x23; 32]);
+    assert_journal_context_mismatch_rejected(request);
+}
