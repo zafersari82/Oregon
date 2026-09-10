@@ -44,7 +44,7 @@ impl RuntimeDispatchTableV1 {
         Ok(Self { factories })
     }
 
-    fn factory_for(&self, target: ExecutionAddress) -> Option<RuntimeBackendFactoryV1> {
+    pub(super) fn factory_for(&self, target: ExecutionAddress) -> Option<RuntimeBackendFactoryV1> {
         self.factories.get(&target.to_bytes()).copied()
     }
 }
