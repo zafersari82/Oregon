@@ -23,7 +23,7 @@ use super::calls::RuntimeDispatchTableV1;
 use super::effects::EffectStackV1;
 use super::execute_transaction_v1;
 use super::host::{HostChargeScheduleV1, HostChargeScheduleV1Parts};
-use super::proposal::compose_transaction_execution_proposal;
+use super::proposal::{TransactionRuntimeV1, compose_transaction_execution_proposal};
 use super::settlement::{
     FundingSourceValidatorV1, FundingValidationRequestV1, open_bound_validated_escrow,
     settle_bound_top_level_execution,
@@ -241,6 +241,13 @@ fn dispatch() -> RuntimeDispatchTableV1 {
     RuntimeDispatchTableV1::new(&[(target(), owner_backend)]).unwrap()
 }
 
+fn runtime<'a>(
+    context: RuntimeCallContextV1,
+    dispatch: &'a RuntimeDispatchTableV1,
+) -> TransactionRuntimeV1<'a> {
+    TransactionRuntimeV1::new(context, meter(), limits(), charges(), dispatch)
+}
+
 fn receipt_snapshot() -> DomainSnapshot {
     let domain = CommitmentDomainId::ExecutionReceipts;
     DomainSnapshot {
@@ -256,6 +263,7 @@ fn execute_with_context(
     let receipt_source = EmptySource;
     let mut validator = validator();
     let mut book = EscrowBookV1::new(4).unwrap();
+    let dispatch = dispatch();
     execute_transaction_v1(
         seeded_journal(&source),
         &receipt_source,
@@ -263,11 +271,7 @@ fn execute_with_context(
         &mut book,
         &mut validator,
         request(),
-        context,
-        meter(),
-        limits(),
-        charges(),
-        &dispatch(),
+        runtime(context, &dispatch),
     )
 }
 
@@ -317,6 +321,7 @@ fn owning_path_composes_backend_effects_phase_a_settlement_and_phase_b() {
     let receipt_source = EmptySource;
     let mut validator = validator();
     let mut book = EscrowBookV1::new(4).unwrap();
+    let dispatch = dispatch();
 
     let proposal = execute_transaction_v1(
         seeded_journal(&source),
@@ -325,11 +330,7 @@ fn owning_path_composes_backend_effects_phase_a_settlement_and_phase_b() {
         &mut book,
         &mut validator,
         request(),
-        top_level_context(),
-        meter(),
-        limits(),
-        charges(),
-        &dispatch(),
+        runtime(top_level_context(), &dispatch),
     )
     .unwrap();
 
@@ -359,6 +360,7 @@ fn phase_b_failure_cannot_consume_external_escrow_book_in_owning_path() {
     let receipt_source = EmptySource;
     let mut validator = validator();
     let mut book = EscrowBookV1::new(4).unwrap();
+    let dispatch = dispatch();
     let corrupt_snapshot = DomainSnapshot {
         domain: CommitmentDomainId::ExecutionReceipts,
         root: Hash256::from_bytes([0x99; 32]),
@@ -371,11 +373,7 @@ fn phase_b_failure_cannot_consume_external_escrow_book_in_owning_path() {
         &mut book,
         &mut validator,
         request(),
-        top_level_context(),
-        meter(),
-        limits(),
-        charges(),
-        &dispatch(),
+        runtime(top_level_context(), &dispatch),
     );
     assert!(matches!(first, Err(CoordinatorError::ReceiptState(_))));
 
@@ -386,11 +384,7 @@ fn phase_b_failure_cannot_consume_external_escrow_book_in_owning_path() {
         &mut book,
         &mut validator,
         request(),
-        top_level_context(),
-        meter(),
-        limits(),
-        charges(),
-        &dispatch(),
+        runtime(top_level_context(), &dispatch),
     );
     assert!(
         retry.is_ok(),
@@ -486,6 +480,7 @@ fn runtime_context_mismatch_is_rejected_before_funding_validation() {
     let mut validator = RejectIfValidated;
     let mut book = EscrowBookV1::new(4).unwrap();
     let context = context_from(|parts| parts.chain_id += 1);
+    let dispatch = dispatch();
 
     let result = execute_transaction_v1(
         seeded_journal(&source),
@@ -494,11 +489,7 @@ fn runtime_context_mismatch_is_rejected_before_funding_validation() {
         &mut book,
         &mut validator,
         request(),
-        context,
-        meter(),
-        limits(),
-        charges(),
-        &dispatch(),
+        runtime(context, &dispatch),
     );
 
     assert_eq!(result, Err(CoordinatorError::RuntimeContextMismatch));

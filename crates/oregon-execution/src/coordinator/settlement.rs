@@ -55,6 +55,21 @@ impl ValidatedEscrowV1 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SettlementAuthorityV1 {
+    ticket: EscrowTicketV1,
+    validated_execution_domain: Option<ExecutionDomain>,
+}
+
+impl SettlementAuthorityV1 {
+    const fn validated(escrow: ValidatedEscrowV1) -> Self {
+        Self {
+            ticket: escrow.ticket(),
+            validated_execution_domain: Some(escrow.execution_domain()),
+        }
+    }
+}
+
 pub(super) trait FundingSourceValidatorV1 {
     fn validate(
         &mut self,
@@ -158,12 +173,15 @@ pub(super) fn settle_top_level_execution<S: StateSource + ?Sized>(
     #[cfg(not(test))]
     let test_execution_domain = None;
 
+    let authority = SettlementAuthorityV1 {
+        ticket,
+        validated_execution_domain: test_execution_domain,
+    };
     settle_top_level_execution_inner(
         journal,
         effects,
         book,
-        ticket,
-        test_execution_domain,
+        authority,
         meter,
         terminal,
         runtime_result,
@@ -183,8 +201,7 @@ pub(super) fn settle_bound_top_level_execution<S: StateSource + ?Sized>(
         journal,
         effects,
         book,
-        escrow.ticket(),
-        Some(escrow.execution_domain()),
+        SettlementAuthorityV1::validated(escrow),
         meter,
         terminal,
         runtime_result,
@@ -195,12 +212,16 @@ fn settle_top_level_execution_inner<S: StateSource + ?Sized>(
     journal: &mut ExecutionJournalV1<'_, S>,
     effects: &mut EffectStackV1,
     book: &mut EscrowBookV1,
-    ticket: EscrowTicketV1,
-    validated_execution_domain: Option<ExecutionDomain>,
+    authority: SettlementAuthorityV1,
     meter: &WeightMeter,
     terminal: &mut CoordinatorTerminalV1,
     runtime_result: RuntimeCallResultV1,
 ) -> Result<CoordinatorSettlementV1, CoordinatorError> {
+    let SettlementAuthorityV1 {
+        ticket,
+        validated_execution_domain,
+    } = authority;
+
     if *terminal == CoordinatorTerminalV1::Fatal {
         let _ = finish_top_level_frames(journal, effects, false, terminal);
         *terminal = CoordinatorTerminalV1::Fatal;

@@ -31,6 +31,32 @@ use super::types::{
 const FEE_RECEIPT_KEY_PREFIX_V1: &[u8] = b"receipt/v1/fee/";
 const EXECUTION_RECEIPT_KEY_PREFIX_V1: &[u8] = b"receipt/v1/execution/";
 
+pub(super) struct TransactionRuntimeV1<'a> {
+    top_level_context: RuntimeCallContextV1,
+    meter: WeightMeter,
+    limits: CoordinatorLimitsV1,
+    charges: HostChargeScheduleV1,
+    dispatch: &'a RuntimeDispatchTableV1,
+}
+
+impl<'a> TransactionRuntimeV1<'a> {
+    pub(super) const fn new(
+        top_level_context: RuntimeCallContextV1,
+        meter: WeightMeter,
+        limits: CoordinatorLimitsV1,
+        charges: HostChargeScheduleV1,
+        dispatch: &'a RuntimeDispatchTableV1,
+    ) -> Self {
+        Self {
+            top_level_context,
+            meter,
+            limits,
+            charges,
+            dispatch,
+        }
+    }
+}
+
 fn validate_top_level_context<S: StateSource + ?Sized>(
     journal: &ExecutionJournalV1<'_, S>,
     request: &FundingValidationRequestV1,
@@ -58,17 +84,20 @@ pub(super) fn execute_transaction_v1<S, R, V>(
     book: &mut EscrowBookV1,
     validator: &mut V,
     request: FundingValidationRequestV1,
-    top_level_context: RuntimeCallContextV1,
-    mut meter: WeightMeter,
-    limits: CoordinatorLimitsV1,
-    charges: HostChargeScheduleV1,
-    dispatch: &RuntimeDispatchTableV1,
+    runtime: TransactionRuntimeV1<'_>,
 ) -> Result<TransactionExecutionProposalV1, CoordinatorError>
 where
     S: StateSource + ?Sized,
     R: StateSource + ?Sized,
     V: FundingSourceValidatorV1 + ?Sized,
 {
+    let TransactionRuntimeV1 {
+        top_level_context,
+        mut meter,
+        limits,
+        charges,
+        dispatch,
+    } = runtime;
     validate_top_level_context(&journal, &request, &top_level_context)?;
 
     let mut staged_book = book.clone();
