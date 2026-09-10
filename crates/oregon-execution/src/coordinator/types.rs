@@ -164,6 +164,8 @@ pub(super) enum CoordinatorError {
         "trusted funding request chain, height or txid does not match the execution journal context"
     )]
     FundingContextMismatch,
+    #[error("top-level runtime context does not match validated transaction and journal identity")]
+    RuntimeContextMismatch,
     #[error("validated funding capability does not match the trusted funding request")]
     FundingCapabilityMismatch,
     #[error("validated funding capability amount is below max escrow")]
