@@ -6,7 +6,7 @@ mod proposal;
 mod settlement;
 mod types;
 
-pub(super) use proposal::execute_transaction_v1;
+use proposal::execute_transaction_v1;
 
 #[cfg(test)]
 mod calls_tests;
