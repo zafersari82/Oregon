@@ -48,6 +48,7 @@ The implementation is planned against exactly these responsibility-oriented surf
 - `crates/oregon-contract-state/src/execution_accounting.rs` — authoritative accounting codecs/key ownership.
 - `crates/oregon-contract-state/src/error.rs` — exact malformed-accounting error variant.
 - `crates/oregon-contract-state/tests/execution_accounting.rs` — malformed-width/round-trip decoder tests.
+- `crates/oregon-execution/src/journal.rs` — Stage 4A journal owner; Stage 4B may add only a crate-private read-only context accessor for coordinator identity binding.
 - `crates/oregon-execution/src/coordinator.rs` — module root only.
 - `crates/oregon-execution/src/coordinator/types.rs` — coordinator input/result/error/terminal state.
 - `crates/oregon-execution/src/coordinator/effects.rs` — frame-local event/return byte accounting.
@@ -570,6 +571,9 @@ git commit -m "feat(stage4b): settle runtime outcomes exactly once"
 - Modify: `crates/oregon-execution/src/coordinator.rs`
 - Modify: `crates/oregon-execution/src/coordinator/types.rs`
 - Modify: `crates/oregon-execution/src/coordinator/tests.rs`
+- Modify: `crates/oregon-execution/src/journal.rs` — add only a crate-private read-only journal-context accessor needed to bind funding chain/height/txid before escrow.
+
+**Ownership consequence:** none. Stage 4A remains the sole journal owner; the accessor returns the already-public `JournalContextV1` by value, exposes no state/source/frame mutation, and is not exported outside `oregon-execution`. The coordinator remains the single Stage 4B authority that compares this context against its trusted funding request.
 
 **Interfaces:**
 - Consumes: Phase-A `JournalResultV1`, canonical `StateEffectDescriptorV1`, fee receipt, `ExecutionReceiptV1`, fresh `ExecutionReceipts` snapshot/journal.
