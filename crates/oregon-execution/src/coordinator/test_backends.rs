@@ -266,7 +266,7 @@ struct ObservedContext {
 }
 
 std::thread_local! {
-    static CONTEXT_TRACE: RefCell<Vec<ObservedContext>> = RefCell::new(Vec::new());
+    static CONTEXT_TRACE: RefCell<Vec<ObservedContext>> = const { RefCell::new(Vec::new()) };
 }
 
 fn clear_context_trace() {
