@@ -19,9 +19,10 @@ mod architecture_tests {
     #[test]
     fn coordinator_is_private_production_module_without_dead_code_suppression() {
         let lib_source = include_str!("lib.rs");
-        assert!(lib_source.contains("#![forbid(unsafe_code)]\n\nmod coordinator;"));
-        assert!(!lib_source.contains("#[cfg(test)]\nmod coordinator;"));
-        assert!(!lib_source.contains("pub mod coordinator;"));
+        assert!(lib_source.starts_with("#![forbid(unsafe_code)]\n\nmod coordinator;\n"));
+        assert!(!lib_source
+            .lines()
+            .any(|line| line.trim() == "pub mod coordinator;"));
 
         let coordinator_source = include_str!("coordinator.rs");
         assert!(!coordinator_source.contains("allow(dead_code)"));
