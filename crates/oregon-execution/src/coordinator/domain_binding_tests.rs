@@ -241,10 +241,10 @@ fn dispatch() -> RuntimeDispatchTableV1 {
     RuntimeDispatchTableV1::new(&[(target(), owner_backend)]).unwrap()
 }
 
-fn runtime<'a>(
+fn runtime(
     context: RuntimeCallContextV1,
-    dispatch: &'a RuntimeDispatchTableV1,
-) -> TransactionRuntimeV1<'a> {
+    dispatch: &RuntimeDispatchTableV1,
+) -> TransactionRuntimeV1<'_> {
     TransactionRuntimeV1::new(context, meter(), limits(), charges(), dispatch)
 }
 
