@@ -1,55 +1,58 @@
 # Oregon — current continuation record
 
-Updated: 2026-09-10 UTC.
+Updated: 2026-09-11 UTC.
 
 ## Resume here
 
 - Repository: `zafersari82/Oregon`.
-- Active branch: `work/runtime-coordinator-v1-2026-09-06`.
-- Draft PR: #20, `Stage 4B: runtime ABI and transaction coordinator`.
-- Main baseline remains `cc791386899a777344404b98278cf41f0752f173`; Stage 4B is not integrated.
-- Exact verified Stage 4B implementation head: `3a71cfb44b46d303d1c0eae87649b6921ad3b348`.
-- Exact implementation tree: `3bf77ee5338f0d8d40104db97eed70802ac9072f`.
-- Checkpoint: `docs/checkpoints/OREGON_RUNTIME_COORDINATOR_PROGRESS.md`.
-- Plan: `docs/superpowers/plans/2026-09-06-runtime-coordinator-v1.md`.
-- Spec: `docs/superpowers/specs/2026-09-06-runtime-coordinator-v1-design.md`.
+- Accepted `main`: `529b6e8fd50ad4a16d69485b5720b89e979055aa`.
+- Stage 4B PR #20 is merged. Its merge tree is `feac8808b0b9549697b72b259e91ae1d40c4deaf`, identical to the verified checkpoint-successor tree.
+- Stage 4B integration record: `docs/checkpoints/OREGON_STAGE4B_MAIN_INTEGRATION.md`.
+- Stage 4B implementation checkpoint remains: `docs/checkpoints/OREGON_RUNTIME_COORDINATOR_PROGRESS.md`.
+- Trust roadmap: `docs/checkpoints/OREGON_TRUST_VERIFICATION_ROADMAP.md`.
+- Platform status: `docs/checkpoints/OREGON_PLATFORM_COMPLETION_STATUS.md`.
 
-Stage 4B Tasks 1–10 are implemented and exact implementation-head verification is complete. Task 11 implementation-head verification and source review are complete; the checkpoint commit containing this HANDOFF must now be verified as the successor exact head before PR evidence is finalized.
+The old continuation state that said Stage 4B was still isolated on `work/runtime-coordinator-v1-2026-09-06` is superseded by the actual main merge. Do not reopen PR #20 or request Stage 4B main integration again.
 
-Exact implementation-head evidence:
+## Stage 4B exact integration evidence
 
-- Oregon Rust CI run `34510994130`, job `102984780274`: **SUCCESS**. It checked PR synthetic merge `9494e08cb6bdee1999b304f151471e96329014af`, explicitly composed from exact branch head `3a71cfb44b46d303d1c0eae87649b6921ad3b348` over unchanged main `cc791386899a777344404b98278cf41f0752f173`.
-- Oregon Runtime Coordinator Vectors run `34510994146`: **SUCCESS**.
-  - x86_64 `ubuntu-24.04` job `102984780209`: **SUCCESS**.
-  - ARM `ubuntu-24.04-arm` job `102984780501`: **SUCCESS**.
-- Runtime coordinator mutation gate: **16/16 compiled mutations killed**. Compiler failure is not accepted as a killed mutant.
-- Full workspace tests, inherited mutation gates, docs, Format and Clippy `-D warnings` are green on the exact implementation evidence.
+- Verified implementation head: `3a71cfb44b46d303d1c0eae87649b6921ad3b348`.
+- Verified checkpoint successor: `9b23c642cf733744b4b4b71250f27cc7073f7aad`.
+- Actual main merge: `529b6e8fd50ad4a16d69485b5720b89e979055aa`.
+- Oregon Rust CI run `34517797355`: SUCCESS on exact main merge.
+- Oregon Runtime Coordinator Vectors run `34517797314`: SUCCESS on x86_64 and ARM.
+- Oregon Runtime Journal Vectors run `34517797466`: SUCCESS on x86_64 and ARM.
+- Oregon Fee Settlement Vectors run `34517797360`: SUCCESS on x86_64 and ARM.
+- Oregon Execution Resource Vectors run `34517797377`: SUCCESS on x86_64 and ARM.
+- Stage 4B runtime-coordinator mutation gate remains **16/16 compiled mutations killed**.
 
-Fresh source review found no P1/P2 blocker. Dependency direction remains correct, the coordinator and adversarial backends remain test-only, VM-visible state access remains WASM-only, EVM effects require `EvmCommitmentV1`, Stage 3B remains fee arithmetic authority, the shared meter has no reset/refund path, and Phase A cannot escape after Phase-B failure.
+## Current trust-track state
+
+- Workstream A — Reserve Conservation Proof V1: integrated and bounded-model scope recorded.
+- Workstream B — Mutation Evidence Publication V1: integrated and reproducible evidence recorded.
+- Workstream C — RandomX public testnet/adversarial challenge: **readiness-gated and not launched**.
+
+The roadmap requires Workstream C to wait until outside participants can use a separately verified node/testnet path. Existing RandomX correctness evidence alone is not launch authorization.
 
 ## Immediate next action
 
-1. Verify the checkpoint successor commit itself with Oregon Rust CI.
-2. Verify the same successor with `Oregon Runtime Coordinator Vectors` on both x86_64 and ARM.
-3. Update PR #20 body with the implementation SHA/tree, implementation CI, 16/16 mutation evidence, checkpoint-successor SHA/tree and successor CI run/job IDs.
-4. Do not create another repository commit solely to embed successor run IDs.
-5. Stop before `main` integration. PR #20 stays isolated/draft unless the owner later makes a separate explicit integration decision.
+1. Reconcile the platform completion/status record with the completed Stage 4B merge and completed Workstreams A/B.
+2. Read the Workstream C start gate and public-testnet readiness requirements together with the M6/node exclusions.
+3. Propose a **versioned Workstream C readiness design** covering deterministic testnet/genesis isolation, node/miner startup, spend authorization, peer bootstrap/discovery, observability, reproducible incident capture and external-participant setup.
+4. Keep public launch, monetary bounties and production/mainnet exposure separately gated.
+5. Do not activate Stage 4C, EVM, WASM, universal-envelope block execution or durable execution publication as a side effect of readiness work.
 
-## Stage 4B claim boundary
-
-The coordinator is still included through `#[cfg(test)]`; this slice does not activate production WASM/EVM execution. There is no Stage 4B chainstate persistence/publication, mempool/RPC wiring, live protocol execution path or main integration. Do not call Stage 4B production activated or completed Target 2.
-
-The owning coordinator path does compose validated funding/escrow, runtime dispatch, settlement, finalized Phase A, surviving effects and Phase B in deterministic tests. Identity binding covers chain, height, txid, parent hash, execution domain, principal, caller and top-level depth. Escrow reservation is not child-spendable; deterministic revert/trap rolls back execution effects but not shared-meter consumption; fatal/resource exhaustion cannot be converted into success.
+The readiness design is architectural work and must be reviewed before implementation. Stage 4C async execution remains a separate future design/implementation slice.
 
 ## Accepted foundations to preserve
 
+- M0–M6 accepted native baseline and networking/node foundations.
 - Stage 3B main integration: `fe762f7a5670d94a486423327e3a525cec24afb5`.
 - Stage 4A main integration: `dee4ca6ea3b6dc75e4920ab56a44e2b5da8aa0a3`.
 - Reserve proof integration: `4670d4ccedd09f02c2a87a13968e74f1fdfa9f4b`.
-- Mutation-evidence publication/main baseline: `cc791386899a777344404b98278cf41f0752f173`.
+- Mutation-evidence integration: `cc791386899a777344404b98278cf41f0752f173`.
+- Stage 4B main integration: `529b6e8fd50ad4a16d69485b5720b89e979055aa`.
 
-Reserve Conservation Proof V1 remains accepted at source SHA `511f61302ee486e618a33235808572ae4419f487`, tree `e2f12792a08a5376807baa4e92b4ca63ef44a56b`. Its Kani proof scope remains bounded-model proof plus differential correspondence tests, not proof of arbitrary production state/storage/VM behavior.
+Preserve the existing architecture constraints: Multi-VM direction, hybrid native-UTXO/contract-state model, no fee burn in Execution Architecture V1, exact 1:1 execution-balance backing, downward dependency ownership, fail-closed bounded attacker-controlled resources, and explicit height-based activation without runtime administrator authority.
 
-Preserve the existing cautions: `FundingCapabilityV1::new` validates data but is not by itself live source authority; `WeightMeter` exhaustion is sticky; generic unrestricted VM-facing system-domain writes are forbidden; accepted historical refs must not be force-moved.
-
-Always inspect the actual branch, PR and exact-head CI when resuming. This HANDOFF is continuation evidence, not a substitute for repository state.
+Always inspect the real branch/PR/CI state when resuming. This HANDOFF is continuation evidence, not a substitute for repository state.
